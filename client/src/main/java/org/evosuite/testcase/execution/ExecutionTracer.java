@@ -19,13 +19,21 @@
  */
 package org.evosuite.testcase.execution;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -834,6 +842,98 @@ public class ExecutionTracer {
 			throw new EvosuiteError(
 			        "instrumentation called passedFieldMethodCall with invalid defuseId: "
 			                + defuseId + ", known IDs: " + DefUsePool.getDefUseCounter());
+	}
+
+	/**
+	 * Called by instrumented code each time method is executed. This method
+	 * receives the full set of parameters of the corresponding call
+	 * 
+	 * @param receiver
+	 *            the this object of the call
+	 * @param params
+	 *            the parameters passed to the call
+	 */
+	public static void passedMethodCall(String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+
+
+		if (tracer.disabled)
+			return;
+
+		if (isThreadNeqCurrentThread())
+			return;
+		
+		checkTimeout();
+		
+		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
+		if (classEvaluators == null) 
+			return; // no evaluator for this class
+
+		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+		if (methodEvaluators == null) 
+			return; // no evaluator for this method
+		
+
+		for (PathConditionCoverageGoal goal : methodEvaluators) {
+			Object evaluator;
+			try {
+				ClassLoader cl = params.length > 0 ? params[0].getClass().getClassLoader() : tracer.getClass().getClassLoader();
+				Class<?> clazz = Class.forName(goal.getEvaluatorName(), true, cl);
+				evaluator = clazz.newInstance();
+			} catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+				throw new EvosuiteError("Cannot instantiate path condition evaluator: " + goal.getEvaluatorName() +
+						" because of: " + e);
+			}
+			
+			Method[] methods = evaluator.getClass().getDeclaredMethods();
+			for (Method m : methods) {
+				if (m.getName().startsWith("test")) {
+					try {
+						double d = (double) m.invoke(evaluator, params);
+						//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", pc = " + goal.getEvaluatorName());
+
+						// Add path condition distance to control trace
+						tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
+						//LoggingUtils.getEvoLogger().info("-- Evaluator on: " + System.identityHashCode(params[0]));
+					} catch (IllegalAccessException | IllegalArgumentException e) {
+						throw new EvosuiteError("Cannot execute path condition evaluator: " + m +
+								"\n\t path condition for method " + className + "." + methodName +
+								"\n\t called on objects " + Arrays.toString(params) + 
+								"\n\t failed because of: " + e);
+					} catch (InvocationTargetException e) {
+						LoggingUtils.getEvoLogger().info("Exception thrown within path condition evaluator: " + m +
+								"\n\t path condition for method " + className + "." + methodName +
+								"\n\t called on objects " + Arrays.toString(params) + 
+								"\n\t failed because of: " + e.getCause() + 
+								"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+					}
+
+					break;
+				}
+			}
+		}
+	}
+	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<String, Map<String, List<PathConditionCoverageGoal>>>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
+	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+		try {
+			Class<?> clazz = Class.forName(g.getEvaluatorName());
+			Object evaluator = clazz.newInstance();
+		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+			throw new EvosuiteError("Cannot instantiate path condition evaluator: " + g.getEvaluatorName() +
+					" because of: " + e);
+		}
+		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(g.getClassName());
+		if (classEvaluators == null) {
+			classEvaluators = new HashMap<String, List<PathConditionCoverageGoal>>();
+			tracer.pathConditions.put(g.getClassName(), classEvaluators);
+		}
+		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(g.getMethodName());
+		if (methodEvaluators == null) {
+			methodEvaluators = new ArrayList<PathConditionCoverageGoal>();
+			classEvaluators.put(g.getMethodName(), methodEvaluators);
+		}
+		methodEvaluators.add(g);
 	}
 
 	/**

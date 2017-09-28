@@ -621,4 +621,22 @@ public interface ExecutionTrace {
 	 * @return
 	 */
 	public List<String> getInitializedClasses();
+	
+	/**
+	 * Add path condition distance to currently active trace
+	 * 
+	 * @param pathConditionID
+	 *            the unique identifier of the path condition.
+	 * @param distance
+	 *            the distance of the current trace from satisfying the path condition.
+	 */
+	public void passedPathCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
+	
+	/**
+	 * Retrieve map of all minimal path condition distances
+	 * 
+	 * @return a {@link java.util.Map} object.
+	 */
+	public Map<Integer, Double> getPathConditionDistances(); /*SUSHI: Path condition fitness*/
+
 }

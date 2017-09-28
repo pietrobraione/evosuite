@@ -19,6 +19,8 @@
  */
 package org.evosuite.strategy;
 
+import java.util.List;
+
 import org.evosuite.Properties;
 import org.evosuite.ShutdownTestWriter;
 import org.evosuite.Properties.Criterion;
@@ -30,6 +32,8 @@ import org.evosuite.coverage.archive.TestsArchive;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.MutationTestPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.coverage.rho.RhoTestSuiteSecondaryObjective;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
@@ -63,6 +67,7 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
@@ -381,6 +386,15 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 		}
 
 		ga.addListener(new ResourceController());
+
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) {/*SUSHI: Path condition fitness*/
+			PathConditionCoverageFactory pathConditionFactory = new PathConditionCoverageFactory();
+			List<PathConditionCoverageGoalFitness> goals = pathConditionFactory.getCoverageGoals();
+			
+			for (PathConditionCoverageGoalFitness g : goals) {
+				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
+			}
+		}
 		return ga;
 	}
 

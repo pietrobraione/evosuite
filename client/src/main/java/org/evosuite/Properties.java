@@ -26,6 +26,7 @@ import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.FileIOUtils;
 import org.slf4j.Logger;
@@ -1493,7 +1494,7 @@ public class Properties {
 		EXCEPTION, DEFUSE, ALLDEFS, BRANCH, CBRANCH, STRONGMUTATION, WEAKMUTATION,
 		MUTATION, STATEMENT, RHO, AMBIGUITY, IBRANCH, READABILITY,
         ONLYBRANCH, ONLYMUTATION, METHODTRACE, METHOD, METHODNOEXCEPTION, LINE, ONLYLINE, OUTPUT, INPUT,
-        REGRESSION,	REGRESSIONTESTS, TRYCATCH
+        REGRESSION,	REGRESSIONTESTS, TRYCATCH, PATHCONDITION  /*SUSHI: Path condition fitness*/
 	}
 
     /** Constant <code>CRITERION</code> */
@@ -1502,6 +1503,26 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
+
+	/** Constant <code>PATH_CONDITION=""</code> */
+	@Parameter(key = "path_condition", group = "Runtime", description = "The path conditions to be used as objective functions. Can define more than one criterion by using a ':' separated list")
+	public static String[] PATH_CONDITION = new String[] {};/*SUSHI: Path condition fitness*/
+
+	public static String[] pathConditionSplitClassMethodEvaluator(String pathCondition) { /*SUSHI: Path condition fitness*/
+		String[] parts = pathCondition.split(",");
+		if (parts.length != 3) {
+			throw new EvosuiteError("Badly formed path condition: " + pathCondition);
+		}
+		return parts;
+	}
+
+	/** Constant <code>PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY=""</code> */
+	@Parameter(key = "path_condition_check_first_target_call_only", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured only with reference to the first time that the test case calls the target method. Otherwise, it is the minimum fitness measured across all calls")
+	public static boolean PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY = false;/*SUSHI: Path condition fitness*/
+
+	/** Constant <code>PATH_CONDITION_CHECK_AT_METHOD_EXIT=""</code> */
+	@Parameter(key = "path_condition_check_at_method_exit", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured after the corresponding method terminates, as opposite of the default behavior that checks the path condition against the method parameters at the invocation of the method")
+	public static boolean PATH_CONDITION_CHECK_AT_METHOD_EXIT = false;/*SUSHI: Path condition fitness*/
 
     /** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;

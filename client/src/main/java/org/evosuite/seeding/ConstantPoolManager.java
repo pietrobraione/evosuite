@@ -23,6 +23,7 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.Randomness;
 
 /**
@@ -91,7 +92,11 @@ public class ConstantPoolManager {
 	 */
 
 	public void addSUTConstant(Object value) {
-		pools[0].add(value);
+		if (!(value instanceof String) || 
+				!ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.PATHCONDITION) ||
+				!((String) value).startsWith("{ROOT}")) {
+			pools[0].add(value);
+		}
 	}
 
 	public void addNonSUTConstant(Object value) {

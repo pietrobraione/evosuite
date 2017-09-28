@@ -37,6 +37,7 @@ import org.evosuite.instrumentation.coverage.BranchInstrumentation;
 import org.evosuite.instrumentation.coverage.DefUseInstrumentation;
 import org.evosuite.instrumentation.coverage.MethodInstrumentation;
 import org.evosuite.instrumentation.coverage.MutationInstrumentation;
+import org.evosuite.instrumentation.coverage.PathConditonInstrumentation;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.utils.ArrayUtil;
@@ -165,7 +166,11 @@ public class CFGMethodAdapter extends MethodVisitor {
 
 		List<MethodInstrumentation> instrumentations = new ArrayList<MethodInstrumentation>();
 		if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-		    if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+			if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) {
+				instrumentations.add(new PathConditonInstrumentation()); /*SUSHI: Path condition fitness*/				
+				instrumentations.add(new BranchInstrumentation());
+			} 
+			else if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
 		            || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)) {
 				instrumentations.add(new BranchInstrumentation());
 				instrumentations.add(new DefUseInstrumentation());

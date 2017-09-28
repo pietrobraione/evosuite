@@ -265,6 +265,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<Integer, Double>());
 
+	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<Integer, Double>());/*SUSHI: Path condition fitness*/
+
 	public static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<Integer>());
 
 	public static Set<Integer> gradientBranchesCoveredTrue = Collections.synchronizedSet(new HashSet<Integer>());
@@ -1809,4 +1811,20 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		return this.initializedClasses;
 	}
 
+	@Override
+	public void passedPathCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info("--computed d: " + distance + ", pc = " + pathConditionID);
+		synchronized (pathConditionDistances) {
+			Double currentDistance = pathConditionDistances.get(pathConditionID);
+			if (currentDistance == null)
+				pathConditionDistances.put(pathConditionID, distance);
+			else if (!Properties.PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY) 
+				pathConditionDistances.put(pathConditionID, Math.min(currentDistance, distance));
+		}
+	}
+
+	@Override
+	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
+		return pathConditionDistances;
+	}
 }

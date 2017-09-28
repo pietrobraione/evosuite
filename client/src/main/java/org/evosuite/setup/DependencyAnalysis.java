@@ -30,6 +30,8 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.junit.CoverageAnalysis;
@@ -204,6 +206,18 @@ public class DependencyAnalysis {
 		if (targetClasses != null && targetClasses.contains(className)) {
 			return true;
 		}
+
+		// Also analyze if it represents a path condition that we want to cover
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) { /*SUSHI: Path condition fitness*/
+			for (PathConditionCoverageGoalFitness goal : new PathConditionCoverageFactory().getCoverageGoals()) {
+				String evaluatorName = goal.getEvaluatorName();
+				if (className.equals(evaluatorName)
+						|| className.startsWith(evaluatorName + "$")) {
+					return true;
+				}	
+			}
+		}
+		
 		return false;
 	}
 
@@ -295,6 +309,17 @@ public class DependencyAnalysis {
 	 * @return
 	 */
 	public static boolean shouldInstrument(String className, String methodName) {
+		// Do not instrument if classNema refers to a path condition that we want to cover
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) { /*SUSHI: Path condition fitness*/
+			for (PathConditionCoverageGoalFitness goal : new PathConditionCoverageFactory().getCoverageGoals()) {
+				String evaluatorName = goal.getEvaluatorName();
+				if (className.equals(evaluatorName)
+						|| className.startsWith(evaluatorName + "$")) {
+					return false;
+				}	
+			}
+		}
+
 		// Always analyze if it is a target class
 		if (isTargetClassName(className))
 			return true;

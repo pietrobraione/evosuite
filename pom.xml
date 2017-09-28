@@ -39,6 +39,7 @@
         <module>standalone_runtime</module>
         <module>shaded</module>
         <module>generated</module>
+        <module>sushi-lib</module>
     </modules>
 
     <prerequisites>

@@ -34,6 +34,7 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.Properties.PathConditionTarget;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUse;
@@ -1818,8 +1819,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
 			if (currentDistance == null)
 				pathConditionDistances.put(pathConditionID, distance);
-			else if (!Properties.PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY) 
-				pathConditionDistances.put(pathConditionID, Math.min(currentDistance, distance));
+			else if (Properties.PATH_CONDITION_TARGET != PathConditionTarget.FIRST_ONLY) {				
+				if (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST) {
+					distance = Math.min(currentDistance, distance);
+				} /* else PathConditionTarget.LAST_ONLY, meaning that the new value must replace the old one*/
+				
+				pathConditionDistances.put(pathConditionID, distance);			
+			} /* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
 		}
 	}
 

@@ -1516,9 +1516,11 @@ public class Properties {
 		return parts;
 	}
 
-	/** Constant <code>PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY=""</code> */
-	@Parameter(key = "path_condition_check_first_target_call_only", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured only with reference to the first time that the test case calls the target method. Otherwise, it is the minimum fitness measured across all calls")
-	public static boolean PATH_CONDITION_CHECK_FIRST_TARGET_CALL_ONLY = false;/*SUSHI: Path condition fitness*/
+	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
+	@Parameter(key = "path_condition_target", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured only with reference to first/last/best time that the test case calls the target method. If set to best (default), the fitness corresponds to the minimum fitness measured across all calls in the test case.")
+	public static PathConditionTarget PATH_CONDITION_TARGET = PathConditionTarget.BEST; /*SUSHI: Path condition fitness*/
+
+	public enum PathConditionTarget {BEST, FIRST_ONLY, LAST_ONLY} /*SUSHI: Path condition fitness*/
 
 	/** Constant <code>PATH_CONDITION_CHECK_AT_METHOD_EXIT=""</code> */
 	@Parameter(key = "path_condition_check_at_method_exit", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured after the corresponding method terminates, as opposite of the default behavior that checks the path condition against the method parameters at the invocation of the method")

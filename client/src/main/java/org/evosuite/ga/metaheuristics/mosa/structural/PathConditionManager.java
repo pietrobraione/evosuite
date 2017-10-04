@@ -36,28 +36,6 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		uncoveredGoals.addAll(fitnessFunctions);
 		// initialize current goals
 		this.currentGoals.addAll(fitnessFunctions);
-
-		/* TODO: Giovanni: Think I do not need this
-		// initialize the maps
-		for (FitnessFunction<T> ff : fitnessFunctions) {
-			BranchCoverageTestFitness goal = (BranchCoverageTestFitness) ff;
-			// Skip instrumented branches - we only want real branches
-			if(goal.getBranch() != null) {
-				if(goal.getBranch().isInstrumented()) {
-					continue;
-				}
-			}
-
-			if (goal.getBranch() == null) {
-				branchlessMethodCoverageMap.put(goal.getClassName() + "."
-						+ goal.getMethod(), ff);
-			} else {
-				if (goal.getBranchExpressionValue())
-					branchCoverageTrueMap.put(goal.getBranch().getActualBranchId(), ff);
-				else
-					branchCoverageFalseMap.put(goal.getBranch().getActualBranchId(), ff);
-			}
-		} */
 	}
 
 	public void calculateFitness(T c){
@@ -67,7 +45,7 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		((TestChromosome) c).setLastExecutionResult(result);
 		c.setChanged(false);
 		
-		if (result.hasTimeout() || result.hasTestException()){ //TODO: Should be Ok, right?
+		if (result.hasTimeout() || result.hasTestException()){
 			for (FitnessFunction<T> f : currentGoals)
 					c.setFitness(f, Double.MAX_VALUE);
 			return;
@@ -82,15 +60,6 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			}
 		}
 		currentGoals.removeAll(coveredGoals.keySet());
-		
-		//TODO: Do I need this for path conditions? Think I do not, right?
-		// 2) we update the archive
-		/*for (Integer branchid : result.getTrace().getCoveredFalseBranches()){
-			FitnessFunction<T> branch = this.branchCoverageFalseMap.get(branchid);
-			if (branch == null)
-				continue;
-			updateCoveredGoals((FitnessFunction<T>) branch, c);
-		}*/
 	}
 
 }

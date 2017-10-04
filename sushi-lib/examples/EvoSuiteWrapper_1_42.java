@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class EvoSuiteWrapper_0_42 {
+public class EvoSuiteWrapper_1_42 {
     private static final double SMALL_DISTANCE = 1;
     private static final double BIG_DISTANCE = 1E300;
 

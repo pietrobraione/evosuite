@@ -11,13 +11,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class EvoSuiteWrapper_4_248 {
+public class EvoSuiteWrapper_3_3 {
     private static final double SMALL_DISTANCE = 1;
     private static final double BIG_DISTANCE = 1E300;
 
+    private static final String STRING_LITERAL_0 = "_initialRight";
 
-    public double test0(avl_tree.AvlTree __ROOT_this, int __ROOT_x) throws Exception {
-        //generated for state .1.1.1.1.1.1.2.2.2.2.1.2.1.2[120]
+    public double test0(avl_tree.AvlTree __ROOT_this) throws Exception {
+        //generated for state .1.1.1.1.1.1.1.2.1[19]
         final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();
         ValueCalculator valueCalculator;
         // {R0} == Object[0] (fresh)
@@ -28,110 +29,94 @@ public class EvoSuiteWrapper_4_248 {
         ;
         // {R1} == Object[1] (fresh)
         pathConditionHandler.add(new SimilarityWithRefToFreshObject("{ROOT}:this.root", Class.forName("avl_tree.AvlNode")));
-        // {V0} < {V1}
+        // pre_init(avl_tree/AvlNode)
+        ;
+        // {R2} == null
+        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.parent"));
+        // {V1} >= 0
         valueCalculator = new ValueCalculator() {
             @Override public Iterable<String> getVariableOrigins() {
                 ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:x");
+                retVal.add("{ROOT}:this.root.height");
+                return retVal;
+            }
+            @Override public double calculate(List<Object> variables) {
+                final int V1 = (int) variables.get(0);
+                return (V1) >= (0) ? 0 : isNaN((V1) - (0)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V1) - (0));
+            }
+        };
+        pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
+        // pre_init(jbse/meta/Analysis)
+        ;
+        // pre_init(avl_tree/Range)
+        ;
+        // {R3} == Object[3] (fresh)
+        pathConditionHandler.add(new SimilarityWithRefToFreshObject("{ROOT}:this.root.left", Class.forName("avl_tree.AvlNode")));
+        // {R10} == Object[1] (aliases {ROOT}:this.root)
+        pathConditionHandler.add(new SimilarityWithRefToAlias("{ROOT}:this.root.left.parent", "{ROOT}:this.root"));
+        // {V5} >= 0
+        valueCalculator = new ValueCalculator() {
+            @Override public Iterable<String> getVariableOrigins() {
+                ArrayList<String> retVal = new ArrayList<>();
+                retVal.add("{ROOT}:this.root.left.height");
+                return retVal;
+            }
+            @Override public double calculate(List<Object> variables) {
+                final int V5 = (int) variables.get(0);
+                return (V5) >= (0) ? 0 : isNaN((V5) - (0)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V5) - (0));
+            }
+        };
+        pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
+        // {V4} < {V0}
+        valueCalculator = new ValueCalculator() {
+            @Override public Iterable<String> getVariableOrigins() {
+                ArrayList<String> retVal = new ArrayList<>();
+                retVal.add("{ROOT}:this.root.left.element");
                 retVal.add("{ROOT}:this.root.element");
                 return retVal;
             }
             @Override public double calculate(List<Object> variables) {
-                final int V0 = (int) variables.get(0);
-                final int V1 = (int) variables.get(1);
-                return (V0) < (V1) ? 0 : isNaN((V0) - (V1)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V0) - (V1));
+                final int V4 = (int) variables.get(0);
+                final int V0 = (int) variables.get(1);
+                return (V4) < (V0) ? 0 : isNaN((V4) - (V0)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V4) - (V0));
             }
         };
         pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // {R3} == Object[2] (fresh)
-        pathConditionHandler.add(new SimilarityWithRefToFreshObject("{ROOT}:this.root.left", Class.forName("avl_tree.AvlNode")));
-        // {V0} < {V5}
+        // !pre_init(java/lang/String)
+        ;
+        // !pre_init(java/lang/String$CaseInsensitiveComparator)
+        ;
+        // {V1} >= 1
         valueCalculator = new ValueCalculator() {
             @Override public Iterable<String> getVariableOrigins() {
                 ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:x");
-                retVal.add("{ROOT}:this.root.left.element");
+                retVal.add("{ROOT}:this.root.height");
                 return retVal;
             }
             @Override public double calculate(List<Object> variables) {
-                final int V0 = (int) variables.get(0);
-                final int V5 = (int) variables.get(1);
-                return (V0) < (V5) ? 0 : isNaN((V0) - (V5)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V0) - (V5));
+                final int V1 = (int) variables.get(0);
+                return (V1) >= (1) ? 0 : isNaN((V1) - (1)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V1) - (1));
             }
         };
         pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // {R10} == Object[3] (fresh)
-        pathConditionHandler.add(new SimilarityWithRefToFreshObject("{ROOT}:this.root.left.left", Class.forName("avl_tree.AvlNode")));
-        // {V0} >= {V9}
+        // {R11} == null
+        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.left.left"));
+        // {V5} <= 1
         valueCalculator = new ValueCalculator() {
             @Override public Iterable<String> getVariableOrigins() {
                 ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:x");
-                retVal.add("{ROOT}:this.root.left.left.element");
+                retVal.add("{ROOT}:this.root.left.height");
                 return retVal;
             }
             @Override public double calculate(List<Object> variables) {
-                final int V0 = (int) variables.get(0);
-                final int V9 = (int) variables.get(1);
-                return (V0) >= (V9) ? 0 : isNaN((V0) - (V9)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V0) - (V9));
+                final int V5 = (int) variables.get(0);
+                return (V5) <= (1) ? 0 : isNaN((V5) - (1)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V5) - (1));
             }
         };
         pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // {V0} <= {V9}
-        valueCalculator = new ValueCalculator() {
-            @Override public Iterable<String> getVariableOrigins() {
-                ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:x");
-                retVal.add("{ROOT}:this.root.left.left.element");
-                return retVal;
-            }
-            @Override public double calculate(List<Object> variables) {
-                final int V0 = (int) variables.get(0);
-                final int V9 = (int) variables.get(1);
-                return (V0) <= (V9) ? 0 : isNaN((V0) - (V9)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((V0) - (V9));
-            }
-        };
-        pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // {R17} == null
-        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.left.left.left"));
-        // {R18} == null
-        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.left.left.right"));
-        // {R11} == Object[4] (fresh)
-        pathConditionHandler.add(new SimilarityWithRefToFreshObject("{ROOT}:this.root.left.right", Class.forName("avl_tree.AvlNode")));
-        //  ~ {V14} != 2
-        valueCalculator = new ValueCalculator() {
-            @Override public Iterable<String> getVariableOrigins() {
-                ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:this.root.left.right.height");
-                return retVal;
-            }
-            @Override public double calculate(List<Object> variables) {
-                final int V14 = (int) variables.get(0);
-                return (-(V14)) != (2) ? 0 : isNaN((-(V14)) - (2)) ? BIG_DISTANCE : SMALL_DISTANCE;
-            }
-        };
-        pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // 0 > {V14}
-        valueCalculator = new ValueCalculator() {
-            @Override public Iterable<String> getVariableOrigins() {
-                ArrayList<String> retVal = new ArrayList<>();
-                retVal.add("{ROOT}:this.root.left.right.height");
-                return retVal;
-            }
-            @Override public double calculate(List<Object> variables) {
-                final int V14 = (int) variables.get(0);
-                return (0) > (V14) ? 0 : isNaN((0) - (V14)) ? BIG_DISTANCE : SMALL_DISTANCE + abs((0) - (V14));
-            }
-        };
-        pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));
-        // {R4} == null
-        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.right"));
-        // {R2} == null
-        pathConditionHandler.add(new SimilarityWithRefToNull("{ROOT}:this.root.parent"));
 
         final HashMap<String, Object> candidateObjects = new HashMap<>();
         candidateObjects.put("{ROOT}:this", __ROOT_this);
-        candidateObjects.put("{ROOT}:x", __ROOT_x);
 
         double d = distance(pathConditionHandler, candidateObjects);
         if (d == 0.0d)

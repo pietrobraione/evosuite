@@ -57,6 +57,7 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 			for (String pathCondition : Properties.PATH_CONDITION) {
 				String parts[] = Properties.pathConditionSplitClassMethodEvaluator(pathCondition);
 				goals.add(createPathConditionCoverageTestFitness(id, parts[0], parts[1], parts[2]));
+				id++;
 			}
 
 			goalComputationTime = System.currentTimeMillis() - start;

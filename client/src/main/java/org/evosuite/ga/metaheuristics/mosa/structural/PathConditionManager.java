@@ -1,4 +1,6 @@
 package org.evosuite.ga.metaheuristics.mosa.structural;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.evosuite.ga.Chromosome;
@@ -46,8 +48,11 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		}
 
 		// We update the archive and the set of currents goals
+		LinkedList<FitnessFunction<T>> targets = new LinkedList<FitnessFunction<T>>();
+		targets.addAll(this.currentGoals);
 
-		for (FitnessFunction<T> fitnessFunction : this.currentGoals){
+		while (targets.size()>0){
+			FitnessFunction<T> fitnessFunction = targets.poll();
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
 				updateCoveredGoals(fitnessFunction, c);

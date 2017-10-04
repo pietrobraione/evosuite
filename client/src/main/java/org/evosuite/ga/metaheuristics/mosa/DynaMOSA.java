@@ -6,15 +6,21 @@ import java.util.List;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.mosa.comparators.OnlyCrowdingComparator;
+import org.evosuite.ga.metaheuristics.mosa.structural.BranchesManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriatManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.StatementManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.StrongMutationsManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StructuralGoalManager;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,7 +143,15 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	public void generateSolution() {
 		logger.info("executing generateSolution function");
 
-		goalsManager = new MultiCriteriatManager<T>(fitnessFunctions);
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)){
+			goalsManager = new BranchesManager<T>(fitnessFunctions);
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)){
+			goalsManager = new StatementManager<T>(fitnessFunctions);
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)){
+			goalsManager = new StrongMutationsManager<T>(fitnessFunctions);
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
+			goalsManager = new PathConditionManager<T>(fitnessFunctions);
+		}
 
 		LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());
 

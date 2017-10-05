@@ -616,8 +616,9 @@ public class Properties {
 	public static StoppingCondition STOPPING_CONDITION = StoppingCondition.MAXTIME;
 
 	public enum CrossoverFunction {
-		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT, COVERAGE
+		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT, COVERAGE, SUSHI_METHODSEQUENCES, SUSHI_CROSSCONTAMINATION, SUSHI_HYBRID /*SUSHI: Crossover*/
 	}
+
 
 	/** Constant <code>CROSSOVER_FUNCTION</code> */
 	@Parameter(key = "crossover_function", group = "Search Algorithm", description = "Crossover function during search")
@@ -1505,7 +1506,7 @@ public class Properties {
 
 
 	/** Constant <code>PATH_CONDITION=""</code> */
-	@Parameter(key = "path_condition", group = "Runtime", description = "The path conditions to be used as objective functions. Can define more than one criterion by using a ':' separated list")
+	@Parameter(key = "path_condition", group = "SUSHI", description = "The path conditions to be used as objective functions. Can define more than one criterion by using a ':' separated list")
 	public static String[] PATH_CONDITION = new String[] {};/*SUSHI: Path condition fitness*/
 
 	public static String[] pathConditionSplitClassMethodEvaluator(String pathCondition) { /*SUSHI: Path condition fitness*/
@@ -1517,16 +1518,28 @@ public class Properties {
 	}
 
 	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
-	@Parameter(key = "path_condition_target", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured only with reference to first/last/best time that the test case calls the target method. If set to best (default), the fitness corresponds to the minimum fitness measured across all calls in the test case.")
+	@Parameter(key = "path_condition_target", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured only with reference to first/last/best time that the test case calls the target method. If set to best (default), the fitness corresponds to the minimum fitness measured across all calls in the test case.")
 	public static PathConditionTarget PATH_CONDITION_TARGET = PathConditionTarget.BEST; /*SUSHI: Path condition fitness*/
 
 	public enum PathConditionTarget {BEST, FIRST_ONLY, LAST_ONLY} /*SUSHI: Path condition fitness*/
 
 	/** Constant <code>PATH_CONDITION_CHECK_AT_METHOD_EXIT=""</code> */
-	@Parameter(key = "path_condition_check_at_method_exit", group = "Runtime", description = "When using path condition fitness, the fitness of a test case is measured after the corresponding method terminates, as opposite of the default behavior that checks the path condition against the method parameters at the invocation of the method")
+	@Parameter(key = "path_condition_check_at_method_exit", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured after the corresponding method terminates, as opposite of the default behavior that checks the path condition against the method parameters at the invocation of the method")
 	public static boolean PATH_CONDITION_CHECK_AT_METHOD_EXIT = false;/*SUSHI: Path condition fitness*/
 
-    /** Cache target class */
+	/** Constant <code>SUSHI_STATISTICS=""</code> */
+	@Parameter(key = "sushi_statistics", group = "SUSHI", description = "Print sushi statistics upon termination")
+	public static boolean SUSHI_STATISTICS = false; /*SUSHI: Statistics*/
+
+	/** Constant <code>USE_MINIMIZER_DURING_CROSSOVER=""</code> */
+	@Parameter(key = "use_minimizer_during_crossover", group = "SUSHI", description = "Call minimizer when crossover generates tests that are too lareg but have good fitness ")
+	public static boolean USE_MINIMIZER_DURING_CROSSOVER = false; /*SUSHI: Minimizer*/
+
+	/** Constant <code>SUSHI_MODIFIERS_LOCAL_SEARCH=""</code> */
+	@Parameter(key = "sushi_modifiers_local_search", group = "SUSHI", description = "Does a local seacrh on test cases by trying to reuse the modifiers that were identified as successful during crossover")
+	public static boolean SUSHI_MODIFIERS_LOCAL_SEARCH = false; /*SUSHI: Local search*/
+
+	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 	
 	/** Cache target regression class */

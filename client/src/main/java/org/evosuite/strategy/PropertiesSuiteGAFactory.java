@@ -53,9 +53,13 @@ import org.evosuite.regression.RegressionTestChromosomeFactory;
 import org.evosuite.regression.RegressionTestSuiteChromosomeFactory;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
+import org.evosuite.ga.operators.crossover.CrosscontaminationCrossOver;
+import org.evosuite.ga.operators.crossover.MethodSequencesCrossOver;
+import org.evosuite.ga.operators.crossover.MultiOperatorAlternatingCrossOver;
 import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
 import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
 import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
+import org.evosuite.ga.operators.crossover.SushiCrossOver;
 import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
 import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
 import org.evosuite.ga.operators.selection.RankSelection;
@@ -222,7 +226,8 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 		}
 	}
 	
-	protected CrossOverFunction getCrossoverFunction() {
+	protected CrossOverFunction getCrossoverFunction(GeneticAlgorithm<TestSuiteChromosome> ga) {
+		SushiCrossOver sushiCrossover = null;
 		switch (Properties.CROSSOVER_FUNCTION) {
 		case SINGLEPOINTFIXED:
 			return new SinglePointFixedCrossOver();
@@ -236,6 +241,20 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 				        "Coverage crossover function requires test suite mode");
 
 			return new org.evosuite.ga.operators.crossover.CoverageCrossOver();
+		case SUSHI_METHODSEQUENCES: /*SUSHI: Crossover*/
+			sushiCrossover = new MethodSequencesCrossOver(new SinglePointFixedCrossOver());
+			ga.addListener(sushiCrossover);
+			return sushiCrossover;
+		case SUSHI_CROSSCONTAMINATION: /*SUSHI: Crossover*/
+			sushiCrossover = new CrosscontaminationCrossOver();
+			ga.addListener(sushiCrossover);
+			return sushiCrossover;
+		case SUSHI_HYBRID: /*SUSHI: Crossover*/
+			sushiCrossover = new MultiOperatorAlternatingCrossOver(
+					new MethodSequencesCrossOver(new SinglePointFixedCrossOver()),
+					new SinglePointFixedCrossOver());
+			ga.addListener(sushiCrossover);
+			return sushiCrossover;
 		default:
 			throw new RuntimeException("Unknown crossover function: "
 			        + Properties.CROSSOVER_FUNCTION);
@@ -327,7 +346,7 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 		ga.setPopulationLimit(getPopulationLimit());
 
 		// How to cross over
-		CrossOverFunction crossover_function = getCrossoverFunction();
+		CrossOverFunction crossover_function = getCrossoverFunction(ga /*SUSHI Crossover*/);
 		ga.setCrossOverFunction(crossover_function);
 
 		// What to do about bloat

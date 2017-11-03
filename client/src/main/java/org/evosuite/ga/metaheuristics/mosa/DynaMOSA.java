@@ -7,12 +7,12 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.mosa.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.BranchesManager;
-import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriatManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StatementManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StrongMutationsManager;
@@ -43,6 +43,8 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 
 	protected CrowdingDistance<T> distance = new CrowdingDistance<T>();
 
+	private int unchangedPopulationIterations = 0; /*SUSHI: Reset*/
+
 	public DynaMOSA(ChromosomeFactory<T> factory) {
 		super(factory);
 	}
@@ -50,12 +52,14 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	/** {@inheritDoc} */
 	@Override
 	protected void evolve() {
+		int goodCrosoversAtBegin = goodOffsprings; /*SUSHI: Reset*/
+		
 		List<T> offspringPopulation = breedNextGeneration();
 
 		// Create the union of parents and offSpring
 		List<T> union = new ArrayList<T>(population.size()+offspringPopulation.size());
-		union.addAll(population);
 		union.addAll(offspringPopulation);
+		union.addAll(population);
 
 		// Ranking the union
 		logger.debug("Union Size = {}", union.size());
@@ -66,19 +70,23 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		// let's form the next population using "preference sorting and non-dominated sorting" on the
 		// updated set of goals
 		int remain = Math.max(Properties.POPULATION, ranking.getSubfront(0).size());
+		
+		if(Properties.AVOID_REPLICAS_OF_INDIVIDUALS) { /*SUSHI: Prevent multiple copies of individuals*/
+			remain = Math.min(remain, union.size());
+		}
+
 		int index = 0;
 		List<T> front = null;
 		population.clear();
-
 		// Obtain the next front
 		front = ranking.getSubfront(index);
 
-		while ((remain > 0) && (remain >= front.size())) {
+		while (remain > 0 && remain >= front.size()) {
 			// Assign crowding distance to individuals
 			distance.fastEpsilonDominanceAssignment(front, goalsManager.getCurrentGoals());
 
 			// Add the individuals of this front
-			population.addAll(front);
+			addToPopulation(front); //TODO: GIO: population.addAll(front);
 
 			// Decrement remain
 			remain = remain - front.size();
@@ -95,22 +103,110 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			distance.fastEpsilonDominanceAssignment(front, goalsManager.getCurrentGoals());
 			Collections.sort(front, new OnlyCrowdingComparator());
 			for (int k = 0; k < remain; k++) {
-				population.add(front.get(k));
+				addToPopulation(front.get(k)); //TODO: GIO: population.add(front.get(k));
+				
 			} // for
 
 			remain = 0;
 		} // if
 		//for (T  p : population)
 		//	logger.error("Rank {}, Distance {}", p.getRank(), p.getDistance());
+
+
+		if(Properties.NO_CHANGE_ITERATIONS_BEFORE_RESET > 0) { /*SUSHI: Reset*/ 
+			boolean someChanges = goodOffsprings > goodCrosoversAtBegin;
+			handleReset(someChanges); 
+		}
+
 		currentIteration++;
-		logger.error("");
-		//logger.error("N. fronts = {}", ranking.getNumberOfSubfronts());
-		//logger.error("1* front size = {}", ranking.getSubfront(0).size());
-		logger.error("Covered goals = {}", goalsManager.getCoveredGoals().size());
-		logger.error("Current goals = {}", goalsManager.getCurrentGoals().size());
-		logger.error("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
+		if (currentIteration % 10 == 0) {
+		LoggingUtils.getEvoLogger().info("ITERATION: {}", currentIteration);
+		//LoggingUtils.getEvoLogger().info("Population size= {}", population.size());
+		//LoggingUtils.getEvoLogger().info("N. fronts = {}", ranking.getNumberOfSubfronts());
+		//LoggingUtils.getEvoLogger().info("1* front size = {}", ranking.getSubfront(0).size());
+		LoggingUtils.getEvoLogger().info("Covered goals = {}", goalsManager.getCoveredGoals().size());
+		LoggingUtils.getEvoLogger().info("Current goals = {}", goalsManager.getCurrentGoals().size());
+		//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
+		}
 	}
 
+	private int resets = 0;
+	private void printInfo(T c) {
+		String fits = "";
+		for (FitnessFunction<T> g : goalsManager.getCurrentGoals()) {
+			fits += ((PathConditionCoverageGoalFitness) g).getPathConditionId();
+			fits += "=" + g.getFitness(c) + ",";
+		} 
+		fits += " from it " + c.getAge();
+		LoggingUtils.getEvoLogger().info("* id = {}, fits = {}", System.identityHashCode(c), fits, c.getFitness());			
+	}
+	private boolean handleReset(boolean changed) { /*SUSHI: Reset*/
+		if (changed) unchangedPopulationIterations = 0;
+		else unchangedPopulationIterations++;
+
+		if (goalsManager.getCurrentGoals().isEmpty()) {
+			return false; // search finished
+		}
+
+		// Console output each 10 iterations
+		if (currentIteration % 10 == 0) {
+			LoggingUtils.getEvoLogger().info("\n***{} no change iterations,  {} resets, {} good offsprings ({} mutation only), best fits:", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
+			for (T c : ranking.getSubfront(0)) {
+				printInfo(c);			
+			}
+		}
+		
+		if (unchangedPopulationIterations >  Properties.NO_CHANGE_ITERATIONS_BEFORE_RESET) {
+			long time = System.currentTimeMillis();
+			
+			List<T> newPopulation = new ArrayList<T>();
+			if (goalsManager.getCurrentGoals().size() == 1) {
+				newPopulation.addAll(elitism());
+
+			} else {
+				newPopulation.addAll(ranking.getSubfront(0));
+			}
+			
+			//initializePopulation(); NB: prefer explicit setup to avoid reset of all search params
+			population.clear();
+			generateInitialPopulation(Properties.POPULATION - newPopulation.size());
+		
+			for (T c : population) {
+				c.updateAge(currentIteration);
+				c.setChanged(true);
+			}
+			calculateFitness();
+		
+			population.addAll(0, newPopulation);
+			
+		
+			// Calculate dominance ranks
+			ranking.computeRankingAssignment(population, goalsManager.getCurrentGoals());
+
+			time = System.currentTimeMillis() - time;
+			resets++;
+			unchangedPopulationIterations = 0;
+			
+			LoggingUtils.getEvoLogger().info("*******************************");
+			LoggingUtils.getEvoLogger().info("* Population reset at iteration " + currentIteration + " (took " + time + " msec)" + "elite size is {}", newPopulation.size());
+			LoggingUtils.getEvoLogger().info("******************************* ");
+			
+			return true;
+		}
+		return false;
+	}
+
+
+	private void addToPopulation(List<T> front) {
+		for (T individual : front) {
+			addToPopulation(individual); 
+		}
+	}
+
+	private void addToPopulation(T t) {
+		population.add(t);
+		notifyInNextGeneration(t);
+	}
 
 	/** 
 	 * This method computes the fitness scores only for the current goals
@@ -173,11 +269,12 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			evolve();
 			notifyIteration();
 		}
-		//completeCalculateFitness();
+		completeCalculateFitness(); //TODO: GIO
 		notifySearchFinished();
 	}
 
 	protected void completeCalculateFitness() {
+		goalsManager.restoreInstrumentationForAllGoals(); //GIO: TODO
 		logger.debug("Calculating fitness for " + population.size() + " individuals");
 		for (T c : goalsManager.getCoveredGoals().values()){
 			completeCalculateFitness(c);
@@ -229,6 +326,32 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 
 	protected double numberOfCoveredTargets(){
 		return this.goalsManager.getCoveredGoals().size();
+	}
+
+	@Override /*SUSHI: Prevent multiple copies of individuals*/
+	protected boolean keepOffspring(T offspring, T parent1, T parent2) {
+		for (FitnessFunction<T> g : goalsManager.getCurrentGoals()){
+			double newFitness = g.getFitness(offspring);
+			double p1Fitness = g.getFitness(parent1);
+			double p2Fitness = g.getFitness(parent2);
+			if (newFitness < p1Fitness && newFitness < p2Fitness) { 
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Override /*SUSHI: Prevent multiple copies of individuals*/
+	protected boolean checkForRemove(T parent, T offspring1, T offspring2) {
+		for (FitnessFunction<T> g : goalsManager.getCurrentGoals()){
+			double newFitness1 = offspring1 != null ? g.getFitness(offspring1) : Double.MAX_VALUE;
+			double newFitness2 = offspring2 != null ? g.getFitness(offspring2) : Double.MAX_VALUE;
+			double pFitness = g.getFitness(parent);
+			if (pFitness < newFitness1 && pFitness < newFitness2) { 
+				return false; //do not remove
+			}
+		}
+		return true;//population.remove(parent);
 	}
 
 }

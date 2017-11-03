@@ -19,6 +19,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,6 +39,9 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.ga.metaheuristics.mosa.comparators.MOSADominanceComparator;
+import org.evosuite.ga.operators.crossover.CrossOverListener;
+import org.evosuite.ga.operators.crossover.SuccessCountCrossOverStrategy;
+import org.evosuite.ga.operators.crossover.SushiCrossOver;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -52,6 +56,7 @@ import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +83,9 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 
 	/** Selected ranking strategy **/
 	protected Ranking<T> ranking;
+	
+	protected int goodOffsprings = 0;
+	protected int goodOffspringsMutationOnly = 0;
 
 	/**
 	 * Constructor
@@ -108,6 +116,7 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 	 */
 	@SuppressWarnings("unchecked")
 	protected List<T> breedNextGeneration() {
+		Set<T> removableParents = new HashSet<T>(Properties.POPULATION);
 		List<T> offspringPopulation = new ArrayList<T>(Properties.POPULATION);
 		// we apply only Properties.POPULATION/2 iterations since in each generation
 		// we generate two offsprings
@@ -118,9 +127,11 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 			T offspring1 = (T) parent1.clone();
 			T offspring2 = (T) parent2.clone();
 			// apply crossover 
+			boolean crossoverDone = false;
 			try {
 				if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
 					crossoverFunction.crossOver(offspring1, offspring2);
+					crossoverDone = true;
 				} 
 			} catch (ConstructionFailedException e) {
 				logger.debug("CrossOver failed.");
@@ -136,7 +147,9 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 				clearCachedResults(offspring1);
 				offspring1.updateAge(currentIteration);
 				calculateFitness(offspring1); 
-				offspringPopulation.add(offspring1);
+				if (!Properties.AVOID_REPLICAS_OF_INDIVIDUALS ) { /*SUSHI: Prevent multiple copies of individuals*/
+					offspringPopulation.add(offspring1);
+				}
 			}
 
 			// apply mutation on offspring2
@@ -145,20 +158,59 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 				clearCachedResults(offspring2);
 				offspring2.updateAge(currentIteration);
 				calculateFitness(offspring2);
-				offspringPopulation.add(offspring2);
+				if (!Properties.AVOID_REPLICAS_OF_INDIVIDUALS) { /*SUSHI: Prevent multiple copies of individuals*/
+					offspringPopulation.add(offspring2);
+				}
 			}	
+			
+			if (Properties.AVOID_REPLICAS_OF_INDIVIDUALS) {
+				boolean keep1 = keepOffspring(offspring1, parent1, parent2);
+				boolean keep2 = keepOffspring(offspring2, parent1, parent2);
+				T kept1 = null, kept2 = null;
+				if (keep1) {
+					offspringPopulation.add(offspring1);
+					kept1 = offspring1;
+					goodOffsprings++;
+					if (!crossoverDone) {
+						goodOffspringsMutationOnly++;
+					}
+				}
+				if (keep2) {
+					offspringPopulation.add(offspring2);
+					kept2 = offspring2;
+					goodOffsprings++;
+					if (!crossoverDone) {
+						goodOffspringsMutationOnly++;
+					}
+				}
+				if (keep1 || keep2) {
+					if (checkForRemove(parent1, kept1, kept2)) {
+						removableParents.add(parent1);
+					}
+					if (parent2 != parent1 && checkForRemove(parent2, kept1, kept2)) {
+						removableParents.add(parent2);
+					}
+				}
+			}
 		}
+				
+		if (Properties.AVOID_REPLICAS_OF_INDIVIDUALS) {
+			for (T c : removableParents) {
+				population.remove(c);
+			}
+		}
+
 		// Add new randomly generate tests
 		for (int i = 0; i<Properties.POPULATION * Properties.P_TEST_INSERTION; i++){
 			T tch = null;
-			if (this.getCoveredGoals().size() == 0 || Randomness.nextBoolean()){
+			if ((!Properties.AVOID_REPLICAS_OF_INDIVIDUALS && this.getCoveredGoals().size() == 0) || Randomness.nextBoolean()){
 				tch = this.chromosomeFactory.getChromosome();
 				tch.setChanged(true);
-			} else {
+			} else if (!Properties.AVOID_REPLICAS_OF_INDIVIDUALS) {
 				tch = (T) Randomness.choice(getArchive()).clone();
 				tch.mutate(); tch.mutate();
 			}
-			if (tch.isChanged()) {
+			if (tch != null && tch.isChanged()) {
 				tch.updateAge(currentIteration);
 				calculateFitness(tch);
 				offspringPopulation.add(tch);
@@ -166,6 +218,16 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 		}
 		logger.info("Number of offsprings = {}", offspringPopulation.size());
 		return offspringPopulation;
+	}
+
+	/*SUSHI: Prevent multiple copies of individuals*/
+	protected boolean checkForRemove(T parent, T offspring1, T offspring2) {
+		return false;
+	}
+
+	/*SUSHI: Prevent multiple copies of individuals*/
+	protected boolean keepOffspring(T offspring, T parent1, T parent2) {
+		return true;
 	}
 
 	/**
@@ -178,6 +240,7 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 			// if offspring is not changed, we try
 			// to mutate it once again
 			offspring.mutate();
+			notifyMutation(offspring);
 		}
 		if (!hasMethodCall(offspring)){
 			tch.setTestCase(((TestChromosome) parent).getTestCase().clone());
@@ -187,8 +250,8 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 					s.isValid();
 			} 
 			offspring.setChanged(changed);
+			notifyMutation(offspring);
 		}
-		notifyMutation(offspring);
 	}
 
 	/** This method checks whether the test has only primitive type statements. Indeed,
@@ -282,6 +345,20 @@ public abstract class AbstractMOSA<T extends Chromosome> extends GeneticAlgorith
 		}
 	}
 
+	/**
+	 * Notify all search listeners of an individual becoming part of next generation
+	 * 
+	 * @param chromosome
+	 *            a {@link org.evosuite.ga.Chromosome} object.
+	 */
+	protected void notifyInNextGeneration(Chromosome chromosome) { //GIO: TODO
+		for (SearchListener listener : listeners) {
+			if (listener instanceof SushiCrossOver) {
+				((SushiCrossOver) listener).inNextGeneration(chromosome);
+			}
+		}
+	}
+	
 	/**
 	 * Calculate fitness for the whole population
 	 */

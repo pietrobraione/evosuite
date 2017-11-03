@@ -3,12 +3,20 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.evosuite.Properties;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +42,7 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		this.currentGoals.addAll(fitnessFunctions);
 	}
 
+	@Override
 	public void calculateFitness(T c){
 		// run the test
 		TestCase test = ((TestChromosome) c).getTestCase();
@@ -56,9 +65,63 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
 				updateCoveredGoals(fitnessFunction, c);
+				
+				if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
+					emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
+				}
+				
+				if (fitnessFunction instanceof PathConditionCoverageGoalFitness) {
+					ExecutionTracer.removeEvaluatorForPathCondition(((PathConditionCoverageGoalFitness) fitnessFunction).getPathConditionGoal());
+				}
 			}
 		}
-		currentGoals.removeAll(coveredGoals.keySet());
+	}
+	
+	@Override
+	public void restoreInstrumentationForAllGoals() {
+		if (!Properties.EMIT_TESTS_INCREMENTALLY) {
+			PathConditionCoverageFactory pathConditionFactory = new PathConditionCoverageFactory();
+			List<PathConditionCoverageGoalFitness> goals = pathConditionFactory.getCoverageGoals();
+
+			for (PathConditionCoverageGoalFitness g : goals) {
+				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
+			}		
+		} else {
+			Properties.JUNIT_TESTS = false;
+		}
+	}
+	
+	
+	/*SUSHI: Incremental test cases*/
+	private void emitTestCase(PathConditionCoverageGoalFitness goal, TestChromosome tc) {
+		if (Properties.JUNIT_TESTS) {
+						
+			TestChromosome tcToWrite = (TestChromosome) tc.clone();
+			
+			if (Properties.MINIMIZE) {
+				TestCaseMinimizer minimizer = new TestCaseMinimizer(goal);
+				minimizer.minimize(tcToWrite);
+			}
+
+			if (Properties.INLINE) {
+				ConstantInliner inliner = new ConstantInliner();
+				inliner.inline(tcToWrite.getTestCase());
+			}
+			
+			//writing the output
+				
+			TestSuiteWriter suiteWriter = new TestSuiteWriter();
+			suiteWriter.insertTest(tcToWrite.getTestCase(), "Covered goal: " + goal.toString());
+			
+			String evaluatorName = goal.getEvaluatorName().substring(goal.getEvaluatorName().lastIndexOf('.') + 1);
+			String suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
+			String testName = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + suffix;
+			String testDir = Properties.TEST_DIR;
+			
+			suiteWriter.writeTestSuite(testName, testDir, new ArrayList());
+
+			LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE: " + goal.getEvaluatorName() + ", " + testName);
+		}
 	}
 
 }

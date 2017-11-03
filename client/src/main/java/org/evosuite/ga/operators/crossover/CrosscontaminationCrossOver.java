@@ -43,7 +43,7 @@ public class CrosscontaminationCrossOver extends SushiCrossOver { /*SUSHI: Cross
 
 	private static final long serialVersionUID = -3086477941208910388L;
 	
-	private final MinimizeGoodOffspringsCrossOverStrategy minimizeStrategy = new MinimizeGoodOffspringsCrossOverStrategy();
+	private final MinimizeGoodOffspringsCrossOverStrategy minimizeStrategy = new MinimizeGoodOffspringsCrossOverStrategy("CrosscontaminationMinimizer");
 	private final SelectSuccessfulModifiersCrossOverStrategy selectModifiersStrategy = new SelectSuccessfulModifiersCrossOverStrategy();
 	private final SuccessCountCrossOverStrategy successCountStrategy = new SuccessCountCrossOverStrategy(getClass().getName());
 
@@ -82,25 +82,27 @@ public class CrosscontaminationCrossOver extends SushiCrossOver { /*SUSHI: Cross
 		
 		//extract method calls of chromosome parent1
 		
-		Set<GenericMethod> modifierCalls;
-		if (Randomness.nextDouble() < .5d)
+		Set<GenericMethod> modifierCalls = null;
+		if (Randomness.nextDouble() < .33d)
 			modifierCalls = selectModifiersStrategy.getSuccessfulModifiers();
-		else
-			modifierCalls = new HashSet<GenericMethod>();
 		
-		for (int i = 0; i < parent1.getTestCase().size(); i++){
-			Statement testStmt = parent1.getTestCase().getStatement(i);
-			GenericAccessibleObject<?> call = testStmt.getAccessibleObject();
-			if (!(call instanceof GenericMethod)) continue;
-			GenericMethod modifierCall = (GenericMethod) call;
-			if (modifierCall.isStatic()) continue;
-			if(modifierCall.getName().startsWith("test")) continue;
-			if(modifierCall.getName().startsWith("get")) continue;
-			if(modifierCall.getName().startsWith("is")) continue;
-			if(modifierCall.getName().startsWith("has")) continue;
-			//LoggingUtils.getEvoLogger().info("Found method in parent1: " + modifierCall);
-			
-			modifierCalls.add(modifierCall);
+		if (modifierCalls == null || modifierCalls.isEmpty()) {
+			modifierCalls = new HashSet<GenericMethod>();
+
+			for (int i = 0; i < parent1.getTestCase().size(); i++){
+				Statement testStmt = parent1.getTestCase().getStatement(i);
+				GenericAccessibleObject<?> call = testStmt.getAccessibleObject();
+				if (!(call instanceof GenericMethod)) continue;
+				GenericMethod modifierCall = (GenericMethod) call;
+				if (modifierCall.isStatic()) continue;
+				if(modifierCall.getName().startsWith("test")) continue;
+				if(modifierCall.getName().startsWith("get")) continue;
+				if(modifierCall.getName().startsWith("is")) continue;
+				if(modifierCall.getName().startsWith("has")) continue;
+				//LoggingUtils.getEvoLogger().info("Found method in parent1: " + modifierCall);
+
+				modifierCalls.add(modifierCall);
+			}
 		}
 		if (modifierCalls.isEmpty())
 			throw new ConstructionFailedException("No modifiers from the parent chromosome");
@@ -131,8 +133,8 @@ public class CrosscontaminationCrossOver extends SushiCrossOver { /*SUSHI: Cross
 
 			//VariableReference retVal = 
 			testFactory.addMethodFor(offspring.getTestCase(), rndReceiver, rndMeth, rndPosition);				
-			
-			//selectModifiersStrategy.recordApplieddModifier(parent2, offspring, rndMeth);
+	
+			selectModifiersStrategy.recordApplieddModifier(parent2, offspring, rndMeth);
 		}
 
 		if (Properties.USE_MINIMIZER_DURING_CROSSOVER || !Properties.CHECK_MAX_LENGTH

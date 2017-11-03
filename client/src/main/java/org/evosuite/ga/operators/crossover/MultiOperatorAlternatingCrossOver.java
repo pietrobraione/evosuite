@@ -23,6 +23,7 @@ import java.util.Map;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.utils.LoggingUtils;
 
 /**
  * Use methods from a parent in the other parent
@@ -51,7 +52,9 @@ public class MultiOperatorAlternatingCrossOver extends SushiCrossOver  { /*SUSHI
 	protected void doCrossOver(Chromosome parent1, Chromosome parent2)
 	        throws ConstructionFailedException {
 		
+		//LoggingUtils.getEvoLogger().info("-- BEGIN Crossover: {}", crossoverOperators[currentOperator].getClass().getSimpleName());
 		crossoverOperators[currentOperator].crossOver(parent1, parent2);
+		//LoggingUtils.getEvoLogger().info("-- END Crossover: {}", crossoverOperators[currentOperator].getClass().getSimpleName());
 		
 	}
 
@@ -105,11 +108,11 @@ public class MultiOperatorAlternatingCrossOver extends SushiCrossOver  { /*SUSHI
 	}
 
 	@Override
-	public void notifyNewEvolveStep() {
-		super.notifyNewEvolveStep();
+	public void inNextGeneration(Chromosome individual) {
+		super.inNextGeneration(individual);
 
 		if (crossoverOperators[currentOperator] instanceof SushiCrossOver)
-			((SushiCrossOver) crossoverOperators[currentOperator]).notifyNewEvolveStep();
+			((SushiCrossOver) crossoverOperators[currentOperator]).inNextGeneration(individual);
 	}
 	
 	//Implements Statistics as composition of statics of sub operators

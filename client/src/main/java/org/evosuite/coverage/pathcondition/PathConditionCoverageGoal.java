@@ -119,8 +119,9 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + pathConditionId;
-		result = prime * result + className.hashCode();
-		result = prime * result + methodName.hashCode();
+		//result = prime * result + className.hashCode();
+		//result = prime * result + methodName.hashCode();
+		result = prime * result + evaluatorName.hashCode();
 		return result;
 	}
 
@@ -135,9 +136,8 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 			return false;
 
 		PathConditionCoverageGoal other = (PathConditionCoverageGoal) obj;
-		return this.pathConditionId == other.pathConditionId  && 
-				this.methodName.equals(other.methodName) && 
-				this.className.equals(other.className);
+		return this.pathConditionId == other.pathConditionId && 
+				evaluatorName.equals(other.evaluatorName);
 	}
 
 }

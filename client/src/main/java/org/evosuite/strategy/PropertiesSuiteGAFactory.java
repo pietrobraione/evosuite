@@ -252,7 +252,7 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 		case SUSHI_HYBRID: /*SUSHI: Crossover*/
 			sushiCrossover = new MultiOperatorAlternatingCrossOver(
 					new MethodSequencesCrossOver(new SinglePointFixedCrossOver()),
-					new SinglePointFixedCrossOver());
+					new CrosscontaminationCrossOver());
 			ga.addListener(sushiCrossover);
 			return sushiCrossover;
 		default:

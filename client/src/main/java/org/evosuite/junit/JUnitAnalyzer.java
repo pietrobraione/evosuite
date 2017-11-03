@@ -225,7 +225,7 @@ public class JUnitAnalyzer {
 					logger.info(elem);
 				}
 
-				boolean toRemove = !(failure.isAssertionError());
+				boolean toRemove = false; //!(failure.isAssertionError()); /* GIO: workaround to avoid evosuite notGeneratedAnyTest output */
 
 				for (int i = 0; i < tests.size(); i++) {
 					if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {

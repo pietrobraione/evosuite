@@ -894,7 +894,7 @@ public class ExecutionTracer {
 
 						// Add path condition distance to control trace
 						tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
-						//LoggingUtils.getEvoLogger().info("-- Evaluator on: " + System.identityHashCode(params[0]));
+						//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
 					} catch (IllegalAccessException | IllegalArgumentException e) {
 						throw new EvosuiteError("Cannot execute path condition evaluator: " + m +
 								"\n\t path condition for method " + className + "." + methodName +
@@ -935,7 +935,21 @@ public class ExecutionTracer {
 		}
 		methodEvaluators.add(g);
 	}
-
+	public static void removeEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(g.getClassName());
+		if (classEvaluators == null) return;
+		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(g.getMethodName());
+		if (methodEvaluators == null) return;
+		methodEvaluators.remove(g);
+		if (methodEvaluators.isEmpty()) {
+			classEvaluators.remove(g.getMethodName());
+			if (classEvaluators.isEmpty()) {
+				tracer.pathConditions.remove(g.getClassName());
+			}
+		}
+	}
+		
 	/**
 	 * <p>
 	 * passedMutation

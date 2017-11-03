@@ -1539,6 +1539,18 @@ public class Properties {
 	@Parameter(key = "sushi_modifiers_local_search", group = "SUSHI", description = "Does a local seacrh on test cases by trying to reuse the modifiers that were identified as successful during crossover")
 	public static boolean SUSHI_MODIFIERS_LOCAL_SEARCH = false; /*SUSHI: Local search*/
 
+	/** Constant <code>EMIT_TESTS_INCREMENTALLY=""</code> */
+	@Parameter(key = "emit_tests_incrementally", group = "SUSHI", description = "During search, immediately emit (as a junit test) a test case that optimize an objective.")
+	public static boolean EMIT_TESTS_INCREMENTALLY = false; /*SUSHI: Incremental test cases*/
+
+	/** Constant <code>AVOID_REPLICAS_OF_INDIVIDUALS=""</code> */
+	@Parameter(key = "avoid_replicas_of_individuals", group = "SUSHI", description = "Prevent multiple copies of the same individuals while forming new generations")
+	public static boolean AVOID_REPLICAS_OF_INDIVIDUALS = false; /*SUSHI: Prevent multiple copies of individuals*/
+
+	/** Constant <code>NO_CHANGE_ITERATIONS_BEFORE_RESET=""</code> */
+	@Parameter(key = "no_change_iterations_before_reset", group = "SUSHI", description = "If no individual changes for these iterations, keep elite and reset the population (0 means never-reset ")
+	public static int NO_CHANGE_ITERATIONS_BEFORE_RESET = 0; /*SUSHI: Reset*/
+
 	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 	

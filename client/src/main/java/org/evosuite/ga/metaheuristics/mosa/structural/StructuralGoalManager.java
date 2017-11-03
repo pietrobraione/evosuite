@@ -7,10 +7,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.evosuite.Properties;
+import org.evosuite.TestSuiteGenerator;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.rmi.service.ClientState;
+import org.evosuite.testcase.ConstantInliner;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.utils.LoggingUtils;
+
+import junit.framework.TestSuite;
 
 public abstract class StructuralGoalManager<T extends Chromosome> {
 
@@ -104,6 +118,10 @@ public abstract class StructuralGoalManager<T extends Chromosome> {
 
 	public Set<T> getArchive(){
 		return this.archive.keySet();
+	}
+
+	public void restoreInstrumentationForAllGoals() { //GIO: TODO
+		//Default behavior: do nothing
 	}
 
 }

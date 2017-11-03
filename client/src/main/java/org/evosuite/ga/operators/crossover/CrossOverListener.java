@@ -11,6 +11,5 @@ public interface CrossOverListener extends SearchListener {
 
 	public void crossOverException(Chromosome parent1, Chromosome parent2);
 
-	public void newEvolveStep();
-
+	public void inNextGeneration(Chromosome chromosome);
 }

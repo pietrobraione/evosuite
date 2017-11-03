@@ -71,19 +71,6 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 		}
 	}
 	
-	public void notifyNewEvolveStep() {
-		for (CrossOverListener listener : crossOverListeners) {
-			try {
-				listener.newEvolveStep();
-			} catch (Exception e) {
-				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
-						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
-			}
-		}		
-	}
-
-
 	// the actual implementation of CrossOver
 	protected abstract void doCrossOver(Chromosome parent1, Chromosome parent2)  throws ConstructionFailedException;
 
@@ -119,7 +106,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 			} catch (Exception e) {
 				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
 						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
 			}
 		}
 	}
@@ -132,7 +119,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 			} catch (Exception e) {
 				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
 						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
 			}
 		}
 	}
@@ -145,7 +132,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 			} catch (Exception e) {
 				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
 						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
 			}
 		}
 	}
@@ -158,7 +145,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 			} catch (Exception e) {
 				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
 						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
 			}
 		}
 	}
@@ -171,7 +158,19 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 			} catch (Exception e) {
 				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
 						"\n\t failed because of: " + e.getCause() + 
-						"\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace()));
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
+			}
+		}
+	}
+
+	public void inNextGeneration(Chromosome individual) {
+		for (CrossOverListener listener : crossOverListeners) {
+			try {
+				listener.inNextGeneration(individual);
+			} catch (Exception e) {
+				LoggingUtils.getEvoLogger().info("Exception from CrossOverListener : " + listener +
+						"\n\t failed because of: " + e.getCause() + 
+						"\n\t stack trace is " + Arrays.toString(e.getStackTrace()));
 			}
 		}
 	}

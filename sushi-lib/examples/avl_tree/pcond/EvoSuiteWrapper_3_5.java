@@ -1,3 +1,4 @@
+package avl_tree.pcond;
 import static sushi.compile.path_condition_distance.DistanceBySimilarityWithPathCondition.distance;
 
 import static java.lang.Double.*;
@@ -11,13 +12,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class EvoSuiteWrapper_0_1 {
+public class EvoSuiteWrapper_3_5 {
     private static final double SMALL_DISTANCE = 1;
     private static final double BIG_DISTANCE = 1E300;
 
 
     public double test0(avl_tree.AvlTree __ROOT_this) throws Exception {
-        //generated for state .1.2[3]
+        //generated for state .1.2[12]
         final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();
         ValueCalculator valueCalculator;
         // {R0} == Object[0] (fresh)

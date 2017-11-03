@@ -47,7 +47,7 @@ public class MethodSequencesCrossOver extends SushiCrossOver { /*SUSHI: Crossove
 	
 	private final CrossOverFunction cutpointsCrossOverFunction;
 	
-	private final MinimizeGoodOffspringsCrossOverStrategy minimizeStrategy = new MinimizeGoodOffspringsCrossOverStrategy();
+	private final MinimizeGoodOffspringsCrossOverStrategy minimizeStrategy = new MinimizeGoodOffspringsCrossOverStrategy("MethodSeqMinimizer");
 	private final SuccessCountCrossOverStrategy successCountStrategy = new SuccessCountCrossOverStrategy(getClass().getName());
 
 	public MethodSequencesCrossOver(CrossOverFunction crossover_function) {
@@ -75,8 +75,6 @@ public class MethodSequencesCrossOver extends SushiCrossOver { /*SUSHI: Crossove
 
 		cutpointsCrossOverFunction.crossOver(parent1Boxed, parent2Boxed); //will eventually reach TestChromosomeWithSequencePreservingCrossover.crossover
 
-		parent1 = parent1Boxed.getEmbeddedTestChromosome();
-		parent2 = parent2Boxed.getEmbeddedTestChromosome();
 	}
 	
 
@@ -87,6 +85,13 @@ public class MethodSequencesCrossOver extends SushiCrossOver { /*SUSHI: Crossove
 			super(embeddedTestChromosome);
 		}
 		
+		
+		@Override
+		public void crossOver(Chromosome other, int position) throws ConstructionFailedException {
+			crossOver(other, position, position);
+		}
+
+
 		@Override
 		public void crossOver(Chromosome other, int position1, int position2)
 				throws ConstructionFailedException {

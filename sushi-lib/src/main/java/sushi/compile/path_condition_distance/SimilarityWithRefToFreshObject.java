@@ -68,7 +68,7 @@ public class SimilarityWithRefToFreshObject extends SimilarityWithRef {
 			similarity += InverseDistances.inverseDistanceExp(packageDistance, samePackageSimilarity);
 			if (packageDistance == 0) {
 				logger.debug("The packages are the same");
-				double classNameDistance = LevenshteinDistance.calculateDistance(classNameTarget, classNameCandidate);
+				int classNameDistance = PrefixDistance/*LevenshteinDistance*/.calculateDistance(classNameTarget, classNameCandidate);
 				similarity += InverseDistances.inverseDistanceExp(classNameDistance, sameClassSimilarity);
 			}
 		}

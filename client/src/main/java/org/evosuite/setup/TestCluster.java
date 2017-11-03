@@ -161,7 +161,7 @@ public class TestCluster {
 
 		removeOnlySelfGenerator();
 
-		removeDirectCycle();
+		//removeDirectCycle(); //GIO: TODO: This should be a bug fix, but I need to check better
 		
 		generatorCache.clear();
 	}

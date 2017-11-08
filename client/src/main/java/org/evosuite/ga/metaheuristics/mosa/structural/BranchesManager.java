@@ -71,15 +71,17 @@ public class BranchesManager<T extends Chromosome> extends StructuralGoalManager
 
 	public void calculateFitness(T c){
 		// run the test
-		TestCase test = ((TestChromosome) c).getTestCase();
-		ExecutionResult result = TestCaseExecutor.runTest(test);
-		((TestChromosome) c).setLastExecutionResult(result);
-		c.setChanged(false);
-		
-		if (result.hasTimeout() || result.hasTestException()){
-			for (FitnessFunction<T> f : currentGoals)
+		if (c.isChanged()){
+			TestCase test = ((TestChromosome) c).getTestCase();
+			ExecutionResult result = TestCaseExecutor.runTest(test);
+			((TestChromosome) c).setLastExecutionResult(result);
+			c.setChanged(false);
+
+			if (result.hasTimeout() || result.hasTestException()){
+				for (FitnessFunction<T> f : currentGoals)
 					c.setFitness(f, Double.MAX_VALUE);
-			return;
+				return;
+			}
 		}
 
 		// 1) we update the set of currents goals
@@ -89,12 +91,12 @@ public class BranchesManager<T extends Chromosome> extends StructuralGoalManager
 
 		while (targets.size()>0){
 			FitnessFunction<T> fitnessFunction = targets.poll();
-			
+
 			int past_size = visitedStatements.size();
 			visitedStatements.add(fitnessFunction);
 			if (past_size == visitedStatements.size())
 				continue;
-			
+
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
 				updateCoveredGoals(fitnessFunction, c);
@@ -107,6 +109,7 @@ public class BranchesManager<T extends Chromosome> extends StructuralGoalManager
 		}
 		currentGoals.removeAll(coveredGoals.keySet());
 		// 2) we update the archive
+		ExecutionResult result = ((TestChromosome) c).getLastExecutionResult();
 		for (Integer branchid : result.getTrace().getCoveredFalseBranches()){
 			FitnessFunction<T> branch = this.branchCoverageFalseMap.get(branchid);
 			if (branch == null)

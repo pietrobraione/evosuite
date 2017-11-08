@@ -17,6 +17,7 @@ import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StatementManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StrongMutationsManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StructuralGoalManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.SushiManager;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -140,6 +141,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		fits += " from it " + c.getAge();
 		LoggingUtils.getEvoLogger().info("* id = {}, fits = {}", System.identityHashCode(c), fits, c.getFitness());			
 	}
+	
 	private boolean handleReset(boolean changed) { /*SUSHI: Reset*/
 		if (changed) unchangedPopulationIterations = 0;
 		else unchangedPopulationIterations++;
@@ -239,14 +241,16 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	public void generateSolution() {
 		logger.info("executing generateSolution function");
 
-		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)){
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH) && Properties.CRITERION.length==1){
 			goalsManager = new BranchesManager<T>(fitnessFunctions);
-		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)){
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT) && Properties.CRITERION.length==1){
 			goalsManager = new StatementManager<T>(fitnessFunctions);
-		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)){
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION) && Properties.CRITERION.length==1){
 			goalsManager = new StrongMutationsManager<T>(fitnessFunctions);
-		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION) && Properties.CRITERION.length==1){
 			goalsManager = new PathConditionManager<T>(fitnessFunctions);
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION) && ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)){
+			goalsManager = new SushiManager<T>(fitnessFunctions);
 		}
 
 		LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());

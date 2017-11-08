@@ -45,15 +45,17 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 	@Override
 	public void calculateFitness(T c){
 		// run the test
-		TestCase test = ((TestChromosome) c).getTestCase();
-		ExecutionResult result = TestCaseExecutor.runTest(test);
-		((TestChromosome) c).setLastExecutionResult(result);
-		c.setChanged(false);
-		
-		if (result.hasTimeout() || result.hasTestException()){
-			for (FitnessFunction<T> f : currentGoals)
+		if (c.isChanged()){
+			TestCase test = ((TestChromosome) c).getTestCase();
+			ExecutionResult result = TestCaseExecutor.runTest(test);
+			((TestChromosome) c).setLastExecutionResult(result);
+			c.setChanged(false);
+			
+			if (result.hasTimeout() || result.hasTestException()){
+				for (FitnessFunction<T> f : currentGoals)
 					c.setFitness(f, Double.MAX_VALUE);
-			return;
+				return;
+			}
 		}
 
 		// We update the archive and the set of currents goals
@@ -65,18 +67,18 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
 				updateCoveredGoals(fitnessFunction, c);
-				
+
 				if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
 					emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
 				}
-				
+
 				if (fitnessFunction instanceof PathConditionCoverageGoalFitness) {
 					ExecutionTracer.removeEvaluatorForPathCondition(((PathConditionCoverageGoalFitness) fitnessFunction).getPathConditionGoal());
 				}
 			}
 		}
 	}
-	
+
 	@Override
 	public void restoreInstrumentationForAllGoals() {
 		if (!Properties.EMIT_TESTS_INCREMENTALLY) {
@@ -90,14 +92,14 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			Properties.JUNIT_TESTS = false;
 		}
 	}
-	
-	
+
+
 	/*SUSHI: Incremental test cases*/
 	private void emitTestCase(PathConditionCoverageGoalFitness goal, TestChromosome tc) {
 		if (Properties.JUNIT_TESTS) {
-						
+
 			TestChromosome tcToWrite = (TestChromosome) tc.clone();
-			
+
 			if (Properties.MINIMIZE) {
 				TestCaseMinimizer minimizer = new TestCaseMinimizer(goal);
 				minimizer.minimize(tcToWrite);
@@ -107,17 +109,17 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 				ConstantInliner inliner = new ConstantInliner();
 				inliner.inline(tcToWrite.getTestCase());
 			}
-			
+
 			//writing the output
-				
+
 			TestSuiteWriter suiteWriter = new TestSuiteWriter();
 			suiteWriter.insertTest(tcToWrite.getTestCase(), "Covered goal: " + goal.toString());
-			
+
 			String evaluatorName = goal.getEvaluatorName().substring(goal.getEvaluatorName().lastIndexOf('.') + 1);
 			String suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
 			String testName = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + suffix;
 			String testDir = Properties.TEST_DIR;
-			
+
 			suiteWriter.writeTestSuite(testName, testDir, new ArrayList());
 
 			LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE: " + goal.getEvaluatorName() + ", " + testName);

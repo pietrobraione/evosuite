@@ -120,14 +120,22 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		}
 
 		currentIteration++;
+		
+		// Console output each 10 iterations
 		if (currentIteration % 10 == 0) {
-		LoggingUtils.getEvoLogger().info("ITERATION: {}", currentIteration);
-		//LoggingUtils.getEvoLogger().info("Population size= {}", population.size());
-		//LoggingUtils.getEvoLogger().info("N. fronts = {}", ranking.getNumberOfSubfronts());
-		//LoggingUtils.getEvoLogger().info("1* front size = {}", ranking.getSubfront(0).size());
-		LoggingUtils.getEvoLogger().info("Covered goals = {}", goalsManager.getCoveredGoals().size());
-		LoggingUtils.getEvoLogger().info("Current goals = {}", goalsManager.getCurrentGoals().size());
-		//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
+			LoggingUtils.getEvoLogger().info("\n***ITERATION: {}", currentIteration);
+			//LoggingUtils.getEvoLogger().info("Population size= {}", population.size());
+			//LoggingUtils.getEvoLogger().info("N. fronts = {}", ranking.getNumberOfSubfronts());
+			LoggingUtils.getEvoLogger().info("* Covered goals = {}", goalsManager.getCoveredGoals().size());
+			LoggingUtils.getEvoLogger().info("* Current goals = {}", goalsManager.getCurrentGoals().size());
+			//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
+			LoggingUtils.getEvoLogger().info("* 1st front size = {}", ranking.getSubfront(0).size());
+
+			LoggingUtils.getEvoLogger().info("* {} no change iterations,  {} resets, {} good offsprings ({} mutation only)", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
+			LoggingUtils.getEvoLogger().info("* Top front includes {} individuals:", ranking.getSubfront(0).size());
+			for (T c : ranking.getSubfront(0)) {
+				printInfo(c);			
+			}
 		}
 	}
 
@@ -135,11 +143,12 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	private void printInfo(T c) {
 		String fits = "";
 		for (FitnessFunction<T> g : goalsManager.getCurrentGoals()) {
-			fits += ((PathConditionCoverageGoalFitness) g).getPathConditionId();
+			if (!(g instanceof PathConditionCoverageGoalFitness)) continue;
+			fits += "Pc" + ((PathConditionCoverageGoalFitness) g).getPathConditionId();
 			fits += "=" + g.getFitness(c) + ",";
 		} 
 		fits += " from it " + c.getAge();
-		LoggingUtils.getEvoLogger().info("* id = {}, fits = {}", System.identityHashCode(c), fits, c.getFitness());			
+		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}", System.identityHashCode(c), fits, c.getFitness());			
 	}
 	
 	private boolean handleReset(boolean changed) { /*SUSHI: Reset*/
@@ -150,14 +159,6 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			return false; // search finished
 		}
 
-		// Console output each 10 iterations
-		if (currentIteration % 10 == 0) {
-			LoggingUtils.getEvoLogger().info("\n***{} no change iterations,  {} resets, {} good offsprings ({} mutation only), best fits:", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
-			for (T c : ranking.getSubfront(0)) {
-				printInfo(c);			
-			}
-		}
-		
 		if (unchangedPopulationIterations >  Properties.NO_CHANGE_ITERATIONS_BEFORE_RESET) {
 			long time = System.currentTimeMillis();
 			

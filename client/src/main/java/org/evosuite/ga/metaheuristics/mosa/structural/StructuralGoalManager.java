@@ -97,9 +97,13 @@ public abstract class StructuralGoalManager<T extends Chromosome> {
 			if (size < bestSize && size > 1){
 				toArchive = true;
 				coveredGoals.put(f, tc);
+				try {
 				archive.get(best).remove(f);
 				if (archive.get(best).size() == 0)
 					archive.remove(best);
+				} catch (NullPointerException e) {
+					e.printStackTrace(); //TODO: Giovanni: apparently archive.get(best) returns null although (I debugged that) best is a the key in the map. Problem with the method hashcode?
+				}
 			}
 		}
 

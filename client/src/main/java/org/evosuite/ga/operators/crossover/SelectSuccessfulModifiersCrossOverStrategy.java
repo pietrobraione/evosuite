@@ -129,10 +129,12 @@ public class SelectSuccessfulModifiersCrossOverStrategy implements CrossOverList
 		
 		for (FitnessFunction<?> g: goals) {
 			Double individualFitness = individual.getFitnessValues().get(g);
-			if (individualFitness == null) throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
+			if (individualFitness == null) {
+				continue; // some goals may still be beyond the current frontier of DynaMosa
+				//throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
+			}
 			Double parentFitness = initialFitness.get(g);
-			if (parentFitness == null) throw new RuntimeException("parent misses a fitness value for: " + g);
-			if (individualFitness < parentFitness) {
+			if (parentFitness == null || individualFitness < parentFitness) { //NB: parentFitness==null implies that the individual reaches a new goal, beyond of the parent's frontier
 				//offspring improves over parent for at least a goal
 				storeSuccessfulModifiersForLS(candidates);
 				break;

@@ -1,12 +1,13 @@
 package org.evosuite.ga.metaheuristics.mosa.structural;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
-import org.evosuite.coverage.pathcondition.PathConditionCoverageTestFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 			}
 		}
 		branchManager = new BranchesManager<>(branches);
-		pathConditionManager = new PathConditionManager<>(pathConditions);
+		pathConditionManager = new PathConditionManager<>(pathConditions, branches);
 		
 		logger.debug("N. of Uncovered Branches = {}", branchManager.getUncoveredGoals().size());
 		logger.debug("N. of Uncovered PathCondition = {}", pathConditionManager.getUncoveredGoals().size());
@@ -48,9 +49,12 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 
 	@Override
 	public void calculateFitness(T c) {
+
+
 		// let's calculate the fitness values for branches
 		branchManager.calculateFitness(c);
 		// let's calculate the fitness values for the path conditions
+		pathConditionManager.pruneByCoveredBranches(branchManager.coveredGoals); //prune path conditions that relate only to already covered branches
 		pathConditionManager.calculateFitness(c);
 		
 		this.coveredGoals.clear();

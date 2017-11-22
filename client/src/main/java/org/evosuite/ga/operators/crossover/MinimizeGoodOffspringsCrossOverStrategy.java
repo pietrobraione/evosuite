@@ -68,7 +68,10 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 		
 		for (TestFitnessFunction g :	 goals) {
 			Double individualFitness = individual.getFitnessValues().get(g);
-			if (individualFitness == null) throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
+			if (individualFitness == null) {
+				continue; // some goals may still be beyond the current frontier of DynaMosa
+				//throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
+			}
 			improvedGoals.put(g, individualFitness);
 		}
 		

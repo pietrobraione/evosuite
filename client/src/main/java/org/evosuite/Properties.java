@@ -1518,6 +1518,10 @@ public class Properties {
 	}
 
 	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
+	@Parameter(key = "path_condition_branch_coverage_info", group = "SUSHI", description = "When using path condition fitness in conjunction with branch fitness function, we may optionally provide the files with the branch coverage information (in SUSHI format, i.e., ) for the path conditions. The parameter must include two file names \"<tracesFileName>:<branchesFileName>\"")
+	public static String[] PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES = null; /*SUSHI: Combining path condition and branch targets */
+
+	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
 	@Parameter(key = "path_condition_target", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured only with reference to first/last/best time that the test case calls the target method. If set to best (default), the fitness corresponds to the minimum fitness measured across all calls in the test case.")
 	public static PathConditionTarget PATH_CONDITION_TARGET = PathConditionTarget.BEST; /*SUSHI: Path condition fitness*/
 

@@ -93,8 +93,9 @@ public class ConstantPoolManager {
 
 	public void addSUTConstant(Object value) {
 		if (!(value instanceof String) || 
-				!ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.PATHCONDITION) ||
-				!((String) value).startsWith("{ROOT}")) {
+				!(ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.PATHCONDITION) || /*SUSHI: Path condition fitness*/
+						ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.PATHCONDITION))  /*SUSHI: Aiding path conditions*/
+				|| !((String) value).startsWith("{ROOT}")) { 
 			pools[0].add(value);
 		}
 	}

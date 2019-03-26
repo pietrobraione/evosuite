@@ -129,7 +129,9 @@ public class FitnessFunctions {
 		case TRYCATCH:
 			return new TryCatchCoverageSuiteFitness();
 		case PATHCONDITION:
-			return new PathConditionCoverageFactory().getPathConditionCoverageSuiteFitness();  /*SUSHI: Path condition fitness*/
+			return PathConditionCoverageFactory._I().getPathConditionCoverageSuiteFitness();  /*SUSHI: Path condition fitness*/
+		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
+			return new BranchCoverageSuiteFitness(); /*SUSHI: Aiding path conditions*/
 		default:
 			logger.warn("No TestSuiteFitnessFunction defined for " + Properties.CRITERION
 			        + " using default one (BranchCoverageSuiteFitness)");
@@ -193,7 +195,9 @@ public class FitnessFunctions {
 		case TRYCATCH:
 			return new TryCatchCoverageFactory();
 		case PATHCONDITION:
-			return new PathConditionCoverageFactory();  /*SUSHI: Path condition fitness*/
+			return PathConditionCoverageFactory._I();  /*SUSHI: Path condition fitness*/
+		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
+			return new BranchCoverageFactory();  /*SUSHI: Aiding path conditions*/
 		default:
 			logger.warn("No TestFitnessFactory defined for " + crit
 			        + " using default one (BranchCoverageFactory)");

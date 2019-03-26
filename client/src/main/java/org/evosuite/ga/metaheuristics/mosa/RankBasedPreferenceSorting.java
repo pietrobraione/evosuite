@@ -95,13 +95,21 @@ public class RankBasedPreferenceSorting<T extends Chromosome> implements Ranking
 			PreferenceSortingComparator<T> comp = new PreferenceSortingComparator<T>(f);
 
 			T best = null;
+			boolean allSame = true; /*TODO: GIO */
 			for (T test : solutionSet){
 				int flag = comp.compare(test, best);
+
+				if (best != null && flag == -1) {
+					allSame = false;
+				}
+				
 				if (flag == -1 || (flag == 0  && Randomness.nextBoolean())){
 					best = test;
 				} 
 			}
-			zero_front.add(best);
+			if (!allSame) {
+				zero_front.add(best);
+			}
 		}
 		List<T> list = new ArrayList<T>(zero_front.size());
 		list.addAll(zero_front);

@@ -22,14 +22,13 @@
  */
 package org.evosuite.instrumentation.coverage;
 
-
-import java.util.List;
-
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -38,7 +37,6 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -78,7 +76,13 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		if (mn.name.equals("<init>")) {
 			return; //TODO: shall we cope with path conditions of constructors?
 		}
-
+		
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+			if (!(className.startsWith(Properties.TARGET_CLASS))) {
+				return;
+			}
+		}
+		
 		AbstractInsnNode firstInstr = mn.instructions.getFirst();
 		for (BytecodeInstruction v : completeCFG.vertexSet()) {
 			if (firstInstr.equals(v.getASMNode())) {
@@ -119,7 +123,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		instrumentation.add(new LdcInsnNode(methodName));
 				
 		//count parameters out of the signature
-		int numOfParams = 0;
+		/*int numOfParams = 0;
 		String sig = mn.desc;
 		sig = sig.substring(1, sig.lastIndexOf(')'));
 		if (sig.contains("["))
@@ -134,9 +138,13 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 		if ((mn.access & Opcodes.ACC_STATIC) <= 0) { //non static: receiver object is part of parameters
 			numOfParams++;
-		}
+		}*/
 		
-		addArrayOfParams(numOfParams, mn.localVariables, instrumentation);
+		try {
+			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0);
+		} catch(IllegalStateException e) {
+			throw new IllegalStateException("Method " + className + "." + mn.name + ":" + e.getMessage());
+		}
 		
 		instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
 				EXECUTION_TRACER, "passedMethodCall", "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", false));
@@ -145,60 +153,104 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		return instrumentation;
 	}
 
-	private void addArrayOfParams(int paramLength, List<LocalVariableNode> paramList, InsnList instrumentation) {
-	    // Create array with length equal to paramLength
-	    instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramLength));
-	    instrumentation.add(new TypeInsnNode(Opcodes.ANEWARRAY, "java/lang/Object"));
+	/*private LocalVariableNode getVariableByIndex(List<LocalVariableNode> paramList, int varIndex) {
+		List<LocalVariableNode> toSort = new ArrayList<>();
+		for (LocalVariableNode var : paramList) {
+			toSort.add(var);
+			/*if (var.index == varIndex) {
+				return var;
+			}* /
+		}
+		
+		Collections.sort(toSort, new Comparator<LocalVariableNode>() {
+			@Override
+			public int compare(LocalVariableNode o1, LocalVariableNode o2) {
+				if (o1.index < o2.index) return -1;
+				else if (o1.index == o2.index) return 0;
+				else return 1;
+			}
+		});
+		
+		try {
+			return toSort.get(varIndex);
+		} catch(Exception e) {
+			String msg = "";
+			for (LocalVariableNode var : paramList) {
+				msg += " var " + var.name + "(index is " + var.index + ")";
+			}
+			throw new IllegalStateException("error instrumenting node "
+				+ "MISS" + " since no local var has index " + varIndex + " that should corresponds to an input parameter: " + msg + ", cause is: " + e);
+		}
+	}*/
 
-	    // Fill the created array with method parameters
-	    for (int paramIndex = 0, paramByteCodeIndex = 0; paramIndex < paramLength; paramIndex++, paramByteCodeIndex++)  {
-	    	instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
-	    	instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
+	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic) {
 
-	    	LocalVariableNode p  = paramList.get(paramIndex);
+		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: both L and [ refer to non primitive params
+		int nextParamInDescriptor = 1;
+		while (methodDescr.charAt(nextParamInDescriptor) != ')') {
+			char paramType = methodDescr.charAt(nextParamInDescriptor++);
+			simplifiedDescriptor += paramType;
+			
+			if (paramType == '[' && methodDescr.charAt(nextParamInDescriptor) != 'L') {
+				++nextParamInDescriptor;
+			} else if (paramType == 'L' || (paramType == '[' &&  methodDescr.charAt(nextParamInDescriptor) == 'L')) {
+				nextParamInDescriptor = methodDescr.indexOf(';', nextParamInDescriptor) + 1;
+			}		
+		}
 
-	        if (p.desc.equals(Type.BOOLEAN_TYPE.getDescriptor())) {
-	        	instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
-	        }
-	        else if (p.desc.equals(Type.BYTE_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;"));
-	        }
-	        else if (p.desc.equals(Type.CHAR_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;"));
-	        }
-	        else if (p.desc.equals(Type.SHORT_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;"));
-	        }
-	        else if (p.desc.equals(Type.INT_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;"));
-	        }
-	        else if (p.desc.equals(Type.LONG_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.LLOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;"));
-	            paramByteCodeIndex++;
-	        }
-	        else if (p.desc.equals(Type.FLOAT_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.FLOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;"));
-	        }
-	        else if (p.desc.equals(Type.DOUBLE_TYPE.getDescriptor())) {
-	            instrumentation.add(new VarInsnNode(Opcodes.DLOAD, paramByteCodeIndex));
-	            instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;"));
-	            paramByteCodeIndex++;
-	        }
-	        else
-	            instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramByteCodeIndex));
+		// Create array with length equal to paramLength 
+		instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, simplifiedDescriptor.length()));
+		instrumentation.add(new TypeInsnNode(Opcodes.ANEWARRAY, "java/lang/Object"));
 
-	        instrumentation.add(new InsnNode(Opcodes.AASTORE));
-	    }
+		// Fill the created array with method parameters
+		for (int paramIndex = 0, paramByteCodeIndex = 0; paramIndex < simplifiedDescriptor.length(); paramIndex++, paramByteCodeIndex++)  {
+			char paramType = simplifiedDescriptor.charAt(paramIndex);
+
+			instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
+			instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
+
+			if (paramType == 'Z') {
+				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
+			}
+			else if (paramType == 'B') {
+				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;"));
+			}
+			else if (paramType == 'C') {
+				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;"));
+			}
+			else if (paramType == 'S') {
+				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;"));
+			}
+			else if (paramType == 'I') {
+				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;"));
+			}
+			else if (paramType == 'J') {
+				instrumentation.add(new VarInsnNode(Opcodes.LLOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;"));
+				paramByteCodeIndex++;
+			}
+			else if (paramType == 'F') {
+				instrumentation.add(new VarInsnNode(Opcodes.FLOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;"));
+			}
+			else if (paramType == 'D') {
+				instrumentation.add(new VarInsnNode(Opcodes.DLOAD, paramByteCodeIndex));
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;"));
+				paramByteCodeIndex++;
+			}
+			else
+				instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramByteCodeIndex));
+
+			instrumentation.add(new InsnNode(Opcodes.AASTORE));
+		}
+
 	}
-	
-	
+
 	/*
 	 * (non-Javadoc)
 	 *

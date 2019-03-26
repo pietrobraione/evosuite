@@ -124,7 +124,7 @@ public abstract class StructuralGoalManager<T extends Chromosome> {
 		return this.archive.keySet();
 	}
 
-	public void restoreInstrumentationForAllGoals() { //GIO: TODO
+	public void restoreInstrumentationForAllGoals() {
 		//Default behavior: do nothing
 	}
 

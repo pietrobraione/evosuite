@@ -21,11 +21,14 @@ package org.evosuite.instrumentation;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.List;
 
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
+import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEBytecodeRelocationRegistry;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
 import org.evosuite.instrumentation.error.ErrorConditionClassAdapter;
 import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation;
@@ -39,11 +42,14 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,6 +194,22 @@ public class BytecodeInstrumentation {
 			cv = new LoopCounterClassAdapter(cv);
 		}
 
+		/* GIO: the following 2 transformations were originally coded after
+		 * the block "if (DependencyAnalysis.shouldAnalyze(classNameWithDots)"
+		 * (see commented lines below).
+		 * I moved them before that block, because otherwise they pollute the 
+		 * computation of the bytecode offsets of the branches that EvoSuite instruments, 
+		 * in contrast with the bytecode offsets as sees in JBSE (even if I compute 
+		 * relocations for the testability transformations (see below).
+		 */
+		// Collect constant values for the value pool
+		cv = new PrimitiveClassAdapter(cv, className);
+
+		// Mock instrumentation (eg File and TCP).
+		if (TestSuiteWriterUtils.needToUseAgent()) {
+			cv = new MethodCallReplacementClassAdapter(cv, className);
+		}
+
 		// Apply transformations to class under test and its owned classes
 		if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
 			logger.debug("Applying target transformation to class " + classNameWithDots);
@@ -225,16 +247,16 @@ public class BytecodeInstrumentation {
 		}
 
 		// Collect constant values for the value pool
-		cv = new PrimitiveClassAdapter(cv, className);
+		//cv = new PrimitiveClassAdapter(cv, className);
 
 		if (Properties.RESET_STATIC_FIELDS) {
 			cv = handleStaticReset(className, cv);
 		}
 
 		// Mock instrumentation (eg File and TCP).
-		if (TestSuiteWriterUtils.needToUseAgent()) {
-			cv = new MethodCallReplacementClassAdapter(cv, className);
-		}
+		//if (TestSuiteWriterUtils.needToUseAgent()) {
+		//	cv = new MethodCallReplacementClassAdapter(cv, className);
+		//}
 
 		// Testability Transformations
 		if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)
@@ -246,6 +268,20 @@ public class BytecodeInstrumentation {
 			reader.accept(cn, readFlags);
 			logger.info("Starting transformation of " + className);
 
+			/*SUSHI: Aiding path conditions */
+			boolean notifyBytecodeRelocationToJBSERunner = ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS) &&
+					JBSEBytecodeRelocationRegistry._I().wannaCollectBytecodeRelocation(cn.name);
+			InsnList[] savedImsns = null;
+			if (notifyBytecodeRelocationToJBSERunner) {
+				List<MethodNode> methodNodes = cn.methods;
+				savedImsns = new InsnList[methodNodes.size()];
+				int i = 0;
+				for (MethodNode mn : methodNodes) {
+					savedImsns[i++] = mn.instructions;
+					mn.instructions = new JBSEBytecodeRelocationRegistry.InsnListDecorator(cn.name, mn.name + mn.desc, mn.instructions); 
+				}
+			}
+	
 			if (Properties.STRING_REPLACEMENT) {
 				StringTransformation st = new StringTransformation(cn);
 				if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots))
@@ -270,6 +306,24 @@ public class BytecodeInstrumentation {
 				}
 				logger.info("Testability Transformation done: " + className);
 			}
+			
+			if (notifyBytecodeRelocationToJBSERunner) {
+				JBSEBytecodeRelocationRegistry._I().notifyEndOfTransformations(cn.name);
+
+				// revert to remove notifiers
+				List<MethodNode> methodNodes = cn.methods;
+				int i = 0;
+				for (MethodNode mn : methodNodes) {
+					mn.instructions = savedImsns[i++];
+				}
+				if (JBSEBytecodeRelocationRegistry._I().wannaLogInstrumentedBytecodeClassFiles()) {
+					ClassWriter writer0 = new ComputeClassWriter(asmFlags);
+					ClassVisitor cv0 = writer0;
+					cn.accept(cv0);
+					JBSEBytecodeRelocationRegistry._I().logRelocatedBytecodeClassFile(cn.name, writer0.toByteArray());
+				}
+
+			}
 
 			// -----
 			cn.accept(cv);
@@ -282,7 +336,13 @@ public class BytecodeInstrumentation {
 			reader.accept(cv, readFlags);
 		}
 
-		return writer.toByteArray();
+		byte[] clazz = writer.toByteArray(); 
+		
+		/*if (JBSEBytecodeRelocationRegistry._I().wannaLogInstrumentedBytecodeClassFiles()) { //GIO
+			JBSEBytecodeRelocationRegistry._I().logRelocatedBytecodeClassFile(classNameWithDots, clazz);
+		}*/
+
+		return clazz;
 	}
 
 	private byte[] handleCarving(String className, ClassWriter writer) {

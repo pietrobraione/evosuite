@@ -25,19 +25,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
-import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.FitnessFunction;
-import org.evosuite.testcase.TestChromosome;
+import org.evosuite.coverage.pathcondition.PathConditionTraversedBranch.NeverTraversedException;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -56,8 +51,31 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 
 	private static final Logger logger = LoggerFactory.getLogger(PathConditionCoverageFactory.class);
 
-	private static List<PathConditionCoverageGoalFitness> coverageGoals = null; //path conditions with branch coverage information
-	private static Map<PathConditionCoverageGoalFitness, Set<PathConditionTraversedBranch>> branchCovInfo = new HashMap<>(); //path conditions with branch coverage information
+	private Map<PathConditionCoverageGoalFitness, Set<BranchCoverageGoal>> coverageGoals  = new HashMap<>(); //path conditions with branch coverage information
+	private Map<PathConditionTraversedBranch, BranchCoverageGoal> searchRelevantBranchesAllFormats = null; //
+
+	private static PathConditionCoverageFactory _I = null; /* the singleton instance */
+	
+	public static PathConditionCoverageFactory _I() {
+		if (_I == null) {
+			_I = new PathConditionCoverageFactory();
+		}
+		return _I;
+	}
+	
+	private PathConditionCoverageFactory() {
+		super();
+		long start = System.currentTimeMillis();
+		int id = 0;
+		for (String pathCondition : Properties.PATH_CONDITION) {
+			String parts[] = Properties.pathConditionSplitClassMethodEvaluator(pathCondition);
+			PathConditionCoverageGoalFitness goal = createPathConditionCoverageTestFitness(id, parts[0], parts[1], parts[2]);
+			coverageGoals.put(goal, new HashSet<>());
+			id++;
+		}
+		goalComputationTime = System.currentTimeMillis() - start;	
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -67,47 +85,54 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 	/** {@inheritDoc} */
 	@Override
 	public List<PathConditionCoverageGoalFitness> getCoverageGoals() {
-		if (coverageGoals == null) {
-			long start = System.currentTimeMillis();
-			coverageGoals = new LinkedList<>();
-
-			int id = 0;
-			for (String pathCondition : Properties.PATH_CONDITION) {
-				String parts[] = Properties.pathConditionSplitClassMethodEvaluator(pathCondition);
-				PathConditionCoverageGoalFitness goal = createPathConditionCoverageTestFitness(id, parts[0], parts[1], parts[2]);
-				coverageGoals.add(goal);
-				id++;
-
-				if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES != null) {
-					String coverageTracesFileName = "?", branchesFileName = "?";
+		return new LinkedList<>(coverageGoals.keySet());
+	}
+	
+	public Set<BranchCoverageGoal> getBranchCovInfo(PathConditionCoverageGoalFitness pc, List<BranchCoverageGoal> searchRelevantBranches) {
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO == null) {
+			return new HashSet<>(); 
+		}
+		
+		Set<BranchCoverageGoal> covInfo = coverageGoals.get(pc);
+				
+		if (covInfo != null && covInfo.isEmpty() && searchRelevantBranches != null) {
+			if (searchRelevantBranchesAllFormats == null) { /* search relevant branches are cached at the first invocation */
+				searchRelevantBranchesAllFormats = new HashMap<>(searchRelevantBranches.size());
+				for (BranchCoverageGoal b : searchRelevantBranches) {
 					try {
-						coverageTracesFileName = Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES[0];
-						branchesFileName = Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES[1];
-						Set<PathConditionTraversedBranch> branches = loadBranchCovInfo(goal.getPathConditionGoal().getEvaluatorName(), coverageTracesFileName, branchesFileName);
-						branchCovInfo.put(goal, branches);
-					} catch (Exception e) {
-						LoggingUtils.getEvoLogger().info("Bad coverage information for path condition " + goal + " in files " + coverageTracesFileName + ", " + branchesFileName + " - Exception is: " + Arrays.toString(e.getStackTrace()));
-						e.printStackTrace();
+						searchRelevantBranchesAllFormats.put(PathConditionTraversedBranch.makeFromOtherFormat(b), b);
+					} catch (NeverTraversedException e) {
+						/* ignore this objectives since path conditions will never traverse it */
 					}
 				}
 			}
 			
-
-			goalComputationTime = System.currentTimeMillis() - start;
-			
+			String coverageTracesFileName = null, branchesFileName = null;
+			try {				
+				coverageTracesFileName = Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO[0];
+				branchesFileName = Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO[1];	
+				Set<BranchCoverageGoal> branches = loadBranchCovInfo(pc.getPathConditionGoal().getEvaluatorName(), coverageTracesFileName, branchesFileName, searchRelevantBranchesAllFormats);
+				covInfo.addAll(branches);
+			} catch (Exception e) {
+				LoggingUtils.getEvoLogger().info("Bad coverage information for path condition " + pc + " in files " + coverageTracesFileName + ", " + branchesFileName + 
+						" - Exception is: " + Arrays.toString(e.getStackTrace()));
+			}
 		}
-		return coverageGoals;
+		
+		return covInfo;
 	}
+
 
 	/**
 	 * Returns the SUSHI trace identifier for a given path condition evaluator.
 	 * 
 	 * @param evaluatorName The name of a path condition evaluator file (possibly with paths).
+	 * @param searchRelevantBranchesAllFormats 
 	 * @return an {@code int[]} that will have always two members: The first is the number of the method, 
 	 *         the second is the number of the trace for that method.
 	 * @throws NumberFormatException if {@code evaluatorName} has not the right format.
 	 */
-	private Set<PathConditionTraversedBranch> loadBranchCovInfo(String evaluatorName, String coverageTracesFileName, String branchesFileName) throws IOException {
+	private Set<BranchCoverageGoal> loadBranchCovInfo(String evaluatorName, String coverageTracesFileName, String branchesFileName, Map<PathConditionTraversedBranch, BranchCoverageGoal> searchRelevantBranchesAllFormats) throws IOException {
 		
 		// Extract the trace id from the evaluator name
 		// - We assume that the evaluator name has shape path/to/file/EvosuiteWrapper_<methodNumber>_<traceNumber>.java
@@ -122,7 +147,7 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 			LoggingUtils.getEvoLogger().info("No coverage information for path condition " + evaluatorName + " in file " + coverageTracesFileName);
 		}
 		
-		final Set<PathConditionTraversedBranch> coverageInfo = loadTheBranchesOfTheTrace(coverageTrace, branchesFileName);
+		final Set<BranchCoverageGoal> coverageInfo = loadTheBranchesOfTheTrace(coverageTrace, branchesFileName, searchRelevantBranchesAllFormats);
 		
 		return coverageInfo;
 	}
@@ -167,6 +192,7 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 	 * @param coverageTrace an {@code int[]} containing all the identifying numbers of the branches covered by 
 	 *         some trace.
 	 * @param branchesFileName a {@link String}, a valid pathname to the branches file {@code branches.txt}.
+	 * @param searchRelevantBranchesAllFormats 
 	 * @return a {@link Set}{@code <}{@link PathConditionTraversedBranch}{@code >} whose members contain the information about
 	 *         the branches in {@code coverageTrace}.
 	 * @throws IOException if by some reason reading from the file fails (e.g., because the file 
@@ -174,9 +200,18 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 	 * @throws RuntimeException if {@code coverageTrace} contains a branch identifier that does not exist in the file 
 	 *         pointed by {@code branchesFileName}.
 	 */
-	private Set<PathConditionTraversedBranch> loadTheBranchesOfTheTrace(int[] coverageTrace, String branchesFileName) throws IOException {
-		final HashSet<PathConditionTraversedBranch> retVal = new HashSet<>();
+	private Set<BranchCoverageGoal> loadTheBranchesOfTheTrace(int[] coverageTrace, String branchesFileName, Map<PathConditionTraversedBranch, BranchCoverageGoal> searchRelevantBranchesAllFormats) throws IOException {
+		final HashSet<BranchCoverageGoal> retVal = new HashSet<>();
 		int nextBranchIndex = 0;
+		
+		List<PathConditionTraversedBranch> toDebug1 = new ArrayList<>();
+		List<PathConditionTraversedBranch> toDebug2 = new ArrayList<>();
+		for (PathConditionTraversedBranch br : searchRelevantBranchesAllFormats.keySet()) {
+			if (br.className.equals("com/google/javascript/jscomp/RemoveUnusedVars") && 
+					br.methodName.startsWith("traverseNode")) {
+				toDebug1.add(br);
+			}
+		}
 		
 reloadFile:
 		while (true) {
@@ -197,9 +232,21 @@ reloadFile:
 							final int bytecodeTo = Integer.parseInt(fields[4].trim());
 							b = PathConditionTraversedBranch.makeRealBranch(className, methodDescriptor, methodName, bytecodeFrom, bytecodeTo);
 						}
-						retVal.add(b);
+						if (b.className.equals("com/google/javascript/jscomp/RemoveUnusedVars") && 
+								b.methodName.startsWith("traverseNode")) {
+							toDebug2.add(b);
+						}
+
+						if (searchRelevantBranchesAllFormats.keySet().contains(b)) {
+							retVal.add(searchRelevantBranchesAllFormats.get(b));
+						}
 						++nextBranchIndex;
 						if (nextBranchIndex == coverageTrace.length) {
+							for (PathConditionTraversedBranch br : toDebug2) {
+								if (!toDebug1.contains(br)) {
+									System.out.println("CHECK");
+								}
+							}
 							return retVal;
 						}
 						//I'm not quite sure that a row in the branches.txt file always contains consecutive
@@ -239,38 +286,6 @@ reloadFile:
 	private PathConditionCoverageGoalFitness createPathConditionCoverageTestFitness(int pathConditionId, String className, String methodName, String evaluatorClassName) {
 
 		return new PathConditionCoverageGoalFitness(new PathConditionCoverageGoal(pathConditionId, className, methodName, evaluatorClassName));
-	}
-
-	public Set<BranchCoverageGoal> getBranchCovInfo(PathConditionCoverageGoalFitness pc, List<BranchCoverageGoal> relevantBranches) {
-		Set<BranchCoverageGoal> coveredBranches = new HashSet<>(relevantBranches.size());
-
-		Set<PathConditionTraversedBranch> covInfo = branchCovInfo.get(pc);
-		
-		for  (BranchCoverageGoal b : relevantBranches) { 
-			//temporary
-			for (PathConditionTraversedBranch cov : covInfo) {
-				if (!cov.className.equals(b.getClassName())) {
-					continue;
-				}
-				if (!cov.methodName.equals(b.getMethodName())) {
-					continue;
-				}
-				if (cov instanceof PathConditionTraversedBranch.RealBranch) {
-					PathConditionTraversedBranch.RealBranch cov1 = (PathConditionTraversedBranch.RealBranch) cov;
-					if (cov1.bytecodeFrom != b.getBranch().getInstruction().getBytecodeOffset()) {
-						continue;
-					}
-				}
-				coveredBranches.add(b);
-			}
-			
-			/*PathConditionTraversedBranch bConverted = PathConditionTraversedBranch.convertEvoSuiteBranchGoal(b);
-			if (covInfo.contains(bConverted)) {
-				coveredBranches.add(b);
-			}*/
-		}
-		
-		return coveredBranches;
 	}
 	
 }

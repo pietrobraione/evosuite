@@ -121,8 +121,11 @@ public class TestSuiteGeneratorHelper {
         LoggingUtils.getEvoLogger().info("  - Regression");
         break;
       case PATHCONDITION:
-    	  	LoggingUtils.getEvoLogger().info("  - Path Condition Coverage");  /*SUSHI: Path condition fitness*/
-    	  	break;
+  	  	LoggingUtils.getEvoLogger().info("  - Path Condition Coverage");  /*SUSHI: Path condition fitness*/
+  	  	break;
+      case BRANCH_WITH_AIDING_PATH_CONDITIONS:
+  	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand Path Conditions");  /*SUSHI: Aiding path conditions*/
+  	  	break;
       default:
         throw new IllegalArgumentException("Unrecognized criterion: " + criterion);
     }

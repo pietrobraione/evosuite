@@ -119,11 +119,11 @@ public class Properties {
 
 	/** Constant <code>RESET_STATIC_FIELDS =false</code> */
 	@Parameter(key = "reset_static_fields", group = "Test Creation", description = "Call static constructors only after each static field was modified")
-	public static boolean RESET_STATIC_FIELDS = true;
+	public static boolean RESET_STATIC_FIELDS = false;
 
 	/** Constant <code>RESET_STATIC_FINAL_FIELDS =false</code> */
 	@Parameter(key = "reset_static_final_fields", group = "Test Creation", description = "Remove the static modifier in target fields")
-	public static boolean RESET_STATIC_FINAL_FIELDS = true;
+	public static boolean RESET_STATIC_FINAL_FIELDS = false;
 	
 	@Parameter(key = "reset_static_field_gets", group = "Test Creation", description = "Call static constructors also after each static field was read")
 	public static boolean RESET_STATIC_FIELD_GETS = false;
@@ -1495,7 +1495,7 @@ public class Properties {
 		EXCEPTION, DEFUSE, ALLDEFS, BRANCH, CBRANCH, STRONGMUTATION, WEAKMUTATION,
 		MUTATION, STATEMENT, RHO, AMBIGUITY, IBRANCH, READABILITY,
         ONLYBRANCH, ONLYMUTATION, METHODTRACE, METHOD, METHODNOEXCEPTION, LINE, ONLYLINE, OUTPUT, INPUT,
-        REGRESSION,	REGRESSIONTESTS, TRYCATCH, PATHCONDITION  /*SUSHI: Path condition fitness*/
+        REGRESSION,	REGRESSIONTESTS, TRYCATCH, PATHCONDITION  /*SUSHI: Path condition fitness*/, BRANCH_WITH_AIDING_PATH_CONDITIONS /*SUSHI: Path condition fitness*/
 	}
 
     /** Constant <code>CRITERION</code> */
@@ -1517,9 +1517,9 @@ public class Properties {
 		return parts;
 	}
 
-	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
+	/** Constant <code>PATH_CONDITION_BRANCH_COVERAGE_INFO=""</code> */
 	@Parameter(key = "path_condition_branch_coverage_info", group = "SUSHI", description = "When using path condition fitness in conjunction with branch fitness function, we may optionally provide the files with the branch coverage information (in SUSHI format, i.e., ) for the path conditions. The parameter must include two file names \"<tracesFileName>:<branchesFileName>\"")
-	public static String[] PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES = null; /*SUSHI: Combining path condition and branch targets */
+	public static String[] PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO = null; /*SUSHI: Combining path and branch coverage */
 
 	/** Constant <code>PATH_CONDITION_TARGET=""</code> */
 	@Parameter(key = "path_condition_target", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured only with reference to first/last/best time that the test case calls the target method. If set to best (default), the fitness corresponds to the minimum fitness measured across all calls in the test case.")
@@ -1554,6 +1554,22 @@ public class Properties {
 	/** Constant <code>NO_CHANGE_ITERATIONS_BEFORE_RESET=""</code> */
 	@Parameter(key = "no_change_iterations_before_reset", group = "SUSHI", description = "If no individual changes for these iterations, keep elite and reset the population (0 means never-reset ")
 	public static int NO_CHANGE_ITERATIONS_BEFORE_RESET = 0; /*SUSHI: Reset*/
+
+	/** Constant <code>PATH_CONDITION_EVALUATORS_DIR=""</code> */
+	@Parameter(key = "path_condition_evaluators_dir", group = "SUSHI", description = "A directory to store the evaluators of path-condition fitness functions (aka EvoSuiteWrapper)")
+	public static String PATH_CONDITION_EVALUATORS_DIR = null; /*SUSHI: Path condition fitness*/
+
+	/** Constant <code>TMP_TEST_DIR=""</code> */
+	@Parameter(key = "tmp_test_dir", group = "SUSHI", description = "A directory to store the temporary test cases (sources and binaries) to guide JBSE to compute aiding path conditions")
+	public static String TMP_TEST_DIR = null; /*SUSHI: Aiding path conditions*/
+
+	/** Constant <code>APC_RATE=""</code> */
+	@Parameter(key = "apc_rate", group = "SUSHI", description = "The iteration-rate to check for branches that need aiding path conditions")
+	public static int APC_RATE = 0; /*SUSHI: Aiding path conditions*/
+
+	/** Constant <code>APC_MAX=""</code> */
+	@Parameter(key = "apc_max", group = "SUSHI", description = "The maximum number of simultaneous aiding path conditions that can be considered")
+	public static int APC_MAX = 15; /*SUSHI: Aiding path conditions*/
 
 	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;

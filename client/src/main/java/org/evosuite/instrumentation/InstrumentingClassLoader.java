@@ -33,6 +33,7 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
+import org.evosuite.coverage.pathcondition.PathConditionClassLoader;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.javaee.db.DBManager;
 import org.objectweb.asm.ClassReader;
@@ -149,6 +150,10 @@ public class InstrumentingClassLoader extends ClassLoader {
 
 		if("<evosuite>".equals(name)) {
 			throw new ClassNotFoundException();
+		}
+		
+		if (name.startsWith("sushi.compile")) {
+			return PathConditionClassLoader._I().getClassLoader().loadClass(name); //TODO: GIO Sushi
 		}
 
 		if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {

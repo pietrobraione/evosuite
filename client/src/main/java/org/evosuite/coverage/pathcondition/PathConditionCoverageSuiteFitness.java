@@ -80,7 +80,7 @@ public class PathConditionCoverageSuiteFitness extends TestSuiteFitnessFunction 
 		updateIndividual(this, suite, suiteFitness);
 
 		// Assign also fitness to single test cases, to allow reasoning on the results crossover steps
-		TestFitnessFunction tf = new PathConditionCoverageFactory().getPathConditionCoverageTestFitness();
+		TestFitnessFunction tf = PathConditionCoverageFactory._I().getPathConditionCoverageTestFitness();
 		for (ExecutableChromosome t : suite.getTestChromosomes()) {
 			tf.getFitness((TestChromosome) t);
 		}

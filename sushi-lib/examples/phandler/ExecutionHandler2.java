@@ -8,12 +8,15 @@ public class ExecutionHandler2 {
 	public static final  int NUM_PHYSICAL_UNITS = 8;
 	public static final  int MAX_POSTPONE = 2;
 	public Set<Process> executePool(LinkedList<Process> primaryP, LinkedList<Process> secondaryP) {
+		LinkedList<Process> toExec = new LinkedList<>();
 		for (Process p : primaryP) p.setPriority(Process.HIGH_PRIORITY);
-		LinkedList<Process> toExec = new LinkedList<>(primaryP);
+		toExec.addAll(primaryP);
 		if (primaryP.size() > NUM_PHYSICAL_UNITS) {
 			switchToVirtualUnits();
 			toExec.addAll(secondaryP);
 		}
+		//for (Process p : primaryP) p.setPriority(Process.HIGH_PRIORITY);
+		//toExec.addAll(primaryP);
 		Set<Process> postpone = new HashSet<>();
 		for (Process p : toExec) {
 			if (p.priority() >= Process.HIGH_PRIORITY) {
@@ -36,4 +39,5 @@ public class ExecutionHandler2 {
 	private void exec(Process p) { /* ... */ }
 	private void logUndone(Process p) { /* ... */ }
 	private void handle_postponed(Set<Process> postponed) { /* ... */ }
+	
 }

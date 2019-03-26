@@ -2,11 +2,15 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
@@ -54,6 +58,10 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	@Override
 	protected void evolve() {
 		int goodCrosoversAtBegin = goodOffsprings; /*SUSHI: Reset*/
+
+		if (goalsManager instanceof SushiManager) { /*SUSHI: Aiding path conditions*/
+			((SushiManager<T>) goalsManager).manageAidingPathConditions(ranking.getSubfront(0), currentIteration);
+		}
 		
 		List<T> offspringPopulation = breedNextGeneration();
 
@@ -87,7 +95,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			distance.fastEpsilonDominanceAssignment(front, goalsManager.getCurrentGoals());
 
 			// Add the individuals of this front
-			addToPopulation(front); //TODO: GIO: population.addAll(front);
+			addToPopulation(front); //GIO: population.addAll(front);
 
 			// Decrement remain
 			remain = remain - front.size();
@@ -104,7 +112,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			distance.fastEpsilonDominanceAssignment(front, goalsManager.getCurrentGoals());
 			Collections.sort(front, new OnlyCrowdingComparator());
 			for (int k = 0; k < remain; k++) {
-				addToPopulation(front.get(k)); //TODO: GIO: population.add(front.get(k));
+				addToPopulation(front.get(k)); //GIO: population.add(front.get(k));
 				
 			} // for
 
@@ -121,8 +129,8 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 
 		currentIteration++;
 		
-		// Console output each 10 iterations
-		if (currentIteration % 10 == 0) {
+		// Console output each 50 iterations
+		if (currentIteration % 50 == 0) {
 			LoggingUtils.getEvoLogger().info("\n***ITERATION: {}", currentIteration);
 			//LoggingUtils.getEvoLogger().info("Population size= {}", population.size());
 			//LoggingUtils.getEvoLogger().info("N. fronts = {}", ranking.getNumberOfSubfronts());
@@ -149,7 +157,72 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		} 
 		fits += " from it " + c.getAge();
 		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}", System.identityHashCode(c), fits, c.getFitness());			
+		//LoggingUtils.getEvoLogger().info("TEST CASE = {}", ((TestChromosome)c).getTestCase().toString());			
 	}
+	
+
+	private void logFrontierBranches() {
+		LoggingUtils.getEvoLogger().info("============= LOG FRONTIER BRANCHES INFO ===============");			
+
+		Map<FitnessFunction<T>, T> bestIndividuals = new LinkedHashMap<>();
+
+		Set<FitnessFunction<T>> frontier = goalsManager.getCurrentGoals();		
+		for (FitnessFunction<T> goal : frontier) {
+			if (!(goal instanceof BranchCoverageTestFitness)) continue;
+			BranchCoverageTestFitness branch = (BranchCoverageTestFitness) goal;
+			if (branch.getBranch() == null) continue;
+
+			double maxFiteness = Double.MAX_VALUE;
+			T bestTest = null;
+			for (T c : ranking.getSubfront(0)) {
+				if (goal.getFitness(c) < maxFiteness) {
+					maxFiteness = goal.getFitness(c) ;
+					bestTest = c;
+				}
+			}
+			bestIndividuals.put(goal, bestTest);
+		}
+		
+		for (Entry<FitnessFunction<T>, T> entry : bestIndividuals.entrySet()) {
+			FitnessFunction<T> goal = entry.getKey();
+			T bestTest = entry.getValue();
+			LoggingUtils.getEvoLogger().info("* Test for frontier branch: {}, during search: {} ", goal.toString(), System.identityHashCode(this));
+			if (bestTest != null) {
+				LoggingUtils.getEvoLogger().info("  Fitness: {} from iter {}", goal.getFitness(bestTest), bestTest.getAge());			
+				LoggingUtils.getEvoLogger().info("  TEST CASE = {}", ((TestChromosome)bestTest).getTestCase().toString());
+			} else {
+				LoggingUtils.getEvoLogger().info("  NO BEST TEST, CHECK THIS");
+			}
+		}
+		
+		
+		LoggingUtils.getEvoLogger().info("=== NUM. FRONTIER BRANCHES: {}", bestIndividuals.size());			
+		LoggingUtils.getEvoLogger().info("* FRONTIER BRANCHES:");			
+		for (FitnessFunction<T> goal : bestIndividuals.keySet()) {
+			BranchCoverageTestFitness branch = (BranchCoverageTestFitness) goal;
+			LoggingUtils.getEvoLogger().info("frontier, {}, {}, {}, {}", branch.getBranchGoal().getId(), goal.getFitness(bestIndividuals.get(goal)), System.identityHashCode(this), goal.toString());
+		}
+		LoggingUtils.getEvoLogger().info("");
+
+		for (FitnessFunction<T> goal : goalsManager.getCoveredGoals().keySet()) {
+			if (!(goal instanceof BranchCoverageTestFitness)) continue;
+			BranchCoverageTestFitness branch = (BranchCoverageTestFitness) goal;
+			if (branch.getBranch() == null) continue;
+			LoggingUtils.getEvoLogger().info("covered, {}, {}, {}, {}", branch.getBranchGoal().getId(), 0.0, System.identityHashCode(this), goal.toString());
+		}
+		LoggingUtils.getEvoLogger().info("");
+
+		for (FitnessFunction<T> goal : goalsManager.getCoveredGoals().keySet()) {
+			if (!(goal instanceof BranchCoverageTestFitness)) continue;
+			BranchCoverageTestFitness branch = (BranchCoverageTestFitness) goal;
+			if (branch.getBranch() == null) continue;
+			LoggingUtils.getEvoLogger().info("* Test for covered branch: {}, during search: {}", goal.toString(), System.identityHashCode(this));
+			LoggingUtils.getEvoLogger().info("  TEST CASE = {}", ((TestChromosome)goalsManager.getCoveredGoals().get(goal)).getTestCase().toString());
+		}
+		LoggingUtils.getEvoLogger().info("");
+		
+	}
+
 	
 	private boolean handleReset(boolean changed) { /*SUSHI: Reset*/
 		if (changed) unchangedPopulationIterations = 0;
@@ -252,6 +325,8 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			goalsManager = new PathConditionManager<T>(fitnessFunctions);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION) && ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)){
 			goalsManager = new SushiManager<T>(fitnessFunctions);
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+			goalsManager = new SushiManager<T>(fitnessFunctions);			
 		}
 
 		LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());
@@ -274,12 +349,13 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			evolve();
 			notifyIteration();
 		}
-		completeCalculateFitness(); //TODO: GIO
+		completeCalculateFitness();
+		//logFrontierBranches();
 		notifySearchFinished();
 	}
 
 	protected void completeCalculateFitness() {
-		goalsManager.restoreInstrumentationForAllGoals(); //GIO: TODO
+		goalsManager.restoreInstrumentationForAllGoals(); //Needed for path conditions, since these were removed
 		logger.debug("Calculating fitness for " + population.size() + " individuals");
 		for (T c : goalsManager.getCoveredGoals().values()){
 			completeCalculateFitness(c);

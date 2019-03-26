@@ -61,7 +61,7 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 			return;	
 				
 		//1. compute the subset of goals with respect to which we want to minimize
-		Map<TestFitnessFunction, Double> improvedGoals = new HashMap<>();
+		Map<TestFitnessFunction, Double> goalsInIndividual = new HashMap<>();
 
 		Set<FitnessFunction<TestChromosome>> coveredGoals = ((DynaMOSA<TestChromosome>) algorithm).getCoveredGoals();
 		goals.removeAll(coveredGoals);
@@ -69,16 +69,15 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 		for (TestFitnessFunction g :	 goals) {
 			Double individualFitness = individual.getFitnessValues().get(g);
 			if (individualFitness == null) {
-				continue; // some goals may still be beyond the current frontier of DynaMosa
-				//throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
+				continue; // NB: some goals may still be beyond the current frontier of DynaMosa
 			}
-			improvedGoals.put(g, individualFitness);
+			goalsInIndividual.put(g, individualFitness);
 		}
 		
-		if (!improvedGoals.isEmpty()) {
+		if (!goalsInIndividual.isEmpty()) {
 		
 			//2. stub a temporary local fitnessFunction out of improvedovedGoals. This must return the sum of the improvedovedGoals, but MAXVAL if any goal out of improvedovedGoals is worsened wrt the current value
-			TestFitnessFunction minimizeFitness = new ImprovementTestFitnessFunction(improvedGoals);
+			TestFitnessFunction minimizeFitness = new ImprovementTestFitnessFunction(goalsInIndividual);
 		
 			//3. instantiate and call the minimizer (as below) by using the above fitness function
             TestCaseMinimizer minimizer = new TestCaseMinimizer(minimizeFitness);
@@ -87,9 +86,7 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 
 			minimizer.minimize((TestChromosome) individual);
 			individual.getFitnessValues().remove(minimizeFitness);
-			/*if (minimizeFitness.getFitness(copy) < minimizeFitness.getFitness((TestChromosome) individual)) {
-				((TestChromosome) individual).setTestCase(testCase); = copy;
-			}*/
+
 			minimizationCount++;
 			//LoggingUtils.getEvoLogger().info(individual.toString());
 			//LoggingUtils.getEvoLogger().info("-- END Minimize: individual {} of size {}", System.identityHashCode(individual), individual.size());
@@ -98,21 +95,24 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 	}
 	
 	private static class ImprovementTestFitnessFunction extends TestFitnessFunction {
-		private Map<TestFitnessFunction, Double> improvedGoals;
+		private Map<TestFitnessFunction, Double> minimizerRelevantGoals;
 
-		public ImprovementTestFitnessFunction(Map<TestFitnessFunction, Double> improvedGoals) {
-			this.improvedGoals = improvedGoals;
+		public ImprovementTestFitnessFunction(Map<TestFitnessFunction, Double> minimizerRelevantGoals) {
+			this.minimizerRelevantGoals = minimizerRelevantGoals;
 		}
 
 		@Override
 		public double getFitness(TestChromosome individual, ExecutionResult result) {
 			double f = 0d;
-			for (TestFitnessFunction g : improvedGoals.keySet()) {
+			for (TestFitnessFunction g : minimizerRelevantGoals.keySet()) {
 				double gFitness = g.getFitness(individual, result);
-				if (gFitness > improvedGoals.get(g)) {
+				if (gFitness > minimizerRelevantGoals.get(g)) {
 					return Double.MAX_VALUE;
 				}
 				f += gFitness;
+			}
+			if (Double.compare(f, Double.NaN) == 0 || Double.isInfinite(f)) {
+				return Double.MAX_VALUE;
 			}
 			return f;
 		}

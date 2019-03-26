@@ -209,7 +209,7 @@ public class DependencyAnalysis {
 
 		// Also analyze if it represents a path condition that we want to cover
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) { /*SUSHI: Path condition fitness*/
-			for (PathConditionCoverageGoalFitness goal : new PathConditionCoverageFactory().getCoverageGoals()) {
+			for (PathConditionCoverageGoalFitness goal : PathConditionCoverageFactory._I().getCoverageGoals()) {
 				String evaluatorName = goal.getEvaluatorName();
 				if (className.equals(evaluatorName)
 						|| className.startsWith(evaluatorName + "$")) {
@@ -311,7 +311,7 @@ public class DependencyAnalysis {
 	public static boolean shouldInstrument(String className, String methodName) {
 		// Do not instrument if classNema refers to a path condition that we want to cover
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) { /*SUSHI: Path condition fitness*/
-			for (PathConditionCoverageGoalFitness goal : new PathConditionCoverageFactory().getCoverageGoals()) {
+			for (PathConditionCoverageGoalFitness goal : PathConditionCoverageFactory._I().getCoverageGoals()) {
 				String evaluatorName = goal.getEvaluatorName();
 				if (className.equals(evaluatorName)
 						|| className.startsWith(evaluatorName + "$")) {

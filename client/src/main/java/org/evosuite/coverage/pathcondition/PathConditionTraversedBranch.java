@@ -1,24 +1,27 @@
 package org.evosuite.coverage.pathcondition;
 
+import java.util.Set;
+
 import org.evosuite.coverage.branch.BranchCoverageGoal;
+import org.evosuite.graphs.cfg.ActualControlFlowGraph;
+import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.graphs.cfg.ControlDependency;
+import org.evosuite.graphs.cfg.ControlFlowEdge;
 
 public abstract class PathConditionTraversedBranch {
 	public final String className;
-	//public final String methodDescriptor;
 	public final String methodName;
 	private final int hash;
 	
-	PathConditionTraversedBranch(String className, /*String methodDescriptor,*/ String methodName) {
-		if (className == null || /*methodDescriptor == null ||*/ methodName == null) {
+	PathConditionTraversedBranch(String className, String methodDescriptor, String methodName) {
+		if (className == null || methodDescriptor == null || methodName == null) {
 			throw new NullPointerException();
 		}
 		this.className = className;
-		//this.methodDescriptor = methodDescriptor;
-		this.methodName = methodName;
+		this.methodName = methodName + methodDescriptor;
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + this.className.hashCode();
-		//result = prime * result + this.methodDescriptor.hashCode();
 		result = prime * result + this.methodName.hashCode();
 		this.hash = result;
 	}
@@ -43,9 +46,6 @@ public abstract class PathConditionTraversedBranch {
 		if (!this.className.equals(other.className)) {
 			return false;
 		}
-		/*if (!this.methodDescriptor.equals(other.methodDescriptor)) {
-			return false;
-		}*/
 		if (!this.methodName.equals(other.methodName)) {
 			return false;
 		}
@@ -53,16 +53,21 @@ public abstract class PathConditionTraversedBranch {
 	}
 	
 	public static PathConditionTraversedBranch makeMethodEntryPoint(String className, String methodDescriptor, String methodName) {
-		return new MethodEntryPoint(className, /* methodDescriptor,*/ methodName);
+		return new MethodEntryPoint(className, methodDescriptor, methodName);
 	}
 
 	public static PathConditionTraversedBranch makeRealBranch(String className, String methodDescriptor, String methodName, int bytecodeFrom, int bytecodeTo) {
-		return new RealBranch(className, /* methodDescriptor,*/ methodName, bytecodeFrom, bytecodeTo);
+		return new RealBranch(className, methodDescriptor, methodName, bytecodeFrom, bytecodeTo);
 	}
 
 	static class MethodEntryPoint extends PathConditionTraversedBranch {
-		MethodEntryPoint(String className, /* String methodDescriptor,*/ String methodName) {
-			super(className, /* methodDescriptor,*/ methodName);
+		MethodEntryPoint(String className, String methodDescriptor, String methodName) {
+			super(className, methodDescriptor, methodName);
+		}
+
+		@Override
+		public String toString() {
+			return "MethodEntryPoint: " + className + "." + methodName + ": root-branch";
 		}
 	}
 	
@@ -72,8 +77,8 @@ public abstract class PathConditionTraversedBranch {
 		public final int bytecodeTo;
 		private final int hash;
 		
-		RealBranch(String className, /* String methodDescriptor,*/ String methodName, int bytecodeFrom, int bytecodeTo) {
-			super(className, /*methodDescriptor,*/ methodName);
+		RealBranch(String className, String methodDescriptor, String methodName, int bytecodeFrom, int bytecodeTo) {
+			super(className, methodDescriptor, methodName);
 			this.bytecodeFrom = bytecodeFrom;
 			this.bytecodeTo = bytecodeTo;
 			final int prime = 59;
@@ -83,6 +88,12 @@ public abstract class PathConditionTraversedBranch {
 			this.hash = result;
 		}
 		
+		@Override
+		public String toString() {
+			return "Branch: " + className + "." + methodName + ":" +
+					bytecodeFrom + "-->" + bytecodeTo;
+		}
+
 		@Override
 		public int hashCode() {
 			return this.hash;
@@ -111,11 +122,33 @@ public abstract class PathConditionTraversedBranch {
 	}
 
 
-	public static PathConditionTraversedBranch convertEvoSuiteBranchGoal(BranchCoverageGoal b) {
+	public static class NeverTraversedException extends Exception {
+		
+	}
+	
+	public static PathConditionTraversedBranch makeFromOtherFormat(BranchCoverageGoal b) throws NeverTraversedException {
+		String className = b.getClassName().replace('.', '/');
+		String methodName = b.getMethodName();
+
 		if (b.getBranch() == null) {
-			return new MethodEntryPoint(b.getClassName(), b.getMethodName());
-		} else {
-			return new RealBranch(b.getClassName(), b.getMethodName(), b.getBranch().getInstruction().getBytecodeOffset(), 0);
+			MethodEntryPoint ret = new MethodEntryPoint(className, "", methodName);
+			return ret;
+		} else if (b.getBranch().isSwitchCaseBranch() && b.getValue() == false) {
+			throw new NeverTraversedException(); // EvoSuite considers this branches but path conditions will never traverse them
+		} else {	
+			BytecodeInstruction instr = b.getBranch().getInstruction();
+			ActualControlFlowGraph cfg = instr.getActualCFG();
+			
+			Set<ControlFlowEdge> outgoingEdges = cfg.outgoingEdgesOf(instr.getBasicBlock());
+			for (ControlFlowEdge edge : outgoingEdges) {
+				ControlDependency cdep = edge.getControlDependency();
+				if (cdep.getBranch().equals(b.getBranch()) && b.getValue() == cdep.getBranchExpressionValue()) {
+					RealBranch ret = new RealBranch(className, "", methodName, instr.getBytecodeOffset(), cfg.getEdgeTarget(edge).getFirstInstruction().getBytecodeOffset());
+					return ret;
+				}
+			}
+						
+			throw new RuntimeException("Failure to find taget bytecode offset for branch: " + b);
 		}
 	}
 	

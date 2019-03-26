@@ -2,6 +2,7 @@ package org.evosuite.ga.metaheuristics.mosa.structural;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -11,10 +12,12 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
+import org.evosuite.coverage.pathcondition.AidingPathConditionGoalFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEManager;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.TestCase;
@@ -55,7 +58,7 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 	public PathConditionManager(List<FitnessFunction<T>> pathConditionsGoals, List<FitnessFunction<T>> branchGoals){
 		this(pathConditionsGoals);
 		
-		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES == null) return;
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO == null) return;
 		
 		List<BranchCoverageGoal> relevantBranches = new ArrayList<>();
 		for (FitnessFunction<T> f1 : branchGoals) {
@@ -67,17 +70,18 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			if (!(f instanceof PathConditionCoverageGoalFitness)) continue;
 			PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) f;
 			
-			Set<BranchCoverageGoal> branchCovInfo = new PathConditionCoverageFactory().getBranchCovInfo(pc, relevantBranches);
+			Set<BranchCoverageGoal> branchCovInfo = PathConditionCoverageFactory._I().getBranchCovInfo(pc, relevantBranches);
 						
-			if (!branchCovInfo.isEmpty()) {
-				pcRelatedUncoveredBranches.put(pc, branchCovInfo);
+			if (branchCovInfo != null && !branchCovInfo.isEmpty()) {
+				Set<BranchCoverageGoal> uncoveredBranches = new HashSet<>(branchCovInfo);
+				pcRelatedUncoveredBranches.put(pc, uncoveredBranches);
 			} else {
 				doneWithPathCondition(pc);				
 			}
 		}
 	}
 
-	private void doneWithPathCondition(PathConditionCoverageGoalFitness pc) {
+	public void doneWithPathCondition(PathConditionCoverageGoalFitness pc) {
 		pcRelatedUncoveredBranches.remove(pc);
 		currentGoals.remove(pc);
 		uncoveredGoals.remove(pc);
@@ -108,7 +112,9 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			FitnessFunction<T> fitnessFunction = targets.poll();
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
-				updateCoveredGoals(fitnessFunction, c);
+				if (!(fitnessFunction instanceof AidingPathConditionGoalFitness)) {
+					updateCoveredGoals(fitnessFunction, c);
+				}
 
 				if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
 					emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
@@ -124,7 +130,7 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 	@Override
 	public void restoreInstrumentationForAllGoals() {
 		if (!Properties.EMIT_TESTS_INCREMENTALLY) {
-			PathConditionCoverageFactory pathConditionFactory = new PathConditionCoverageFactory();
+			PathConditionCoverageFactory pathConditionFactory = PathConditionCoverageFactory._I();
 			List<PathConditionCoverageGoalFitness> goals = pathConditionFactory.getCoverageGoals();
 
 			for (PathConditionCoverageGoalFitness g : goals) {
@@ -168,16 +174,16 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		}
 	}
 
-	public void pruneByCoveredBranches(Map<FitnessFunction<T>, T> coveredBranches) {
+	public void prunePathConditionsByCoveredBranches(Map<FitnessFunction<T>, T> coveredBranches) {
 		// let's check for newly covered branches and update path conditions accordingly
-		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_FILES == null) return;
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO == null) return;
 		
 		if (coveredBranches.size() > coveredAndAlreadyPrunedBranches.size()) {
 			for (FitnessFunction<T> b : coveredBranches.keySet()) {
 				if (b instanceof BranchCoverageTestFitness) {
 					BranchCoverageGoal branch = ((BranchCoverageTestFitness) b).getBranchGoal();
 					if (coveredAndAlreadyPrunedBranches.contains(branch)) continue;
-					pruneByCoveredBranch(branch);
+					prunePathConditionsByCoveredBranches(branch);
 					coveredAndAlreadyPrunedBranches.add(branch);
 				}
 			}
@@ -185,16 +191,16 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 
 	}
 
-	private void pruneByCoveredBranch(BranchCoverageGoal branch) {
-		Set<PathConditionCoverageGoalFitness> toRemove = new HashSet<>();
+	private void prunePathConditionsByCoveredBranches(BranchCoverageGoal b) {
+		Set<PathConditionCoverageGoalFitness> toRemove = new LinkedHashSet<>();
 
-		// prune b from the set of target barcnhes associated with the path conditons
-		for (Entry<PathConditionCoverageGoalFitness, Set<BranchCoverageGoal>> entry : pcRelatedUncoveredBranches.entrySet()) {
+		// prune b from the set of uncovered branches associated with the path conditions
+		for (Entry<PathConditionCoverageGoalFitness, Set<BranchCoverageGoal>> pcEntry : pcRelatedUncoveredBranches.entrySet()) {
 			
-			Set<BranchCoverageGoal> branches = entry.getValue();
-			branches.remove(branch);
-			if (branches.isEmpty()) {
-				toRemove.add(entry.getKey());
+			Set<BranchCoverageGoal> uncoveredBranches = pcEntry.getValue();
+			uncoveredBranches.remove(b);
+			if (uncoveredBranches.isEmpty()) {
+				toRemove.add(pcEntry.getKey());
 			}
 		}
 		
@@ -204,4 +210,31 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		}
 	}
 
+	public AidingPathConditionGoalFitness[] introduceAidingPathCondition(BranchCoverageTestFitness branchF, TestChromosome bestTest) {
+		
+		//Clone and minimize the test case
+		TestChromosome minimizedTest = (TestChromosome) bestTest.clone();
+		TestCaseMinimizer minimizer = new TestCaseMinimizer(branchF);
+		minimizer.minimize(minimizedTest);
+		if (branchF.getFitness(bestTest) != branchF.getFitness(minimizedTest)) {
+			LoggingUtils.getEvoLogger().info("[JBSE] Failed to generate the path condition: mimized test fitness ("+ branchF.getFitness(minimizedTest) +") differs from original one (" + branchF.getFitness(bestTest) + ")");
+			return null;
+		}
+
+		//Compute the new path condition goal 
+		AidingPathConditionGoalFitness[] aidingPathConditionGoals = JBSEManager.computeAidingPathConditionGoal(branchF, minimizedTest);
+		
+		//Schedule the new path condition goal 
+		if (aidingPathConditionGoals != null) {
+			for (AidingPathConditionGoalFitness apc : aidingPathConditionGoals) {
+				LoggingUtils.getEvoLogger().info("  Scheduling New aiding path condition: {}", apc.toString());
+				ExecutionTracer.addEvaluatorForPathCondition(apc.getPathConditionGoal());
+				getCurrentGoals().add((FitnessFunction<T>) apc); 
+				getUncoveredGoals().add((FitnessFunction<T>) apc);		
+			}
+		}
+		
+		return aidingPathConditionGoals;
+	}
+	
 }

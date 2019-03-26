@@ -32,8 +32,10 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TableSwitchInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,6 +116,11 @@ public class BytecodeInstructionPool {
 			else if (lastLineNumber != -1)
 				instruction.setLineNumber(lastLineNumber);
 
+			if (instruction.isSwitch()) { //GIO: corrected computation for switch
+				int padding = 3 - (bytecodeOffset % 4);
+				bytecodeOffset += padding;
+			}
+			
 			bytecodeOffset += getBytecodeIncrement(instructionNode);
 
 			if (!instruction.isLabel() && !instruction.isLineNumber()
@@ -122,7 +129,7 @@ public class BytecodeInstructionPool {
 			}
 
 			registerInstruction(instruction);
-
+			
 		}
 
 		List<BytecodeInstruction> r = getInstructionsIn(className, methodName);
@@ -213,11 +220,15 @@ public class BytecodeInstructionPool {
 			return 4;
 
 		case Opcodes.LOOKUPSWITCH:
+			/*return 4;*///GIOVANNI: corrected with right computation 
+			int numCasesLS = ((LookupSwitchInsnNode) instructionNode).labels.size();
+			return 8 + (8 * numCasesLS); //4 default label, 4 npairs, 8*numCases
 		case Opcodes.TABLESWITCH:
-			// TODO: Could be more
-			return 4;
+			/*return 4;*///GIOVANNI: corrected with right computation 
+			int numCasesTS = ((TableSwitchInsnNode) instructionNode).labels.size();
+			return 12 + (4 * numCasesTS); //4 default label, 4 low, 4 high, 4*numCases
 			// case Opcodes.GOTO_W 
-			// case Opcodes.JSR_W
+			// case Opcodes.JSR_W			
 		}
 		return 0;
 	}

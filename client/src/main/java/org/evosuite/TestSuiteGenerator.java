@@ -75,6 +75,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.text.NumberFormat;
 import java.util.*;
 
@@ -109,6 +111,21 @@ public class TestSuiteGenerator {
 
 		DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
 		LoggingUtils.getEvoLogger().info("* Finished analyzing classpath");
+
+		if (Properties.PATH_CONDITION_EVALUATORS_DIR != null) {  /*SUSHI: Path condition fitness*/
+
+			URLClassLoader systemClassLoader = (URLClassLoader) ClassLoader.getSystemClassLoader(); 
+			Class<URLClassLoader> classLoaderClass = URLClassLoader.class; 
+
+			try { 
+				Method method = classLoaderClass.getDeclaredMethod("addURL", new Class[]{URL.class}); 
+				method.setAccessible(true); 
+				URL url = new File(Properties.PATH_CONDITION_EVALUATORS_DIR).toURI().toURL();
+				method.invoke(systemClassLoader, new Object[]{url}); 
+			} catch (Throwable t) { 
+				throw new EvosuiteError(t);
+			}
+		}
 	}
 
 	/**

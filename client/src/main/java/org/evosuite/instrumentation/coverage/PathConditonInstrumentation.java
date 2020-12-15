@@ -22,6 +22,8 @@
  */
 package org.evosuite.instrumentation.coverage;
 
+import java.util.Set;
+
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.graphs.GraphPool;
@@ -92,8 +94,14 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 					throw new IllegalStateException("error instrumenting node "
 							+ v.toString());
 				if (Properties.PATH_CONDITION_CHECK_AT_METHOD_EXIT) {
-					mn.instructions.insert(v.getASMNode(), instrumentation);
-					LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
+					//THE FOLLOWING IS WRONG, IT MEANS INSERT AFTER THE FIRST INSTRUCTION
+					//	mn.instructions.insert(v.getASMNode(), instrumentation);
+					//FIXED AS FOLLOWS:
+					Set<BytecodeInstruction> exitPoints = completeCFG.determineExitPoints();
+					for (BytecodeInstruction exitP: exitPoints) {
+						mn.instructions.insertBefore(exitP.getASMNode(), instrumentation);					
+					}
+					//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
 				} else {
 					mn.instructions.insertBefore(v.getASMNode(), instrumentation); /* this should be the default behavior */					
 				}

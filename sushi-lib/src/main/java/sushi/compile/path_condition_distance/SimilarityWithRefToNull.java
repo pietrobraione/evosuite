@@ -11,19 +11,19 @@ public class SimilarityWithRefToNull extends SimilarityWithRef {
 
 	@Override
 	protected double evaluateSimilarity(CandidateBackbone backbone, Object referredObject) {
-		//logger.debug("Null reference");
+		logger.debug("Null reference");
 		
 		double similarity = 0.0d;
 		
 		if (referredObject == null) {
-			//logger.debug("Field " + theReferenceOrigin + " is null also in candidate");
+			logger.debug("Field " + theReferenceOrigin + " is null also in candidate");
 			similarity += 1.0d;	
 		}
 		else {
-			//logger.debug("Field " + theReferenceOrigin + " is not null in candidate");
+			logger.debug("Field " + theReferenceOrigin + " is not null in candidate");
 		}
 		
-		//logger.debug("Similarity increases by: " + similarity);
+		logger.debug("Similarity increases by: " + similarity);
 		return similarity;
 	}
 

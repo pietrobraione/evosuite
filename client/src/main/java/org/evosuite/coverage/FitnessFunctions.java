@@ -52,6 +52,7 @@ import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
 import org.evosuite.coverage.readability.ReadabilitySuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageFactory;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
+import org.evosuite.coverage.seepep.SeepepCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.regression.RegressionSuiteFitness;
@@ -132,6 +133,8 @@ public class FitnessFunctions {
 			return PathConditionCoverageFactory._I().getPathConditionCoverageSuiteFitness();  /*SUSHI: Path condition fitness*/
 		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
 			return new BranchCoverageSuiteFitness(); /*SUSHI: Aiding path conditions*/
+		case SEEPEP:
+			return SeepepCoverageFactory._I().getSeepepCoverageSuiteFitness(); /*SEEPEP: DAG coverage*/
 		default:
 			logger.warn("No TestSuiteFitnessFunction defined for " + Properties.CRITERION
 			        + " using default one (BranchCoverageSuiteFitness)");
@@ -198,6 +201,8 @@ public class FitnessFunctions {
 			return PathConditionCoverageFactory._I();  /*SUSHI: Path condition fitness*/
 		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
 			return new BranchCoverageFactory();  /*SUSHI: Aiding path conditions*/
+		case SEEPEP:
+			return SeepepCoverageFactory._I();   /*SEEPEP: DAG coverage*/
 		default:
 			logger.warn("No TestFitnessFactory defined for " + crit
 			        + " using default one (BranchCoverageFactory)");

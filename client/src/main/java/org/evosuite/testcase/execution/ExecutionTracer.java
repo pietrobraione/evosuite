@@ -28,13 +28,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
+import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
@@ -183,6 +187,10 @@ public class ExecutionTracer {
 
 	public static boolean isTraceCallsEnabled() {
 		return ExecutionTraceImpl.isTraceCallsEnabled();
+	}
+
+	public static void enableSeepepTracing() { /*SEEPEP: DAG coverage*/
+		ExecutionTraceImpl.enableSeepepTracing();
 	}
 
 	/**
@@ -869,7 +877,37 @@ public class ExecutionTracer {
 			return;
 		
 		checkTimeout();
-		
+
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)) { /*SEEPEP: DAG coverage*/
+			if (methodName.equals(Properties.SEEPEP_ENTRY_METHOD)) {
+				if (tracer.trace.checkSetSeepepDone(true)) {
+					throw new RuntimeException("stop");
+				}
+				SeepepTraceItem startMarker = SeepepTraceItem.makeTraceStartMarker();
+				tracer.trace.passedSeepepItem(startMarker);
+				//LoggingUtils.getEvoLogger().info("Passing start trace: {}", startMarker);
+				for (int i = 0; i < params.length - 1; i++) {
+					SeepepTraceItem seepepItem = SeepepTraceItem.makeInputParameter(i, params[i + 1]);
+					tracer.trace.passedSeepepItem(seepepItem);
+					//LoggingUtils.getEvoLogger().info("Passing input: {}", seepepItem);
+				}
+			} else if (methodName.equals("notifyActionPassed(Ljava/lang/String;Ljava/lang/Object;)V")) {
+				SeepepTraceItem seepepItem = SeepepTraceItem.makeAction((String) params[0], params[1]);
+				tracer.trace.passedSeepepItem(seepepItem);
+				//LoggingUtils.getEvoLogger().info("Passing action:{}", seepepItem);
+			} else if (methodName.equals("notifyTransformationPassed(Ljava/lang/String;I)V")) {
+				SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
+				tracer.trace.passedSeepepItem(seepepItem);
+				//LoggingUtils.getEvoLogger().info("Passing transformation: {}", seepepItem);
+			} else if (methodName.equals("notifyOuterTransformationPassed(Ljava/lang/String;I)V")) {
+				List<SeepepTraceItem> itemsSoFar = tracer.trace.getTraversedSeepepItems();
+				SeepepTraceItem itemToReplace = itemsSoFar.remove(itemsSoFar.size() - 1);
+				SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
+				tracer.trace.passedSeepepItem(seepepItem);
+				//LoggingUtils.getEvoLogger().info("Passing outer transformation: {} (replaces {})", seepepItem, itemToReplace);
+			}
+		}
+
 		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
 		if (classEvaluators == null) 
 			return; // no evaluator for this class
@@ -879,8 +917,15 @@ public class ExecutionTracer {
 			return; // no evaluator for this method
 		
 		ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+		try {
+			Class.forName("sushi.compile.path_condition_distance.CandidateBackbone", false, cl).
+			getMethod("resetAndReuseUntilReset", null).invoke(null, null);
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
+				| SecurityException | ClassNotFoundException e1) {
+			LoggingUtils.getEvoLogger().info("FAILED ATTEMPT TO RESET BACKBONE");
+		}
+		
 		for (PathConditionCoverageGoal goal : methodEvaluators) {
-
 			Object evaluator = tracer.evaluatorCache.get(goal);
 			if (evaluator == null) {
 				try {
@@ -888,7 +933,7 @@ public class ExecutionTracer {
 					Constructor<?>[] cnstrs = clazz.getConstructors();
 					for (Constructor<?> c : cnstrs) {
 						Class<?>[] parTypes = c.getParameterTypes();
-						if (parTypes.length == 1 && parTypes[0] == ClassLoader.class) {
+						if (parTypes.length >= 1 && parTypes[0] == ClassLoader.class) {
 							evaluator = c.newInstance(cl);
 							break;
 						}
@@ -925,13 +970,10 @@ public class ExecutionTracer {
 			}
 			
 			//execute the evaluator
+			double d = Double.MAX_VALUE;
 			try {
-				double d = (double) evaluatorMethod.invoke(evaluator, params);
+				d = (double) evaluatorMethod.invoke(evaluator, params);
 				//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", pc = " + goal.getEvaluatorName());
-
-				// Add path condition distance to control trace
-				tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
-				//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
 			} catch (IllegalAccessException | IllegalArgumentException e) {
 				//throw new EvosuiteError
 				LoggingUtils.getEvoLogger().info("Cannot execute path condition evaluator: " + goal.getEvaluatorName()
@@ -940,15 +982,18 @@ public class ExecutionTracer {
 						+ "\n\t failed because of: " + e
 						);
 			} catch (InvocationTargetException e) {
+				StackTraceElement[] st = e.getCause().getStackTrace();
 				LoggingUtils.getEvoLogger().info("Exception thrown within path condition evaluator: " + goal.getEvaluatorName() 
 						+ "\n\t path condition for method " + className + "." + methodName
 						+ "\n\t called on objects " + Arrays.toString(params)
 						+ "\n\t failed because of: " + e.getCause()
-						//+ "\n\t stack trace is " + Arrays.toString(e.getCause().getStackTrace())
+						+ "\n\t stack trace is " + st.length + " items long: "+ 
+							Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + " ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))
 						);
 			}
-		
-	
+			// Add path condition distance to control trace
+			tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
+			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
 		}
 	}
 	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<String, Map<String, List<PathConditionCoverageGoal>>>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
@@ -961,7 +1006,7 @@ public class ExecutionTracer {
 			Constructor<?>[] cnstrs = clazz.getConstructors();
 			for (Constructor<?> c : cnstrs) {
 				Class<?>[] parTypes = c.getParameterTypes();
-				if (parTypes.length == 1 && parTypes[0] == ClassLoader.class) {
+				if (parTypes.length >= 1 && parTypes[0] == ClassLoader.class) {
 					Object evaluator = c.newInstance(new Object[] {null});
 					loadedAndAcceptClassloader = true;
 					break;

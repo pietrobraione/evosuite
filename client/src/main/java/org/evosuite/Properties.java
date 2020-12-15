@@ -1495,7 +1495,8 @@ public class Properties {
 		EXCEPTION, DEFUSE, ALLDEFS, BRANCH, CBRANCH, STRONGMUTATION, WEAKMUTATION,
 		MUTATION, STATEMENT, RHO, AMBIGUITY, IBRANCH, READABILITY,
         ONLYBRANCH, ONLYMUTATION, METHODTRACE, METHOD, METHODNOEXCEPTION, LINE, ONLYLINE, OUTPUT, INPUT,
-        REGRESSION,	REGRESSIONTESTS, TRYCATCH, PATHCONDITION  /*SUSHI: Path condition fitness*/, BRANCH_WITH_AIDING_PATH_CONDITIONS /*SUSHI: Path condition fitness*/
+        REGRESSION,	REGRESSIONTESTS, TRYCATCH, PATHCONDITION  /*SUSHI: Path condition fitness*/, BRANCH_WITH_AIDING_PATH_CONDITIONS /*SUSHI: Path condition fitness*/,
+        SEEPEP /*SEEPEP: DAG coverage*/
 	}
 
     /** Constant <code>CRITERION</code> */
@@ -1504,6 +1505,18 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
+
+	/** Constant <code>SEEPEP_GOAL_PROVIDER=""</code> */
+	@Parameter(key = "seepep_goal_provider", group = "SEEPEP", description = "The seepep-dags to be used as objective functions. Can define more than one criterion by using a ':' separated list")
+	public static String SEEPEP_GOAL_PROVIDER = null;/*SEEPEP: DAG coverage*/
+
+	/** Constant <code>SEEPEP_ENTRY_METHOD=""</code> */
+	@Parameter(key = "seepep_entry_method", group = "SEEPEP", description = "The entry method considered in SEEPEP")
+	public static String SEEPEP_ENTRY_METHOD = "main([java/lang/String;)V";/*SEEPEP: DAG coverage*/
+
+	/** Constant <code>SEEPEP_TEST_OUTOFBOUND_PATHS=""</code> */
+	@Parameter(key = "seepep_test_outofbound_paths", group = "SEEPEP", description = "Allow test cases that cover seepep-dags by executing path conditions of out-of-bounds symbolic traces")
+	public static boolean SEEPEP_TEST_OUTOFBOUND_PATHS = false;/*SEEPEP: DAG coverage*/
 
 	/** Constant <code>PATH_CONDITION=""</code> */
 	@Parameter(key = "path_condition", group = "SUSHI", description = "The path conditions to be used as objective functions. Can define more than one criterion by using a ':' separated list")

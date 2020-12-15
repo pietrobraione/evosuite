@@ -6,27 +6,34 @@ import static jbse.common.Type.isReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import jbse.apps.Formatter;
 import jbse.common.Type;
+import jbse.common.exc.InvalidInputException;
 import jbse.common.exc.UnexpectedInternalException;
 import jbse.mem.Clause;
 import jbse.mem.ClauseAssume;
 import jbse.mem.ClauseAssumeAliases;
+import jbse.mem.ClauseAssumeClassInitialized;
+import jbse.mem.ClauseAssumeClassNotInitialized;
 import jbse.mem.ClauseAssumeExpands;
 import jbse.mem.ClauseAssumeNull;
 import jbse.mem.ClauseAssumeReferenceSymbolic;
 import jbse.mem.Objekt;
 import jbse.mem.State;
 import jbse.mem.exc.FrozenStateException;
+import jbse.rewr.CalculatorRewriting;
 import jbse.val.Any;
 import jbse.val.Expression;
 import jbse.val.NarrowingConversion;
@@ -37,6 +44,7 @@ import jbse.val.PrimitiveSymbolicApply;
 import jbse.val.PrimitiveSymbolicAtomic;
 import jbse.val.PrimitiveVisitor;
 import jbse.val.ReferenceSymbolic;
+import jbse.val.ReferenceSymbolicApply;
 import jbse.val.Simplex;
 import jbse.val.Symbolic;
 import jbse.val.Term;
@@ -59,35 +67,61 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	private StringBuilder output = new StringBuilder();
 	private int testCounter = 0;
 	private String packagePath;
+	private final CalculatorRewriting calc;
+	private final HashMap<Long, String> stringLiterals;
 
 	public StateFormatterAidingPathCondition(long methodNumber,
 			                                Supplier<Long> traceCounterSupplier,
-			                                Supplier<State> initialStateSupplier) {
+			                                Supplier<State> initialStateSupplier, CalculatorRewriting calc, HashMap<Long, String> stringLiterals) {
+		this.calc = calc;
 		this.methodNumber = methodNumber;
 		this.traceCounterSupplier = traceCounterSupplier;
 		this.initialStateSupplier = initialStateSupplier;
+		this.stringLiterals = stringLiterals;
 	}
 
 	public StateFormatterAidingPathCondition(int methodNumber, String packagePath,
-			                                Supplier<State> initialStateSupplier) {
-		this(methodNumber, (Supplier<Long>) null, initialStateSupplier);
+			                                Supplier<State> initialStateSupplier, CalculatorRewriting calc, HashMap<Long, String> stringLiterals) {
+		this(methodNumber, (Supplier<Long>) null, initialStateSupplier, calc, stringLiterals);
 		if (packagePath != null) {
 			this.packagePath = packagePath.replace('/', '.');
 		}
 	}
 
 	private List<List<Clause>> independentFormulas = new ArrayList<>(); 
-	private List<Set<Symbolic>> symbolsOfEachIndipendentFormula = new ArrayList<>(); 
-	private List<Clause> handledClauses = new ArrayList<>(); 
-	private List<Set<Symbolic>> symbolsOfEachHandledClause = new ArrayList<>(); 
 	
-	public void decomposePathConditionInIndipendentFormulas(State finalState) {
+    private boolean shouldSkip(Clause clause) {
+        //exclude all the clauses with shape ClauseAssumeReferenceSymbolic
+        //if they refer to the resolution of a symbolic reference that is a 
+        //function application
+        if (clause instanceof ClauseAssumeReferenceSymbolic && 
+        ((ClauseAssumeReferenceSymbolic) clause).getReference() instanceof ReferenceSymbolicApply) {
+            return true;
+        }
+        
+        //Other exclusion cases
+        if (clause instanceof ClauseAssumeClassInitialized || clause instanceof ClauseAssumeClassNotInitialized) {
+        		return true;
+        }
+
+        //all other clauses are accepted
+        return false;
+    }
+    
+    public void decomposePathConditionInIndipendentFormulas(State finalState) {
 		
 		Collection<Clause> pathCondition = finalState.getPathCondition();
 		
-		Map<String, SizeRange> sizeRangeAssumptions = new HashMap<>();
+		Map<String, NumericRange> collectedRangeAssumptions = new HashMap<>();
 		Set<Clause> alreadySeen = new HashSet<>();
-		
+
+		ArrayList<Clause> pathConditionSimple = new ArrayList<>();
+		for (final Clause clause : pathCondition) {
+			if (!shouldSkip(clause)) {
+				pathConditionSimple.add(clause);
+			}
+		}
+
 		for (final Clause clause : pathCondition) {
 			if (alreadySeen.contains(clause)) {
 				continue;
@@ -97,13 +131,12 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			if (clause instanceof ClauseAssume) { 
 				//System.out.println("clause: " + clause);
 				ClauseAssume assumption = (ClauseAssume) clause;
-				if (!excludeClause(assumption) && !collectedAsSizeRangeAssumptions(assumption, sizeRangeAssumptions)) {
-					final Set<Symbolic> assumptionSymbols = new HashSet<>(symbolsIn(assumption.getCondition()));
-					addAssumptionToFormula(assumption, assumptionSymbols, true, false);
+				if (!excludeClause(assumption) && !tryToCollectAsRangeAssumptions(assumption, collectedRangeAssumptions)) {
+					useThisAssumption(assumption);
 				}
-			} else if (clause instanceof ClauseAssumeExpands || clause instanceof ClauseAssumeNull || clause instanceof ClauseAssumeAliases) {
+			} else if (/*clause instanceof ClauseAssumeExpands ||*/ clause instanceof ClauseAssumeNull || clause instanceof ClauseAssumeAliases) {
 				//System.out.println("clause: " + clause);
-				ClauseAssumeReferenceSymbolic assumptionRef = (ClauseAssumeReferenceSymbolic) clause;
+				/* ClauseAssumeReferenceSymbolic assumptionRef = (ClauseAssumeReferenceSymbolic) clause;
 				final Set<Symbolic> assumptionSymbols = new HashSet<>();
 				ReferenceSymbolic ref = assumptionRef.getReference();
 				assumptionSymbols.add(ref);
@@ -123,25 +156,19 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 							}
 						}
 					}
-				}
-				
-				addAssumptionToFormula(assumptionRef, assumptionSymbols, false, false);
+				} */
+				useThisAssumption(clause);
 			}
 		}
 		
-		for (SizeRange r : sizeRangeAssumptions.values()) {
-			for (ClauseAssume assumption : r.getAsAssumptions()) {
+		for (NumericRange r : collectedRangeAssumptions.values()) {
+			for (ClauseAssume assumption[] : r.getAsAssumptions()) {
 				//System.out.println("clause: " + assumption);
-				final Set<Symbolic> assumptionSymbols = new HashSet<>(symbolsIn(assumption.getCondition()));
-
-				boolean isAboutSizeRestriction = 
-						((Expression) assumption.getCondition()).getOperator() == Operator.GE ||
-						((Expression) assumption.getCondition()).getOperator() == Operator.GT ||
-						((Expression) assumption.getCondition()).getOperator() == Operator.NE;
-
-				addAssumptionToFormula(assumption, assumptionSymbols, true, isAboutSizeRestriction);				
+				useThisAssumption(assumption);				
 			}
 		}
+		
+		generateIndipendentFormulas();
 		
 		for (int i = 0; i < independentFormulas.size(); i++) {
 			System.out.println("Considering indipendent formula: " + Arrays.toString(independentFormulas.get(i).toArray()));
@@ -191,9 +218,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 						//Exclude clauses on hashCode
 						boolean isAboutHashCode = 
 								(o1 instanceof PrimitiveSymbolicAtomic &&
-										((PrimitiveSymbolicAtomic) o1).asOriginString().contains("hashCode")) ||
+										((PrimitiveSymbolicAtomic) o1).asOriginString().contains("ashCode")) ||
 								(o2 instanceof PrimitiveSymbolicAtomic &&
-										((PrimitiveSymbolicAtomic) o2).asOriginString().contains("hashCode"));
+										((PrimitiveSymbolicAtomic) o2).asOriginString().contains("ashCode"));
 						if (isAboutHashCode) {
 							exclude[0] = true;
 						}
@@ -215,131 +242,265 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	}
 
 
-	private static class SizeRange {
-		private final Primitive sizeVar;
+	private static class NumericRange {
+		private final PrimitiveSymbolic var;
 		private Simplex inf = null; // null is for (+/-) infinite
 		private boolean infIncluded = false; 
 		private Simplex sup = null; // null is for (+/-) infinite
 		private boolean supIncluded = false;
-		private final Set<Simplex> EQValues = new HashSet<Simplex>();
+		private Simplex EQValue = null;
 		private final Set<Simplex> NEValues = new HashSet<Simplex>(); 
+		private final CalculatorRewriting calc;
 		
-		public SizeRange(Primitive sizeVar) {
-			//System.out.println("--DEBUG: adding size-range for var " + sizeVar);
-			this.sizeVar = sizeVar;
+		public NumericRange(PrimitiveSymbolic var, CalculatorRewriting calc) {
+			//System.out.println("--DEBUG: adding range for var " + var);
+			this.var = var;
+			this.calc = calc;
 		}
 
-		public ClauseAssume[] getAsAssumptions() {
-
-			ArrayList<ClauseAssume> ass = new ArrayList<>();
+		public List<ClauseAssume[]> getAsAssumptions() {
+			System.out.print("Synthesizing range clauses for: " + var + " ORIGINS: ");
 			
-			try {
-				for (Simplex EQVal : EQValues) {
-					boolean updateInf = inf != null && EQVal.eq(inf).surelyTrue();
-					if (updateInf) {
+			//update inf/sup according to the equality constraint
+			if (EQValue != null) {
+				try {
+					if (sup == null) {
+						if (inf != null) {
+							sup = EQValue;
+							supIncluded = true;
+						}
+					} else if (calc.push(EQValue).eq(sup).pop().surelyTrue()) {
+						supIncluded = true;						
+					}
+					if (inf == null) {
+						if (sup != null) {
+							infIncluded = true;
+							inf = EQValue;
+						}
+					} else if (calc.push(EQValue).eq(inf).pop().surelyTrue()) {
 						infIncluded = true;
 					}
-					
-					boolean updateSup = sup != null && EQVal.eq(sup).surelyTrue();
-					if (updateSup) {
-						infIncluded = true;
-					}
-
-					boolean discard;
-					discard = inf != null && EQVal.ge(inf).surelyTrue() && !inf.isZeroOne(true);
-					discard = discard || (sup != null && EQVal.le(sup).surelyTrue());
-					if (!discard) { //keep only values that would not be implicitly accounted for when negating the range extremes
-						ass.add(new ClauseAssume(sizeVar.ne(EQVal)));					
-					}
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
 				}
-			} catch (InvalidOperandException | InvalidTypeException e) {
-				e.printStackTrace();
 			}
 
+			//Size-wise-range optimization: removing constraints wrt 0 
+			boolean naturalVars = false;
+			for (PrimitiveSymbolic s: symbolsIn(var)) {
+				String origin = s.asOriginString();
+				naturalVars = naturalVars || origin.endsWith("size") || origin.endsWith("length") || origin.endsWith("count");				
+				System.out.print(origin + ", ");
+			}
+			System.out.println();
+			naturalVars = naturalVars && isSummation(var);
+			if (naturalVars) {
+				System.out.println("Range clauses for this var are on Natural numbers");
+				if (inf != null && inf.isZeroOne(true)) {
+					inf = null;
+				}
+			} 
 			
-			try {
-				if (inf != null && !inf.isZeroOne(true)) {
+			//synthsize inf and sup clauses
+			ClauseAssume condOnInf = null;
+			if (inf != null) {
+				try {
 					if (infIncluded) {
-						ass.add(new ClauseAssume(sizeVar.ge(inf)));
+						condOnInf = new ClauseAssume(calc.push(var).ge(inf).pop());
 					} else {
-						ass.add(new ClauseAssume(sizeVar.gt(inf)));					
+						condOnInf = new ClauseAssume(calc.push(var).gt(inf).pop());					
 					}
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
+				} catch (InvalidInputException e) {
+					e.printStackTrace();
 				}
-			} catch (InvalidOperandException | InvalidTypeException e) {
-				e.printStackTrace();
 			}
-
-			try{
-				if (sup != null) {
+			ClauseAssume condOnSup = null;
+			if (sup != null) {
+				try {
 					if (supIncluded) {
-						ass.add(new ClauseAssume(sizeVar.le(sup)));
+						condOnSup = new ClauseAssume(calc.push(var).le(sup).pop());
 					} else {
-						ass.add(new ClauseAssume(sizeVar.lt(sup)));					
+						condOnSup = new ClauseAssume(calc.push(var).lt(sup).pop());					
 					}
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
+				} catch (InvalidInputException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (InvalidOperandException | InvalidTypeException e) {
-				e.printStackTrace();
-			}
-			
-
-			
-			try {
-				Primitive andCond = null;
-				for (Simplex NEVal : NEValues) {
-					boolean inRange;
-					inRange = inf == null || NEVal.ge(inf).surelyTrue();
-					inRange = inRange && (sup == null || NEVal.le(sup).surelyTrue());
-					if (inRange) {
-						Primitive neCond = sizeVar.ne(NEVal); 
-						andCond = andCond == null ? neCond : andCond.and(neCond);
-					} else {
-						ass.add(new ClauseAssume(sizeVar.ne(NEVal))); 
-					}
-				}
-				if (andCond != null) {
-					ass.add(new ClauseAssume(andCond));
-				}
-			} catch (InvalidOperandException | InvalidTypeException e) {
-				e.printStackTrace();
 			}
 
-			//System.out.println("--DEBUG: computed size-assumptions for var " + sizeVar + ": " + Arrays.toString(ass.toArray()));
+			ArrayList<ClauseAssume[]> assumptions = new ArrayList<>();
+
+			//generate clauses by pairing sup clause to NEValues inside or outside the range
+			ArrayList<Simplex> NEValuesSorted = new ArrayList<>(NEValues);
+			Collections.sort(NEValuesSorted, new Comparator<Simplex>() {
+				@Override
+				public int compare(Simplex o1, Simplex o2) {
+					try {
+						if (calc.push(o1).gt(o2).pop().surelyTrue()) {
+							return 1;
+						} else if (calc.push(o1).lt(o2).pop().surelyTrue()) {
+							return -1;
+						} else {
+							return 0;
+						}
+					} catch (InvalidOperandException | InvalidTypeException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					return 0;
+				}
+			});
+			boolean condOnInfAlreadyIncluded = false;
+			boolean condOnSupAlreadyIncluded = false;
+			Primitive currentSeq = null;
+			boolean currentSeqIsLessThanInf = false;
+			boolean currentSeqIsGreaterThanSup = false;
+			Simplex prevNEVal = inf;
+			for (Simplex NEVal : NEValuesSorted) {
+				try {
+					if (naturalVars && NEVal.isZeroOne(true)) {
+						//Size-wise-range optimization: removing constraints wrt 0 
+						continue;
+					}
+					boolean lessThanInf = false;
+					boolean greaterThanSup = false;
+					if (inf != null && calc.push(NEVal).le(inf).pop().surelyTrue()) {
+						if (calc.push(NEVal).eq(inf).pop().surelyTrue()) {
+							infIncluded = false;
+							continue;
+						} else {
+							lessThanInf = true;
+						}
+					} else if (sup != null && calc.push(NEVal).ge(sup).pop().surelyTrue()) {
+						if (calc.push(NEVal).eq(sup).pop().surelyTrue()) {
+							supIncluded = false;
+							continue;
+						} else {
+							greaterThanSup = true;
+						}
+					} 
+					boolean inSeq = false;
+					if (currentSeq != null && prevNEVal != null) {
+						Primitive delta = calc.push(NEVal).sub(prevNEVal).pop();
+						inSeq = calc.push(delta).mul(delta).eq(calc.pushVal(1).pop()).pop().surelyTrue();
+					}
+					if (inSeq) {
+						currentSeq = calc.push(currentSeq).and(calc.push(var).ne(NEVal).pop()).pop();
+					} else {
+						//add current seq if any
+						if (currentSeq != null) {
+							if (currentSeqIsLessThanInf) {
+								assumptions.add(0, new ClauseAssume[] {condOnInf, new ClauseAssume(currentSeq)});
+								condOnInfAlreadyIncluded = true;
+								currentSeqIsLessThanInf = false;
+							} else if (currentSeqIsGreaterThanSup) {
+								assumptions.add(0, new ClauseAssume[] {condOnSup, new ClauseAssume(currentSeq)});
+								condOnSupAlreadyIncluded = true;
+								currentSeqIsGreaterThanSup = false;
+							} else {
+								if (!naturalVars) {
+									//Size-wise-range optimization: removing in range NE constraints likely due to scanning
+									assumptions.add(new ClauseAssume[] {new ClauseAssume(currentSeq)});
+								}
+							}
+						}
+						//start collecting the next seq
+						currentSeqIsLessThanInf = lessThanInf;
+						currentSeqIsGreaterThanSup = greaterThanSup;
+						currentSeq = calc.push(var).ne(NEVal).pop();
+					}
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
+				} catch (InvalidInputException e) {
+					e.printStackTrace();
+				}
+				prevNEVal = NEVal;
+			} 
+
+			//handle last seq if any
+			if (currentSeq != null) {
+				try {
+					if (currentSeqIsLessThanInf) {
+						assumptions.add(0, new ClauseAssume[] {condOnInf, new ClauseAssume(currentSeq)});
+						condOnInfAlreadyIncluded = true;
+					} else if (currentSeqIsGreaterThanSup) {
+						assumptions.add(0, new ClauseAssume[] {condOnSup, new ClauseAssume(currentSeq)});
+						condOnSupAlreadyIncluded = true;
+					} else {
+						if (!naturalVars) {
+							assumptions.add(new ClauseAssume[] {new ClauseAssume(currentSeq)});
+						}
+					}
+				} catch (InvalidInputException e) {
+					e.printStackTrace();
+				}
+			}
+			//include conds on inf and sup if not already included along with NEValues
+			if (condOnInf != null && !condOnInfAlreadyIncluded) {
+				assumptions.add(0, new ClauseAssume[] {condOnInf});
+			} 
+			if (condOnSup != null && !condOnSupAlreadyIncluded) {
+				assumptions.add(0, new ClauseAssume[] {condOnSup});
+			} 
+			
+			if (assumptions.isEmpty() && EQValue != null) {
+				try {
+					assumptions.add(0, new ClauseAssume[] {new ClauseAssume(calc.push(var).eq(EQValue).pop())});				
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
+				} catch (InvalidInputException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			//System.out.println("--DEBUG: computed range-assumptions for var " + var + ": " + Arrays.toString(ass.toArray()));
 				
-			return ass.toArray(new ClauseAssume[0]);
+			return assumptions;
 		}
 
-		public void addAssumption(Expression sizeAssumption, boolean sizeVariableInOperand1) {
-			//System.out.println("--DEBUG: updating range for " + sizeVar + ": " + sizeAssumption + "...");
+		public void addAssumption(Expression rangeAssumption, boolean constTermInRightOperand) {
+			//System.out.println("--DEBUG: updating range for " + var + ": " + rangeAssumption + "...");
 		
-			Simplex comparedValue = (Simplex) (sizeVariableInOperand1 ? sizeAssumption.getSecondOperand() : sizeAssumption.getFirstOperand());
+			Simplex constTerm = (Simplex) (constTermInRightOperand ? rangeAssumption.getSecondOperand() : rangeAssumption.getFirstOperand());
 		
-			if (sizeAssumption.getOperator().equals(Operator.EQ)) {
-				EQValues.add(comparedValue);
-				//System.out.println("  ... stored as EQ assumption, currently: " + Arrays.toString(EQValues.toArray()));
+			if (rangeAssumption.getOperator().equals(Operator.EQ)) {
+				try {//Defensive check
+					if (EQValue != null && calc.push(EQValue).eq(constTerm).pop().surelyFalse()) {
+						throw new RuntimeException("CHECK THIS: path include strict equality constraints of a variable and distinct constants");
+					}
+				} catch (InvalidOperandException | InvalidTypeException e) {
+					e.printStackTrace();
+				}
+				EQValue = constTerm;
+				//System.out.println("  ... stored as EQ assumption, currently: " + EQValue);
 				return;
 			}
 
-			if (sizeAssumption.getOperator().equals(Operator.NE)) {
-				NEValues.add(comparedValue);
+			if (rangeAssumption.getOperator().equals(Operator.NE)) {
+				NEValues.add(constTerm);
 				//System.out.println("  ... stored as NE assumption, currently: " + Arrays.toString(NEValues.toArray()));
 				return;
 			}
 			
-			boolean operatorWithEquality = sizeAssumption.getOperator().equals(Operator.LE) || 
-					sizeAssumption.getOperator().equals(Operator.GE);
+			boolean operatorWithEquality = rangeAssumption.getOperator().equals(Operator.LE) || 
+					rangeAssumption.getOperator().equals(Operator.GE);
 			
 			boolean updateInf = 
-					(sizeVariableInOperand1 && 
-							(sizeAssumption.getOperator().equals(Operator.GT) || sizeAssumption.getOperator().equals(Operator.GE))) || 
-					(!sizeVariableInOperand1 && 
-							(sizeAssumption.getOperator().equals(Operator.LT) || sizeAssumption.getOperator().equals(Operator.LE)));
+					(constTermInRightOperand && 
+							(rangeAssumption.getOperator().equals(Operator.GT) || rangeAssumption.getOperator().equals(Operator.GE))) || 
+					(!constTermInRightOperand && 
+							(rangeAssumption.getOperator().equals(Operator.LT) || rangeAssumption.getOperator().equals(Operator.LE)));
 			if (updateInf) {				
 				try {
 					//System.out.println("  ... going to update inf - before was: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
-					if (inf == null || comparedValue.lt(inf).surelyTrue()) {
-						inf = comparedValue;
+					if (inf == null || calc.push(constTerm).lt(inf).pop().surelyTrue()) {
+						inf = constTerm;
 						infIncluded = operatorWithEquality;
-					} else if (comparedValue.eq(inf).surelyTrue()) {
+					} else if (calc.push(constTerm).eq(inf).pop().surelyTrue()) {
 						infIncluded = infIncluded || operatorWithEquality;
 					}
 					//System.out.println("  ... - now is: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
@@ -349,10 +510,10 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			} else { //updateSup
 				try {
 					//System.out.println("  ... going to update sup - before was: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
-					if (sup == null || comparedValue.gt(sup).surelyTrue()) {
-						sup = comparedValue;
+					if (sup == null || calc.push(constTerm).gt(sup).pop().surelyTrue()) {
+						sup = constTerm;
 						supIncluded = operatorWithEquality;
-					} else if (comparedValue.eq(sup).surelyTrue()) {
+					} else if (calc.push(constTerm).eq(sup).pop().surelyTrue()) {
 						supIncluded = supIncluded || operatorWithEquality;
 					}
 					//System.out.println("  ... - now is: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
@@ -365,92 +526,37 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}	
 	}
 	
-	private boolean collectedAsSizeRangeAssumptions(ClauseAssume assumption, Map<String, SizeRange> sizeRangeAssumptions) {
-
-		final boolean[] postpone = {false};
-
-		final PrimitiveVisitor v = new PrimitiveVisitor() {
-			private boolean isSizeExpression = false;
-			private boolean includeAlreadyASizeVar = false;
-
-			@Override
-			public void visitWideningConversion(WideningConversion x) throws Exception { }
-
-			@Override
-			public void visitTerm(Term x) throws Exception { }
-
-			@Override
-			public void visitSimplex(Simplex x) throws Exception { }
-
-			@Override
-			public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {	
-				 boolean isSizeVar = ((PrimitiveSymbolicAtomic) s).asOriginString().endsWith("size") ||
-						((PrimitiveSymbolicAtomic) s).asOriginString().endsWith("length") ||
-						((PrimitiveSymbolicAtomic) s).asOriginString().endsWith("count");
-				 
-				 if (includeAlreadyASizeVar) {
-					 isSizeExpression = isSizeExpression && isSizeVar;						
-				 } else {
-					 includeAlreadyASizeVar = true;
-					 isSizeExpression = isSizeVar;
-				}
-			}
-
-			@Override
-			public void visitNarrowingConversion(NarrowingConversion x) throws Exception { }
-
-			@Override
-			public void visitPrimitiveSymbolicApply(PrimitiveSymbolicApply x) throws Exception { }
-
-			@Override
-			public void visitExpression(Expression e) throws Exception {
-				if (e.isUnary()) { 
-					e.getOperand().accept(this);
-				} else {
-					Primitive o1 = e.getFirstOperand();
-					Primitive o2 = e.getSecondOperand();
-
-					o1.accept(this);
-					o2.accept(this);
-
-					Operator op = e.getOperator();
-
-					if ((op == Operator.EQ || op == Operator.NE || op == Operator.GE || op == Operator.GT || 
-							op == Operator.LE || op == Operator.LT) && isSizeExpression) {
-
-						boolean isAboutSizeRange = o1 instanceof Simplex || o2 instanceof Simplex;
-
-						if (isAboutSizeRange) {
-							postpone[0] = true;
-
-							Primitive sizeVar = o1 instanceof Simplex ? o2 : o1;
-							String sizeOrigin = sizeVar.toString();
-
-							SizeRange sizeRange = sizeRangeAssumptions.get(sizeOrigin);
-							if (sizeRange == null) {
-								sizeRange = new SizeRange(sizeVar);
-								sizeRangeAssumptions.put(sizeOrigin, sizeRange);
-							}
-
-							sizeRange.addAssumption(e, o2 instanceof Simplex);
-						}
-
-						includeAlreadyASizeVar = false; //reset for checking next expressions
-					}
-				}
-			}
-
-			@Override
-			public void visitAny(Any x) { }
-		};
-
-		try {
-			assumption.getCondition().accept(v);
-		} catch (Exception exc) {
-			//this should never happen
-			throw new AssertionError(exc);
+	private boolean tryToCollectAsRangeAssumptions(ClauseAssume assumption, Map<String, NumericRange> rangeAssumptions) {
+		Primitive cond = assumption.getCondition();
+		if (!(cond instanceof Expression)) {
+			return false;
 		}
-		return postpone[0];
+		Expression condExpr = (Expression) cond;
+		if (condExpr.isUnary()) { 
+			return false;
+		}
+		Primitive o1 = condExpr.getFirstOperand();
+		Primitive o2 = condExpr.getSecondOperand();
+		Operator op = condExpr.getOperator();
+		boolean isNumericComparison = 
+				op == Operator.EQ || op == Operator.NE || op == Operator.GE || op == Operator.GT || 
+				op == Operator.LE || op == Operator.LT;
+		boolean isSimpleRangeAssumption = isNumericComparison && (o1 instanceof Simplex || o2 instanceof Simplex) &&
+				(o1 instanceof PrimitiveSymbolic || o2 instanceof PrimitiveSymbolic);
+		if (isSimpleRangeAssumption) {
+			Primitive var = o1 instanceof Simplex ? o2 : o1;
+			String origin = var.toString();
+			NumericRange range = rangeAssumptions.get(origin);
+			if (range == null) {
+				range = new NumericRange((PrimitiveSymbolic) var, calc);
+				rangeAssumptions.put(origin, range);
+			}
+			range.addAssumption(condExpr, o2 instanceof Simplex);
+			//System.out.println("Range clause: " + assumption);
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	public int getNumOfIndipendentFormulas() {
@@ -458,7 +564,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	}
 
 
-	private boolean conflictingOrigins(Set<Symbolic> clauseSymbols, Set<Symbolic> formulaSymbols, boolean checkOrigins) {
+	private boolean conflicting(Set<Symbolic> clauseSymbols, Set<Symbolic> formulaSymbols, boolean checkOrigins) {
 		//System.out.println(" ** Comparing clauses: " + Arrays.toString(clauseSymbols.toArray()) + " and " + Arrays.toString(formulaSymbols.toArray()));
 
 		for (Symbolic s: clauseSymbols) {
@@ -502,16 +608,62 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 		return false; 
 	}
+	
+	private List<Clause[]> assumptionsToBeIncluded = new ArrayList<>();
+	private List<Set<Symbolic>> assumptionsToBeIncludedSymbols = new ArrayList<>();
+	private List<Clause[]> assumptionsAlreadyIncluded = new ArrayList<>();
+	private List<Set<Symbolic>> assumptionsAlreadyIncludedSymbols = new ArrayList<>();
+	
+	private void useThisAssumption(Clause assumption) {
+		assumptionsToBeIncluded.add(0, new Clause[] {assumption});
+		if (assumption instanceof ClauseAssume) {
+			assumptionsToBeIncludedSymbols.add(0, 
+					new HashSet<>(symbolsIn(((ClauseAssume) assumption).getCondition())));			
+		} else {
+			assumptionsToBeIncludedSymbols.add(0, new HashSet<>());
+		}
+	}
+	
+	private void useThisAssumption(ClauseAssume[] assumption) {
+		System.out.println("Using assumption: " + Arrays.toString(assumption));
+		assumptionsToBeIncluded.add(0, assumption);
+		assumptionsToBeIncludedSymbols.add(0, new HashSet<>(symbolsIn(assumption[0].getCondition())));			
+	}
 
-	private void addAssumptionToFormula(Clause assumption, Set<Symbolic> assumptionSymbols, boolean checkForConflicts, boolean checkOrigins) {
-		boolean added = false;
-		//System.out.println("[DEBUG] " + "ADDING new assumption: " + assumption + " (" + Arrays.toString(assumptionSymbols.toArray()) + ")");
+	private void generateIndipendentFormulas() {
+		while (!assumptionsToBeIncluded.isEmpty()) {
+			int numOfAlreadyIncluded = assumptionsAlreadyIncluded.size();
+			List<Clause> formula = new ArrayList<>();
+			Set<Symbolic> formulaSymbols = new HashSet<>();
+			for (int i = 0; i < assumptionsToBeIncluded.size(); i++) {
+				Clause[] assumption = assumptionsToBeIncluded.get(i);
+				Set<Symbolic> symbols = assumptionsToBeIncludedSymbols.get(i);
+				if (!conflicting(symbols, formulaSymbols, false)) {
+					formula.addAll(Arrays.asList(assumption));
+					formulaSymbols.addAll(symbols);
+					assumptionsAlreadyIncluded.add(assumptionsToBeIncluded.remove(i));
+					assumptionsAlreadyIncludedSymbols.add(assumptionsToBeIncludedSymbols.remove(i));
+					--i;
+				}
+			}
+			for (int i = 0; i < numOfAlreadyIncluded; i++) {
+				Clause[] assumption = assumptionsAlreadyIncluded.get(i);
+				Set<Symbolic> symbols = assumptionsAlreadyIncludedSymbols.get(i);		
+				if (!conflicting(symbols, formulaSymbols, false)) {
+					formula.addAll(Arrays.asList(assumption));
+					formulaSymbols.addAll(symbols);
+				}
+			}
+			independentFormulas.add(formula);
+		}
+		
+		/*boolean added = false;
 		for (int i = 0; i < independentFormulas.size(); i++) {
 			Set<Symbolic> formulaSymbols = symbolsOfEachIndipendentFormula.get(i);
 			
-			if (!checkForConflicts || !conflictingOrigins(assumptionSymbols, formulaSymbols, checkOrigins)) {
+			if (!checkForConflicts || !conflicting(assumptionsToIncludeSymbols, formulaSymbols, checkOrigins)) {
 				independentFormulas.get(i).add(assumption);
-				formulaSymbols.addAll(assumptionSymbols);
+				formulaSymbols.addAll(assumptionsToIncludeSymbols);
 				added = true;
 				//System.out.println("  ** added to: " + Arrays.toString(independentFormulas.get(i).toArray()));
 			}
@@ -520,11 +672,11 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		if (!added) {
 			List<Clause> formula = new ArrayList<>();
 			formula.add(assumption);
-			Set<Symbolic> formulaSymbols = new HashSet<>(assumptionSymbols);
+			Set<Symbolic> formulaSymbols = new HashSet<>(assumptionsToIncludeSymbols);
 
 			for (int i = 0; i < handledClauses.size(); i++) {
 				Set<Symbolic> handledClauseSymbols = symbolsOfEachHandledClause.get(i);
-				if (!conflictingOrigins(handledClauseSymbols, formulaSymbols, checkOrigins)) {
+				if (!conflicting(handledClauseSymbols, formulaSymbols, checkOrigins)) {
 					formula.add(handledClauses.get(i));
 					formulaSymbols.addAll(handledClauseSymbols);
 				}
@@ -535,7 +687,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}
 		
 		handledClauses.add(assumption);
-		symbolsOfEachHandledClause.add(assumptionSymbols);
+		symbolsOfEachHandledClause.add(assumptionsToIncludeSymbols);*/
 		
 	}
 
@@ -546,11 +698,37 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		this.output.append(this.methodNumber);
 		this.output.append('_');
 		this.output.append(i);
+		String id = "_" + this.methodNumber + "_" + i;
 		if (this.traceCounterSupplier != null) {
 			this.output.append('_');
 			this.output.append(this.traceCounterSupplier.get());
+			id += "_" + this.traceCounterSupplier.get();
 		}
 		this.output.append(PROLOGUE_2);
+		//declare the literal strings
+        for (Map.Entry<Long, String> lit : this.stringLiterals.entrySet()) {
+            this.output.append(INDENT_1);
+            this.output.append("private static final String CONST_");
+            this.output.append(lit.getKey());
+            this.output.append(" = \"");
+            this.output.append(lit.getValue());
+            this.output.append("\";\n");
+        }
+        
+        this.output.append(INDENT_1 + "public APCFitnessEvaluator");
+        this.output.append(id); 
+        this.output.append("(ClassLoader classLoader) {\n"); 
+        this.output.append(INDENT_2 + "this.classLoader = classLoader;\n");
+        for (long heapPos : new TreeSet<Long>(stringLiterals.keySet())) {
+            this.output.append(INDENT_2);
+            this.output.append("this.constants.put(");
+            this.output.append(heapPos);
+            this.output.append("L, CONST_");
+            this.output.append(heapPos);
+            this.output.append(");\n");
+        }
+		this.output.append(INDENT_1 + "}\n");
+
 	}
 
 	public void formatStringLiterals(Set<String> stringLiterals) {
@@ -568,7 +746,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 	public void formatState(State state, int i) {
 		try {
-			new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, independentFormulas.get(i));
+			new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, independentFormulas.get(i), calc, stringLiterals);
 		} catch (FrozenStateException e) {
 			this.output.delete(0, this.output.length());
 		}
@@ -614,12 +792,16 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			"import java.util.List;\n" +
 			"\n" +
 			"public class APCFitnessEvaluator";
-	private static final String PROLOGUE_2 = " {\n" +
+	private static final String PROLOGUE_2 = 
+			" {\n" +
 			INDENT_1 + "private static final double SMALL_DISTANCE = 1;\n" +
 			INDENT_1 + "private static final double BIG_DISTANCE = 1E300;\n" +
 			"\n" +
-			INDENT_1 + "private final SushiLibCache parsedOrigins = new SushiLibCache();\n";
-	//SushiLibCache()
+			INDENT_1 + "private final SushiLibCache parsedOrigins = new SushiLibCache();\n" +	//SushiLibCache()
+			INDENT_1 + "private final HashMap<Long, String> constants = new HashMap<>();\n" +	//constants
+			INDENT_1 + "private final ClassLoader classLoader;\n" + 
+			"\n"; 
+	
 	private static List<PrimitiveSymbolic> symbolsIn(Primitive e) {
 		final ArrayList<PrimitiveSymbolic> symbols = new ArrayList<>();
 		final PrimitiveVisitor v = new PrimitiveVisitor() {
@@ -650,14 +832,10 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 			@Override
 			public void visitPrimitiveSymbolicApply(PrimitiveSymbolicApply x) throws Exception {
-				for (Value v : x.getArgs()) {
-					if (v instanceof Primitive) {
-						((Primitive) v).accept(this);
-                	} else {
-                		//TODO
-                		throw new RuntimeException("Found a symbolic function application that returns a primitive but has as arg a reference: " + v.toString());
-					}
-				}
+				if (symbols.contains(x)) {
+                    return; //surely its args have been processed
+                }
+                symbols.add(x);
 			}
 
 			@Override
@@ -683,18 +861,61 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		return symbols;
 	}
 	
+	private static boolean isSummation(Primitive e) {
+		final boolean[] ret = new boolean[]{true};
+		final PrimitiveVisitor v = new PrimitiveVisitor() {
+			@Override
+			public void visitWideningConversion(WideningConversion x) throws Exception { }
+			@Override
+			public void visitTerm(Term x) throws Exception { }
+			@Override
+			public void visitSimplex(Simplex x) throws Exception { }
+			@Override
+			public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {	}
+			@Override
+			public void visitNarrowingConversion(NarrowingConversion x) throws Exception { }
+			@Override
+			public void visitPrimitiveSymbolicApply(PrimitiveSymbolicApply x) throws Exception { }
+			@Override
+			public void visitExpression(Expression e) throws Exception {
+				if (e.isUnary()) {
+					e.getOperand().accept(this);
+				} else {
+					e.getFirstOperand().accept(this);
+					e.getSecondOperand().accept(this);
+					if (!e.getOperator().equals(Operator.ADD)) {
+						ret[0] = false;
+					}
+				}
+			}
+			@Override
+			public void visitAny(Any x) { }
+		};
+
+		try {
+			e.accept(v);
+		} catch (Exception exc) {
+			//this should never happen
+			throw new AssertionError(exc);
+		}
+		return ret[0];
+	}
+	
 	private static class MethodUnderTest {
 		private final StringBuilder s;
 		private final HashMap<Symbolic, String> symbolsToVariables = new HashMap<>();
+        private final HashMap<String, Symbolic> variablesToSymbols = new HashMap<>();
 		private final ArrayList<String> evoSuiteInputVariables = new ArrayList<>();
 		private boolean panic = false;
-		final private List<Clause> formula;
-
-		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula) 
+		private final List<Clause> formula;
+		private final CalculatorRewriting calc;
+		
+		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula, CalculatorRewriting calc, HashMap<Long, String> stringLiterals) 
 		throws FrozenStateException {
 			this.s = s;
 			this.formula = formula;
-			makeVariables(finalState);
+			this.calc = calc;
+			//makeVariables(finalState);
 			appendMethodDeclaration(initialState, finalState, testCounter);
 			appendPathCondition(finalState, testCounter);
 			appendIfStatement(initialState, finalState, testCounter);
@@ -730,23 +951,20 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				} else {
 					firstDone = true;
 				}
-				final String type;
-				if (symbol instanceof ReferenceSymbolic) {
-					type = javaClass(((ReferenceSymbolic) symbol).getStaticType(), true);
-				} else {
-					type = javaPrimitiveType(((PrimitiveSymbolic) symbol).getType());
-				}
-				this.s.append(type);
-				this.s.append(' ');
-				this.s.append(varName);
+                final String type = javaType(symbol);
+                this.s.append(type);
+                this.s.append(' ');
+                this.s.append(varName);
 			}
 			this.s.append(") throws Exception {\n");
 			this.s.append(INDENT_2);
 			this.s.append("//generated for state ");
-			this.s.append(finalState.getIdentifier());
+			this.s.append(finalState.getBranchIdentifier());
 			this.s.append('[');
 			this.s.append(finalState.getSequenceNumber());
 			this.s.append("]\n");
+			this.s.append(INDENT_2);
+			this.s.append("Logger.setLevel(Level.FATAL);\n");
 		}
 
 		private void appendPathCondition(State finalState, int testCounter) 
@@ -772,7 +990,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					final ClauseAssumeExpands clauseExpands = (ClauseAssumeExpands) clause;
 					final Symbolic symbol = clauseExpands.getReference();
 					final long heapPosition = clauseExpands.getHeapPosition();
-					setWithFreshObject(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol);//TODO: setWithFreshObject(finalState, symbol, heapPosition);
 				} else if (clause instanceof ClauseAssumeNull) {					
 					this.s.append(INDENT_2);
 					this.s.append("// Search for inputs diverse (not null) from: "); //comment
@@ -781,7 +999,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 					final ClauseAssumeNull clauseNull = (ClauseAssumeNull) clause;
 					final ReferenceSymbolic symbol = clauseNull.getReference();
-					setWithNotNull(symbol);
+					setWithFreshObjectAnyClass(symbol);//TODO: setWithNotNull(symbol);
 				} else if (clause instanceof ClauseAssumeAliases) {
 					this.s.append(INDENT_2);
 					this.s.append("// Search for inputs diverse (not alias) from: "); //comment
@@ -791,7 +1009,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					final ClauseAssumeAliases clauseAliases = (ClauseAssumeAliases) clause;
 					final Symbolic symbol = clauseAliases.getReference();
 					final long heapPosition = clauseAliases.getHeapPosition();
-					setWithNotAlias(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol);//TODO: setWithNotAlias(finalState, symbol, heapPosition);
 				} else if (clause instanceof ClauseAssume) {
 					this.s.append(INDENT_2);
 					this.s.append("// Search for inputs diverse from: "); //comment
@@ -802,11 +1020,14 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					final Primitive assumption = clauseAssume.getCondition();
 					//System.out.println(assumption);
 					try {
-						final Primitive not_assumption = assumption.not();
+						final Primitive not_assumption = calc.push(assumption).not().pop();
 						setNumericAssumption(not_assumption);
 						//System.out.println("-->" + not_assumption);
 					} catch (InvalidTypeException e) {
 						throw new RuntimeException(e);
+					} catch (InvalidOperandException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
 					//setNumericAssumption(assumption);
 				}
@@ -823,14 +1044,14 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			for (String inputVariable : this.evoSuiteInputVariables) {
 				this.s.append(INDENT_2);
 				this.s.append("candidateObjects.put(\"");
-				this.s.append(generateOriginFromVarName(inputVariable));
+				this.s.append(getSymbolFor(inputVariable).asOriginString());
 				this.s.append("\", ");
 				this.s.append(inputVariable);
 				this.s.append(");\n");
 			}
 			this.s.append('\n');
 			this.s.append(INDENT_2);
-			this.s.append("double d = distance(pathConditionHandler, candidateObjects, parsedOrigins);\n");
+			this.s.append("double d = distance(pathConditionHandler, candidateObjects, constants, classLoader, parsedOrigins);\n");
 			this.s.append(INDENT_2);
 			this.s.append("if (d == 0.0d)\n");
 			this.s.append(INDENT_3);
@@ -848,30 +1069,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				this.s.append("//Unable to generate test case ");
 				this.s.append(testCounter);
 				this.s.append(" for state ");
-				this.s.append(finalState.getIdentifier());
+				this.s.append(finalState.getBranchIdentifier());
 				this.s.append('[');
 				this.s.append(finalState.getSequenceNumber());
 				this.s.append("]\n");
 			} else {
 				this.s.append(INDENT_1);
 				this.s.append("}\n");
-			}
-		}
-
-		private void makeVariables(State finalState) {
-			final Collection<Clause> pathCondition = finalState.getPathCondition();
-			for (Clause clause : pathCondition) {
-				if (clause instanceof ClauseAssumeReferenceSymbolic) {
-					final ClauseAssumeReferenceSymbolic clauseRef = (ClauseAssumeReferenceSymbolic) clause;
-					final ReferenceSymbolic s = clauseRef.getReference();
-					makeVariableFor(s);
-				} else if (clause instanceof ClauseAssume) {
-					final ClauseAssume clausePrim = (ClauseAssume) clause;
-					final List<PrimitiveSymbolic> symbols = symbolsIn(clausePrim.getCondition());
-					for (PrimitiveSymbolic s : symbols) {
-						makeVariableFor(s);
-					}
-				} //else do nothing
 			}
 		}
 
@@ -885,7 +1089,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append(expansionClass); //TODO arrays
 			this.s.append("\")));\n");
 		}
-
+		private void setWithFreshObjectAnyClass(Symbolic symbol) 
+		throws FrozenStateException {
+			this.s.append(INDENT_2);
+			this.s.append("pathConditionHandler.add(new SimilarityWithRefToFreshObjectNotClass(\"");
+			this.s.append(symbol.asOriginString());
+			this.s.append("\"));\n");
+		}
 		private void setWithNotNull(ReferenceSymbolic symbol) {
 			this.s.append(INDENT_2);
 			this.s.append("pathConditionHandler.add(new SimilarityWithRefNotNull(\"");
@@ -903,7 +1113,20 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append("\"));\n");
 		}
 
-		private String javaPrimitiveType(char type) {
+        private String javaType(Symbolic symbol) {
+            if (symbol instanceof Primitive) { //either PrimitiveSymbolic or Term (however, it should never be the case of a Term)
+                final char type = ((Primitive) symbol).getType();
+                return javaPrimitiveType(type);
+            } else if (symbol instanceof ReferenceSymbolic) {
+                final String className = javaClass(((ReferenceSymbolic) symbol).getStaticType(), true);
+                return className;
+            } else {
+                //this should never happen
+                throw new RuntimeException("Reached unreachable branch while calculating the Java type of a symbol: Perhaps some type of symbol is not handled yet.");
+            }
+        }
+
+        private String javaPrimitiveType(char type) {
 			if (type == Type.BOOLEAN) {
 				return "boolean";
 			} else if (type == Type.BYTE) {
@@ -958,8 +1181,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			}
 		}
 
+        private int varCounter = 0;
 		private String generateVarNameFromOrigin(String name) {
-			return name.replace("{ROOT}:", "__ROOT_");
+            return "V" + this.varCounter++;
 		}
 
 		private String generateOriginFromVarName(String name) {
@@ -967,15 +1191,21 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}
 
 		private void makeVariableFor(Symbolic symbol) {
-			final String origin = symbol.asOriginString();
 			if (!this.symbolsToVariables.containsKey(symbol)) {
-				this.symbolsToVariables.put(symbol, generateVarNameFromOrigin(origin));
+				final String origin = symbol.asOriginString();
+				final String varName = generateVarNameFromOrigin(origin);
+				this.symbolsToVariables.put(symbol, varName);
+				this.variablesToSymbols.put(varName, symbol);
 			}
 		}
 
 		private String getVariableFor(Symbolic symbol) {
 			return this.symbolsToVariables.get(symbol);
 		}
+
+        private Symbolic getSymbolFor(String varName) {
+            return this.variablesToSymbols.get(varName);
+        }
 
 		private static String getTypeOfObjectInHeap(State finalState, long num) throws FrozenStateException {
 			final Map<Long, Objekt> heap = finalState.getHeap();
@@ -1018,14 +1248,15 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append(INDENT_3);
 			this.s.append("@Override public double calculate(List<Object> variables) {\n");
 			for (int i = 0; i < symbols.size(); ++i) {
-				final PrimitiveSymbolic symbol = symbols.get(i); 
+				final Symbolic symbol = symbols.get(i);
+				makeVariableFor(symbol);
 				this.s.append(INDENT_4);
 				this.s.append("final ");
-				this.s.append(javaPrimitiveType(symbol.getType()));
+				this.s.append(javaType(symbol));
 				this.s.append(" ");
-				this.s.append(javaVariable(symbol));
+				this.s.append(getVariableFor(symbol));
 				this.s.append(" = (");
-				this.s.append(javaPrimitiveType(symbol.getType()));
+				this.s.append(javaType(symbol));
 				this.s.append(") variables.get(");
 				this.s.append(i);
 				this.s.append(");\n");
@@ -1087,7 +1318,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 						final Primitive operand = e.getOperand();
 						if (operand instanceof Simplex) {
 							//true or false
-							assumptionWithNoNegation.add(operand.not());
+							assumptionWithNoNegation.add(calc.push(operand).not().pop());
 						} else if (operand instanceof Expression) {
 							final Expression operandExp = (Expression) operand;
 							final Operator operator = operandExp.getOperator();
@@ -1095,15 +1326,15 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 								//double negation
 								operandExp.getOperand().accept(this);
 							} else if (operator.equals(Operator.AND) || operator.equals(Operator.OR)) {
-								operandExp.getFirstOperand().not().accept(this);
+								calc.push(operandExp.getFirstOperand()).not().pop().accept(this);
 								final Primitive first = assumptionWithNoNegation.remove(0);
-								operandExp.getSecondOperand().not().accept(this);
+								calc.push(operandExp.getSecondOperand()).not().pop().accept(this);
 								final Primitive second = assumptionWithNoNegation.remove(0);
-								assumptionWithNoNegation.add(Expression.makeExpressionBinary(null, first, dual(operator), second));
+								assumptionWithNoNegation.add(Expression.makeExpressionBinary(first, dual(operator), second));
 							} else if (operator.equals(Operator.GT) || operator.equals(Operator.GE) ||
 									operator.equals(Operator.LT) || operator.equals(Operator.LE) ||
 									operator.equals(Operator.EQ) || operator.equals(Operator.NE)) {
-								assumptionWithNoNegation.add(Expression.makeExpressionBinary(null, operandExp.getFirstOperand(), dual(operator), operandExp.getSecondOperand()));
+								assumptionWithNoNegation.add(Expression.makeExpressionBinary(operandExp.getFirstOperand(), dual(operator), operandExp.getSecondOperand()));
 							} else {
 								//can't do anything for this expression
 								assumptionWithNoNegation.add(e);
@@ -1122,7 +1353,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 						final Primitive first = assumptionWithNoNegation.remove(0);
 						e.getSecondOperand().accept(this);
 						final Primitive second = assumptionWithNoNegation.remove(0);
-						assumptionWithNoNegation.add(Expression.makeExpressionBinary(null, first, operator, second));
+						assumptionWithNoNegation.add(Expression.makeExpressionBinary(first, operator, second));
 					}
 				}
 
@@ -1137,7 +1368,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 							newArgs.add(arg);
 						}
 					}
-					assumptionWithNoNegation.add(new PrimitiveSymbolicApply(x.getType(), x.historyPoint(), null, x.getOperator(), newArgs.toArray(new Value[0])));
+					assumptionWithNoNegation.add(new PrimitiveSymbolicApply(x.getType(), x.historyPoint(), x.getOperator(), newArgs.toArray(new Value[0])));
 				}
 
 				@Override
@@ -1201,7 +1432,8 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 				@Override
 				public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {
-					translation.add(javaVariable(s));
+					makeVariableFor(s);
+					translation.add(getVariableFor(s));
 				}
 
 				@Override
@@ -1221,28 +1453,8 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				@Override
 				public void visitPrimitiveSymbolicApply(PrimitiveSymbolicApply x)
 				throws Exception {
-					final StringBuilder b = new StringBuilder();
-					final String[] sig = x.getOperator().split(":");
-					b.append(sig[0].replace('/', '.') + "." + sig[2].replace('/', '.'));
-					b.append("(");
-					boolean firstDone = false;
-					for (Value v : x.getArgs()) {
-						if (firstDone) {
-							b.append(", ");
-						} else {
-							firstDone = true;
-						}
-						if (v instanceof Primitive) {
-							((Primitive) v).accept(this);
-							final String arg = translation.remove(0);
-							b.append(arg);
-						} else {
-							//TODO
-                    		throw new RuntimeException("Found a symbolic function application that returns a primitive but has as arg a reference: " + v.toString());
-						}
-					}
-					b.append(")");
-					translation.add(b.toString());
+                    makeVariableFor(x);
+                    translation.add(getVariableFor(x));
 				}
 
 				@Override

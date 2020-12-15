@@ -1,7 +1,11 @@
 package org.evosuite.ga.metaheuristics.mosa.jbse;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
@@ -73,11 +77,13 @@ public class JBSEManager {
 		
 		targetBranch.runTest(tc.getTestCase());				
 		ExecutionTracer.setTraceEventListener(null);
+
 		
-		/*for (TraceEvent item : listener.stack) {
+		for (TraceEvent item : listener.stack) {
 			LoggingUtils.getEvoLogger().info("[TRACE] {}", item);
-		}*/
-		
+		}
+		LoggingUtils.getEvoLogger().info("With test case {}", tc.getTestCase());
+			
 		listener.extractTraceInfo(targetBranch.getBranch().getActualBranchId(), targetBranch.getValue(),
 				currentFitness);
 		
@@ -133,7 +139,7 @@ public class JBSEManager {
 			entryMethod = (EnteredMethodEvent) stack.get(entryMethodIndex);
 			entryMethodOccurrences = 1;
 			
-			LoggingUtils.getEvoLogger().info("[JBSE] Entry method occurs at index {} ({}) and the target branch is the {}th occurrence of the branch id={}", entryMethodIndex, entryMethod, branchId, targetBranchOccurrences);
+			LoggingUtils.getEvoLogger().info("[JBSE] Entry method occurs at index {} ({}) and the target branch is the {}th occurrence of the branch id={}", entryMethodIndex, entryMethod, targetBranchOccurrences, branchId);
 
 			int traceIndex = entryMethodIndex;
 			while (--traceIndex >= 0) {
@@ -150,7 +156,7 @@ public class JBSEManager {
 				TraceEvent ev = stack.get(targetBranchIndex);
 				if (ev instanceof BranchPassedEvent) {
 					BranchPassedEvent evBranch = (BranchPassedEvent) ev;
-					if (evBranch.branch == branchId && evBranch.getFitness(branchIsTrueSide) == currentFitness) {
+					if (evBranch.branch == branchId && Math.abs(evBranch.getFitness(branchIsTrueSide) - currentFitness) < .00001) {
 						return targetBranchIndex;							
 					}
 				}
@@ -159,28 +165,28 @@ public class JBSEManager {
 		}
 
 		private int identifyEntryMethodAndCountBranchOccurrences(int targetBranchIndex) {
-			Stack<ExitMethodEvent> nestedMehtods = new Stack<>();
+			Stack<ExitMethodEvent> nestedMethods = new Stack<>();
 			
 			int traceIndex = targetBranchIndex;
 			while (--traceIndex >= 0) {
 				TraceEvent ev = stack.get(traceIndex);
 				if (ev instanceof ExitMethodEvent) {
-					nestedMehtods.push((ExitMethodEvent) ev);				
+					nestedMethods.push((ExitMethodEvent) ev);				
 				} else if (ev instanceof EnteredMethodEvent) {
 					EnteredMethodEvent evEntered = (EnteredMethodEvent) ev;
-					if (nestedMehtods.isEmpty()) {
+					if (nestedMethods.isEmpty()) {
 						if (isNotPrivateClassOrMethod(evEntered)) {
 							return traceIndex;	
-						}
-					} else if (evEntered.equals(nestedMehtods.peek())) {
-						nestedMehtods.pop();
+						} //else: search for outer non-private entry
+					} else if (evEntered.equals(nestedMethods.peek())) {
+						nestedMethods.pop();
 					} else {
-						LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: unmatched ExitMethodEvent {} wrt EnteredMethodEvent {}", nestedMehtods.peek(), evEntered);
+						LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: unmatched ExitMethodEvent {} wrt EnteredMethodEvent {}", nestedMethods.peek(), evEntered);
 						break; //TODO: throw exception (unmatched exitMethodEvent: should not happen)
 					}
 				} else if (ev instanceof BranchPassedEvent && 
 						ev.equals(stack.get(targetBranchIndex))) {
-					targetBranchOccurrences++;
+					++targetBranchOccurrences;
 				}
 			}
 			
@@ -192,7 +198,7 @@ public class JBSEManager {
 			try {
 				clazz = Class.forName(evEntered.className);
 			} catch (ClassNotFoundException e) {
-				LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: {} with EnteredMethodEvent {}", e, evEntered);
+				LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: {} - while loading class for EnteredMethodEvent {}", e, evEntered);
 				return false; //TODO: throw exception
 			}
 			if ((clazz.getModifiers() & Modifier.PRIVATE) != 0) {
@@ -200,11 +206,17 @@ public class JBSEManager {
 				return false;
 			}
 			
-			Method methods[] = clazz.getDeclaredMethods();
-			for (Method m : methods) {
-				String methodName = evEntered.methodName.substring(0,  evEntered.methodName.indexOf('('));
-				String methodDescr = evEntered.methodName.substring(methodName.length());				
-				if (!methodName.equals(m.getName())) {
+			String methodName = evEntered.methodName.substring(0,  evEntered.methodName.indexOf('('));
+			String methodDescr = evEntered.methodName.substring(methodName.length());				
+
+			List<Executable> methods = new ArrayList<>(Arrays.asList(clazz.getDeclaredMethods()));
+			methods.addAll(Arrays.asList(clazz.getDeclaredConstructors()));
+			for (Executable m : methods) {
+				if (methodName.equals("<init>")) {
+					if (!(m instanceof Constructor<?>)) {
+						continue;					
+					}
+				} else if (!methodName.equals(m.getName())) {
 					continue;
 				}
 				
@@ -212,7 +224,7 @@ public class JBSEManager {
 			    for(final Class<?> c: m.getParameterTypes()) {
 			    		mDescr += getDescriptorForClass(c);
 			    }
-			    mDescr += ')' + getDescriptorForClass(m.getReturnType());
+			    mDescr += ')' + (m instanceof Constructor<?> ? "V" : getDescriptorForClass(((Method) m).getReturnType()));
 			    
 			    if (methodDescr.equals(mDescr)) { 
 					if ((m.getModifiers() & Modifier.PRIVATE) != 0) {
@@ -224,7 +236,7 @@ public class JBSEManager {
 				}
 			}
 
-			LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: EnteredMethodEvent {} - method {} not found in class {}", evEntered, evEntered.methodName, evEntered.className);
+			LoggingUtils.getEvoLogger().info("[DEBUG] WARNING: checking if {} refers to non-private method - ISSUE: method {} not found in class {}", evEntered, evEntered.methodName, evEntered.className);
 			return false; //TODO: throw exception
 		}
 		

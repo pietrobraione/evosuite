@@ -62,6 +62,7 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -576,11 +577,12 @@ public class TestFactory {
 			allowNull = false;
 		}
 
-		List<VariableReference> parameters = satisfyParameters(
+		List<VariableReference> parameters = null;
+		parameters = satisfyParameters(
 				test, callee,
 				Arrays.asList(method.getParameterTypes()),
 				position, 1, allowNull, false, true);
-
+		
 		int newLength = test.size();
 		position += (newLength - length);
 
@@ -591,7 +593,7 @@ public class TestFactory {
 		logger.debug("Success: Adding method {}", method);
 		return ret;
 	}
-
+	
 	/**
 	 * Add primitive statement at position
 	 *
@@ -1161,7 +1163,7 @@ public class TestFactory {
 			throw new ConstructionFailedException("Cannot use class " + type);
 		}
 		if (genericType.hasWildcardOrTypeVariables()) {
-			type = genericType.getGenericInstantiation().getType();
+			//GIO: commented this: type = genericType.getGenericInstantiation().getType();
 		}
 		Statement st = new NullStatement(test, type);
 		test.addStatement(st, position);
@@ -1192,6 +1194,13 @@ public class TestFactory {
 										  boolean canReuseVariables) throws ConstructionFailedException {
 		GenericClass clazz = new GenericClass(type);
 
+		Type parameterTypeWithInstantiatedGenerics = type; //GIO: BEGIN
+		if (clazz.hasWildcardOrTypeVariables()) {
+			GenericClass clazz1 = clazz.getGenericInstantiation();
+			//parameterType = clazz.getType();
+			parameterTypeWithInstantiatedGenerics = clazz1.getType(); 
+		}//GIO: END
+		
 		logger.debug("Going to create object for type {}", type);
 		VariableReference ret;
 
@@ -1246,7 +1255,7 @@ public class TestFactory {
 					ret = addFunctionalMock(test, type, position, recursionDepth + 1);
 				} else {
 
-					if(!TestCluster.getInstance().hasGenerator(type)) {
+					if(!TestCluster.getInstance().hasGenerator(parameterTypeWithInstantiatedGenerics)) {
 						logger.debug("No generators found for {}, attempting to resolve dependencies", type);
 						TestClusterGenerator clusterGenerator = new TestClusterGenerator(
 								DependencyAnalysis.getInheritanceTree());
@@ -1257,7 +1266,7 @@ public class TestFactory {
 							clusterGenerator.addNewDependencies(Arrays.asList(clazz.getRawClass()));
 						}
 
-						if (TestCluster.getInstance().hasGenerator(type)) {
+						if (TestCluster.getInstance().hasGenerator(parameterTypeWithInstantiatedGenerics)) {
 							logger.debug("Found new generators for {}", type);
 							return createObject(test, type, position, recursionDepth + 1, generatorRefToExclude, allowNull, canUseFunctionalMocks, canReuseVariables);
 						} else {
@@ -1375,6 +1384,8 @@ public class TestFactory {
 			throws ConstructionFailedException {
 
 		GenericClass clazz = new GenericClass(parameterType);
+		
+		Type parameterTypeWithInstantiatedGenerics = parameterType; //GIO: below we will use both the (unmodified) parameterType or the (newly computed) parameterTypeWithInstantiatedGenerics
 
 		if (clazz.hasWildcardOrTypeVariables()) {
 			logger.debug("Getting generic instantiation of {}", clazz);
@@ -1382,13 +1393,14 @@ public class TestFactory {
 				clazz = clazz.getGenericInstantiation(exclude.getGenericClass().getTypeVariableMap());
 			else
 				clazz = clazz.getGenericInstantiation();
-			parameterType = clazz.getType();
+			//parameterType = clazz.getType(); //GIO 
+			parameterTypeWithInstantiatedGenerics = clazz.getType(); //GIO
 		}
 
 
 		if (clazz.isEnum() || clazz.isPrimitive() || clazz.isWrapperType() || clazz.isObject() ||
 				clazz.isClass() || EnvironmentStatements.isEnvironmentData(clazz.getRawClass()) ||
-				clazz.isString() || clazz.isArray() || TestCluster.getInstance().hasGenerator(parameterType) ||
+				clazz.isString() || clazz.isArray() || TestCluster.getInstance().hasGenerator(parameterTypeWithInstantiatedGenerics) ||//GIO: TestCluster.getInstance().hasGenerator(parameterType) ||
 				Properties.P_FUNCTIONAL_MOCKING > 0 || Properties.MOCK_IF_NO_GENERATOR) {
 
 			logger.debug(" Generating new object of type {}", parameterType);
@@ -2290,7 +2302,6 @@ public class TestFactory {
 	        VariableReference callee, List<Type> parameterTypes, int position,
 	        int recursionDepth, boolean allowNull, boolean excludeCalleeGenerators,
 													 boolean canReuseExistingVariables) throws ConstructionFailedException {
-
 		if(callee==null && excludeCalleeGenerators){
 			throw new IllegalArgumentException("Exclude generators on null callee");
 		}
@@ -2340,8 +2351,10 @@ public class TestFactory {
 			// Generics instantiation may lead to invalid types, so better double check
 			if(!var.isAssignableTo(parameterType)) {
 				throw new ConstructionFailedException("Error: "+var+" is not assignable to "+parameterType);
+				//var = createNull(test, parameterType, position, recursionDepth);
 			}
-			parameters.add(var);
+
+			parameters.add(var);				
 
 			int currentLength = test.size();
 			position += currentLength - previousLength;

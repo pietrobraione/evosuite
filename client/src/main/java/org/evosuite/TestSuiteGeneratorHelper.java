@@ -126,6 +126,9 @@ public class TestSuiteGeneratorHelper {
       case BRANCH_WITH_AIDING_PATH_CONDITIONS:
   	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand Path Conditions");  /*SUSHI: Aiding path conditions*/
   	  	break;
+      case SEEPEP:
+  	  	LoggingUtils.getEvoLogger().info("  - Coverage of DAGs based on the analysis done with SEEPEP ");   /*SEEPEP: DAG coverage*/
+  	  	break;
       default:
         throw new IllegalArgumentException("Unrecognized criterion: " + criterion);
     }

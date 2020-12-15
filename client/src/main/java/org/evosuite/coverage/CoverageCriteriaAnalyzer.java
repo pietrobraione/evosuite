@@ -183,6 +183,8 @@ public class CoverageCriteriaAnalyzer {
                 return RuntimeVariable.PathConditionCoverage;
             case BRANCH_WITH_AIDING_PATH_CONDITIONS:  /*SUSHI: Aiding path conditions*/
                 return RuntimeVariable.BranchCoverage;
+            case SEEPEP:  /*SEEPEP: DAG coverage*/
+                return RuntimeVariable.SeepepCoverage;
             default:
                 throw new RuntimeException("Criterion not supported: " + criterion);
 
@@ -315,6 +317,10 @@ public class CoverageCriteriaAnalyzer {
             case BRANCH:
             case BRANCH_WITH_AIDING_PATH_CONDITIONS: /*SUSHI: Aiding path conditions*/
                 return RuntimeVariable.BranchCoverageBitString;
+            case PATHCONDITION: /*Sushi: Path condition fitness*/
+            		return RuntimeVariable.PathConditionCoverage;
+            case SEEPEP: /*SEEPEP: DAG coverage*/
+            		return RuntimeVariable.SeepepCoverage;  
             case CBRANCH:
                 return RuntimeVariable.CBranchCoverageBitString;
             case IBRANCH:

@@ -13,7 +13,10 @@ import org.evosuite.coverage.pathcondition.AidingPathConditionGoalFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEManager;
+import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -29,6 +32,10 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 	
 	private Map<BranchCoverageTestFitness, AidingPathConditionManager<T>> aidingPathConditions = new HashMap<>();	
 	private List<BranchCoverageTestFitness> alreadyAidedBranches = new ArrayList<>();
+	
+	public PathConditionManager<T> getPathConditionManager() {
+		return pathConditionManager;
+	}
 	
 	public SushiManager(List<FitnessFunction<T>> fitnessFunctions) {
 		super(fitnessFunctions);
@@ -68,7 +75,9 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 		
 		this.coveredGoals.clear();
 		this.coveredGoals.putAll(branchManager.coveredGoals);
-		this.coveredGoals.putAll(pathConditionManager.coveredGoals);
+		if (!ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+			this.coveredGoals.putAll(pathConditionManager.coveredGoals);					
+		}
 		
 		logger.debug("N. of Uncovered Branches = {}", branchManager.getUncoveredGoals().size());
 		logger.debug("N. of Uncovered PathCondition = {}", pathConditionManager.getUncoveredGoals().size());
@@ -99,22 +108,27 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 	
 	@Override
 	public void restoreInstrumentationForAllGoals() {
-		pathConditionManager.restoreInstrumentationForAllGoals();
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+			for (FitnessFunction<T> apc: pathConditionManager.getCoveredGoals().keySet()) {
+				pathConditionManager.doneWithPathCondition((PathConditionCoverageGoalFitness) apc);
+			}
+		} else {
+			pathConditionManager.restoreInstrumentationForAllGoals();
+		}
 	}
 
 	public void manageAidingPathConditions(List<T> bestFront, int currentIteration) {
 		if (!ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
 			return;
 		}
-		
 		if (Properties.APC_RATE <= 0) {
 			return;
 		}
-		
 		if ((currentIteration + 1) % Properties.APC_RATE != 0) { // +1 to avoid activation at iteration 0 
 			return;
 		}
 		
+		//TODO: remove? do we need counting: no? do we need removing? do we need to store apc in map?
 		int numOfActiveAPC = 0;
 		List<BranchCoverageTestFitness> toRemove = new ArrayList<>();
 		for (BranchCoverageTestFitness branchWithAPC : aidingPathConditions.keySet()) {
@@ -131,7 +145,6 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 		
 		for (FitnessFunction<T> goal :  branchManager.getCurrentGoals()) {			
 			if (!(goal instanceof BranchCoverageTestFitness)) continue;
-			
 			BranchCoverageTestFitness branchGoal = (BranchCoverageTestFitness) goal;
 			if (branchGoal.getBranch() == null) continue;
 						
@@ -141,20 +154,24 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 				aidingPathConditions.put(branchGoal, apcd);
 			}
 			
+			//TODO: here we decide if is stable for too many iterations, in case we may want to make some change
 			apcd.updateAPCFitness(bestFront, currentIteration, alreadyAidedBranches);
 
+			//TODO: Already aided stores branches that we want to skip anyway
 			if (alreadyAidedBranches.contains(branchGoal)) continue; //round robin, postpone this and serve never-seen ones first
 
-			if (numOfActiveAPC < Properties.APC_MAX) {
+			//TODO: if there is room we may add new apc, if this branch needs some
+			//if (numOfActiveAPC < Properties.APC_MAX) {
 				int addedAPCs = apcd.chekForComputingAPCs(bestFront, currentIteration, alreadyAidedBranches);
 				if (addedAPCs > 0) {
 					numOfActiveAPC += addedAPCs;
 				}
-			}
+			//}
 		}
 		
+		//TODO: we do not need this, if we remove the already-aided concept
 		//round robin: now try to serve the alreadyAidedBranches in queue
-		for (int i = 0, index = 0; i < alreadyAidedBranches.size() && numOfActiveAPC < Properties.APC_MAX; i++, index++) {
+		/*for (int i = 0, index = 0; i < alreadyAidedBranches.size() && numOfActiveAPC < Properties.APC_MAX; i++, index++) {
 			BranchCoverageTestFitness branchGoal = alreadyAidedBranches.get(index);
 			
 			if (!branchManager.getCurrentGoals().contains(branchGoal)) {
@@ -173,19 +190,22 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 				numOfActiveAPC += addedAPCs;
 				alreadyAidedBranches.remove(index--);
 			}
-		}
+		}*/
 	}
 	
 	private static class AidingPathConditionManager<T extends Chromosome> {
-		public static final int MAX_DONT_AID_ITERS = 2000;
-		public static final int MAX_NO_IMPROVEMENT_ITERS_BEFORE_ADDING_APC = 100;
-		public static final int MAX_NO_IMPROVEMENT_ITERS_BEFORE_REMOVING_APC = 1000;
+		public static final int MAX_DONT_AID_ITERS = 1000;
+		public static final int MAX_NO_IMPROVEMENT_ITERS_BEFORE_ADDING_APC = 200;
+		public static final int MAX_NO_IMPROVEMENT_ITERS_BEFORE_SWITCHING_APC = 1000;
+		public static final int MAX_NEW_APC_PER_BRANCH = 1;
 
 		private final BranchCoverageTestFitness branchGoal;
 		private double lastKnownFitnessOfBranchGoal = Double.MAX_VALUE;
 		private int lastImprovementIterOfBranchGoal = -MAX_NO_IMPROVEMENT_ITERS_BEFORE_ADDING_APC;
 
 		private AidingPathConditionGoalFitness[] apcGoals = null;
+		private int nextGoalToConsiderIndex = 0;
+		private int[] currentGoalIndices;
 		private double[] lastKnownFitnessValuesOfApcGoals = null; 
 		private int[] lastImprovementIterOfApcGoals = null;
 		
@@ -207,7 +227,19 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 		
 		public int updtDoneAndCountActive() {		
 			int count = 0;
-			
+		
+			if (apcGoals != null) {  
+				for (int i = 0; i < currentGoalIndices.length; i++) {
+					int currentGoalIndex = currentGoalIndices[i];
+					if (!pathConditionManager.getCurrentGoals().contains(apcGoals[currentGoalIndex])) {
+						done = true;
+						count = 0;
+					} else {
+						++count;
+					}
+				}
+			}
+			/*
 			if (apcGoals != null) {
 				for (AidingPathConditionGoalFitness apc : apcGoals) {
 					if (apc != null) {
@@ -219,7 +251,7 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 						}
 					}
 				}
-			}
+			} */
 
 			if (done) {
 				apcGoals = null;
@@ -232,6 +264,36 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 			if (apcGoals == null) {
 				return;
 			}
+			for (int i = 0; i < currentGoalIndices.length; i++) {
+				int currentGoalIndex = currentGoalIndices[i];
+				double currFitness = Double.MAX_VALUE;
+				for (T c : bestFront) {
+					if (c.size() == 0) continue; //TODO: understand this better
+					if (apcGoals[currentGoalIndex].getFitness((TestChromosome) c) < currFitness) {
+						currFitness = apcGoals[currentGoalIndex].getFitness((TestChromosome) c);
+					}
+				}
+				if (currFitness < lastKnownFitnessValuesOfApcGoals[currentGoalIndex]) {
+					lastKnownFitnessValuesOfApcGoals[currentGoalIndex] = currFitness;
+					lastImprovementIterOfApcGoals[currentGoalIndex] = currentIteration;
+				} 
+				if (currentIteration - lastImprovementIterOfApcGoals[currentGoalIndex] >= MAX_NO_IMPROVEMENT_ITERS_BEFORE_SWITCHING_APC) {
+					if (apcGoals.length > MAX_NEW_APC_PER_BRANCH) {
+						LoggingUtils.getEvoLogger().info("\n\n* WARNING: SWITCHING GOAL FOR APC {} AFTER {} ATTEMPTS", apcGoals[nextGoalToConsiderIndex].getPathConditionId(), MAX_NO_IMPROVEMENT_ITERS_BEFORE_SWITCHING_APC);
+						pathConditionManager.doneWithPathCondition(apcGoals[currentGoalIndex]);
+
+						LoggingUtils.getEvoLogger().info("  Scheduling New aiding path condition: {}", apcGoals[nextGoalToConsiderIndex].getPathConditionId());
+						ExecutionTracer.addEvaluatorForPathCondition(apcGoals[nextGoalToConsiderIndex].getPathConditionGoal());
+						pathConditionManager.getCurrentGoals().add((FitnessFunction<T>) apcGoals[nextGoalToConsiderIndex]); 
+						pathConditionManager.getUncoveredGoals().add((FitnessFunction<T>) apcGoals[nextGoalToConsiderIndex]);	
+						this.lastKnownFitnessValuesOfApcGoals[nextGoalToConsiderIndex] = Double.MAX_VALUE;
+						this.lastImprovementIterOfApcGoals[nextGoalToConsiderIndex] = currentIteration;
+						currentGoalIndices[i] = nextGoalToConsiderIndex;
+						nextGoalToConsiderIndex = (nextGoalToConsiderIndex + 1) % apcGoals.length;
+					}
+				}
+			}
+			/*
 			for (int i = 0; i < apcGoals.length; i++) {				
 				if (apcGoals[i] == null) {
 					continue;
@@ -255,7 +317,7 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 					pathConditionManager.doneWithPathCondition(apcGoals[i]);	
 					apcGoals[i] = null;
 				}
-			}
+			} 
 			
 			int count = 0;
 			for (AidingPathConditionGoalFitness apc : apcGoals) {
@@ -266,7 +328,8 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 			if (count == 0) {
 				apcGoals = null;
 				alreadyAidedBranches.add(branchGoal);//dontAidThisBranchResetIteration = currentIteration; //because none worked 
-			}
+			} */
+			
 		}
 		
 		public int chekForComputingAPCs(List<T> bestFront, int currentIteration, List<BranchCoverageTestFitness> alreadyAidedBranches) {
@@ -301,7 +364,7 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 				LoggingUtils.getEvoLogger().info("\n\nAIDING FRONTIER GOAL: {} - fit {}", branchGoal, lastKnownFitnessOfBranchGoal);
 				
 				AidingPathConditionGoalFitness[] aidingPCGoals = 
-						pathConditionManager.introduceAidingPathCondition(branchGoal, (TestChromosome) bestTest);
+						introduceAidingPathCondition(branchGoal, (TestChromosome) bestTest);
 				
 				if (aidingPCGoals != null) {
 					this.apcGoals = aidingPCGoals;
@@ -321,6 +384,38 @@ public class SushiManager<T extends Chromosome> extends StructuralGoalManager<T>
 			} else {
 				return -1;
 			}
+		}
+		
+		public AidingPathConditionGoalFitness[] introduceAidingPathCondition(BranchCoverageTestFitness branchF, TestChromosome bestTest) {
+			
+			//Clone and minimize the test case
+			/*TestChromosome minimizedTest = (TestChromosome) bestTest.clone();
+			TestCaseMinimizer minimizer = new TestCaseMinimizer(branchF);
+			minimizer.minimize(minimizedTest);
+			if (branchF.getFitness(bestTest) != branchF.getFitness(minimizedTest)) {
+				LoggingUtils.getEvoLogger().info("[JBSE] Failed to generate the path condition: mimized test fitness ("+ branchF.getFitness(minimizedTest) +") differs from original one (" + branchF.getFitness(bestTest) + ")");
+				return null;
+			}*/
+
+			//Compute the new path condition goal 
+			AidingPathConditionGoalFitness[] aidingPathConditionGoals = JBSEManager.computeAidingPathConditionGoal(branchF, /* minimizedTest*/(TestChromosome) bestTest.clone());
+			
+			//Schedule the new path condition goal 
+			if (aidingPathConditionGoals != null) {
+				nextGoalToConsiderIndex = 0;
+				currentGoalIndices = new int[Math.min(MAX_NEW_APC_PER_BRANCH, aidingPathConditionGoals.length)];
+				for (int i = 0; i < MAX_NEW_APC_PER_BRANCH && i < aidingPathConditionGoals.length; i++) {
+					AidingPathConditionGoalFitness apc = aidingPathConditionGoals[i];
+					LoggingUtils.getEvoLogger().info("  Scheduling New aiding path condition: {}", apc.toString());
+					ExecutionTracer.addEvaluatorForPathCondition(apc.getPathConditionGoal());
+					pathConditionManager.getCurrentGoals().add((FitnessFunction<T>) apc); 
+					pathConditionManager.getUncoveredGoals().add((FitnessFunction<T>) apc);
+					currentGoalIndices[i] = i;
+					nextGoalToConsiderIndex = (nextGoalToConsiderIndex + 1) % aidingPathConditionGoals.length;
+				}
+			}
+			
+			return aidingPathConditionGoals;
 		}
 
 	}

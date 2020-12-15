@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.management.RuntimeErrorException;
+
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.Criterion;
@@ -41,12 +43,17 @@ import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
+import org.evosuite.coverage.seepep.SeepepTraceItem;
+import org.evosuite.coverage.seepep.SparkMethodSignatures;
 import org.evosuite.setup.CallContext;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import jbse.bc.Signature;
 
 /**
  * Keep a trace of the program execution
@@ -104,6 +111,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public static boolean traceCalls = false;
 
 	public static boolean disableContext = false;
+	
+	public static boolean seepepTracingEnabled = false; /*SEEPEP: DAG coverage*/
 
 	/** Constant <code>traceCoverage=true</code> */
 	public static boolean traceCoverage = true;
@@ -147,6 +156,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	public static boolean isTraceCallsEnabled() {
 		return traceCalls;
+	}
+
+	public static void enableSeepepTracing() { /*SEEPEP: DAG coverage*/
+		seepepTracingEnabled = true;
 	}
 
 	/**
@@ -193,6 +206,22 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 			}
 		}
 	}
+
+	// trace of traversed lines
+	private List<SeepepTraceItem> traversedSeepepItems = 
+			new LinkedList<SeepepTraceItem>(); /*SEEPEP: DAG coverage*/
+	private SeepepTraceItem lastTraversedSeepepItem = null; /*SEEPEP: DAG coverage*/
+	private boolean seepepDone = false;
+	@Override
+	public boolean checkSetSeepepDone(boolean done) {
+		boolean check = seepepDone;
+		seepepDone = done;
+		return check;
+	}
+	private int noLineTrackingNestedCalls = 0;
+	private Deque<Integer> lastTraversedLine = new LinkedList<>(); /*SEEPEP: DAG coverage*/
+	private Deque<String> lastTraversedClass = new LinkedList<>(); /*SEEPEP: DAG coverage*/
+	private Map<String, Integer> actionTraversalCount = new HashMap<>(); /*SEEPEP: DAG coverage*/
 
 	private List<BranchEval> branchesTrace = new ArrayList<BranchEval>();
 
@@ -686,6 +715,29 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 */
 	@Override
 	public void enteredMethod(String className, String methodName, Object caller) {
+		if (stack.size() > 4000) throw new Error("TERMINATED");//TODO: GIO: in general we want to avoid test cases with cyclic test structures, e.g., in the closure01 experiments
+		if (seepepTracingEnabled) {
+			if (className.equals("esem.sandbox.Utils") ||
+					SparkMethodSignatures._I().isSparkMethodDots(	className, methodName)) {
+				/*				!className.startsWith("esem.sandbox") && //TODO: generalize this
+				!className.startsWith("org.apache.spark.api.java") &&
+				!className.startsWith("jbse") && !methodName.startsWith("apply") &&
+				!methodName.startsWith("aggregateMessages_helper_computeVerticesFromTriplets") &&
+				!methodName.startsWith("computeTriplets") &&
+				!methodName.startsWith("fromEdges_helper_computeVerticesFromEdges") &&
+				!methodName.startsWith("groupEdges_helper_computeGroupedEdgesFromEdges") && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("innerJoin")) && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("leftOuterJoin")) && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("map"))) */
+				
+				noLineTrackingNestedCalls++;
+			}
+			if (noLineTrackingNestedCalls == 0) {
+				lastTraversedLine.addLast(-1);
+				lastTraversedClass.addLast(className);
+				//LoggingUtils.getEvoLogger().info("**logging call to method: {}", className + "::" + methodName + " called from: " + lastTraversedLine.getLast());
+			}
+		}
 		if (traceCoverage) {
 			String id = className + "." + methodName;
 			if (!coveredMethods.containsKey(id)) {
@@ -795,6 +847,29 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 */
 	@Override
 	public void exitMethod(String classname, String methodname) {
+		if (seepepTracingEnabled) {
+			if (noLineTrackingNestedCalls == 0) {
+				lastTraversedLine.removeLast();
+				lastTraversedClass.removeLast();
+				//LoggingUtils.getEvoLogger().info("***exiting call to method: {}", classname + "::" + methodname + " called from: " + lastTraversedLine.getLast());
+			}
+			if (classname.equals("esem.sandbox.Utils") ||
+					SparkMethodSignatures._I().isSparkMethodDots(classname, methodname)) {
+				/*				!className.startsWith("esem.sandbox") && //TODO: generalize this
+				!className.startsWith("org.apache.spark.api.java") &&
+				!className.startsWith("jbse") && !methodName.startsWith("apply") &&
+				!methodName.startsWith("aggregateMessages_helper_computeVerticesFromTriplets") &&
+				!methodName.startsWith("computeTriplets") &&
+				!methodName.startsWith("fromEdges_helper_computeVerticesFromEdges") &&
+				!methodName.startsWith("groupEdges_helper_computeGroupedEdgesFromEdges") && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("innerJoin")) && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("leftOuterJoin")) && 
+				!(className.equals("org.apache.spark.graphx.VertexRDD") && methodName.startsWith("map"))) */
+
+				noLineTrackingNestedCalls--;
+			}
+		}
+
 		if (!classname.equals("") && !methodname.equals("")) {
 			if (traceCalls) {
 				if (!stack.isEmpty() && !(stack.peek().methodName.equals(methodname))) {
@@ -1349,6 +1424,28 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 */
 	@Override
 	public void linePassed(String className, String methodName, int line) {
+		if (seepepTracingEnabled) { /*SEEPEP: DAG coverage*/
+			if (noLineTrackingNestedCalls == 0) {
+				lastTraversedLine.removeLast();
+				lastTraversedLine.addLast(line);
+			}
+			if (lastTraversedSeepepItem != null) {
+				String actionId = lastTraversedSeepepItem.getIdentifier() + "_&_" + lastTraversedClass.getLast() + "_&_" + lastTraversedLine.getLast();
+				if (lastTraversedSeepepItem.isAction()) {
+					Integer traversals = actionTraversalCount.get(actionId);
+					if (traversals == null) {
+						traversals = 0;
+					} else {
+						++traversals;
+					}
+					actionTraversalCount.put(actionId, traversals);
+					actionId = actionId + "_" + traversals;
+				} 
+				lastTraversedSeepepItem.rename(actionId);
+				traversedSeepepItems.add(lastTraversedSeepepItem);
+				lastTraversedSeepepItem = null;
+			}
+		}
 		if (traceCalls) {
 			if (stack.isEmpty()) {
 				logger.info("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
@@ -1832,5 +1929,24 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	@Override
 	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
 		return pathConditionDistances;
+	}
+	
+	@Override
+	public void passedSeepepItem(SeepepTraceItem seepepTraceItem) {  /*SEEPEP: DAG coverage*/
+		if (seepepTracingEnabled) {
+			if (seepepTraceItem.isTraceStartMarker() || seepepTraceItem.isInputParameter()) {
+				traversedSeepepItems.add(seepepTraceItem);
+				if (seepepTraceItem.isTraceStartMarker()) {
+					this.actionTraversalCount.clear();
+				}
+			} else {
+				lastTraversedSeepepItem = seepepTraceItem;
+			}
+		}
+	}
+
+	@Override
+	public List<SeepepTraceItem> getTraversedSeepepItems() { /*SEEPEP: DAG coverage*/
+		return traversedSeepepItems;
 	}
 }

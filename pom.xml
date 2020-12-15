@@ -40,6 +40,7 @@
         <module>shaded</module>
         <module>generated</module>
         <module>sushi-lib</module>
+        <module>../jbse</module>
     </modules>
 
     <prerequisites>
@@ -276,7 +277,7 @@
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-all</artifactId>
-                <version>5.1</version>
+                <version>5.1</version> <!-- 5.1 or 6.0_BETA -->
                 <!--				<version>4.2</version> -->
             </dependency>
             <dependency>

@@ -17,6 +17,13 @@ public class EvoSuiteWrapper_2_5 {
     private static final double BIG_DISTANCE = 1E300;
 
 
+    private final SushiLibCache cache = new SushiLibCache();
+    private final HashMap constants = new HashMap<>();
+    private final ClassLoader classLoader;
+    public EvoSuiteWrapper_2_5(ClassLoader classLoader) {
+    		this.classLoader = classLoader;
+    }
+
     public double test0(avl_tree.AvlTree __ROOT_this) throws Exception {
         //generated for state .1.2[14]
         final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();
@@ -33,8 +40,8 @@ public class EvoSuiteWrapper_2_5 {
         final HashMap<String, Object> candidateObjects = new HashMap<>();
         candidateObjects.put("{ROOT}:this", __ROOT_this);
 
-        double d = distance(pathConditionHandler, candidateObjects);
-        if (d == 0.0d)
+        double d = distance(pathConditionHandler, candidateObjects, constants, classLoader, cache);
+       if (d == 0.0d)
             System.out.println("test0 0 distance");
         return d;
     }

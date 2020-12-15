@@ -18,6 +18,13 @@ public class EvoSuiteWrapper_2_3 {
 
     private static final String STRING_LITERAL_0 = "_initialLeft";
 
+    private final SushiLibCache cache = new SushiLibCache();
+    private final HashMap constants = new HashMap<>();
+    private final ClassLoader classLoader;
+    public EvoSuiteWrapper_2_3(ClassLoader classLoader) {
+    		this.classLoader = classLoader;
+    }
+    
     public double test0(avl_tree.AvlTree __ROOT_this) throws Exception {
         //generated for state .1.1.1.1.1.1.1.2.1[19]
         final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();
@@ -119,7 +126,7 @@ public class EvoSuiteWrapper_2_3 {
         final HashMap<String, Object> candidateObjects = new HashMap<>();
         candidateObjects.put("{ROOT}:this", __ROOT_this);
 
-        double d = distance(pathConditionHandler, candidateObjects);
+        double d = distance(pathConditionHandler, candidateObjects, constants, classLoader, cache);
         if (d == 0.0d)
             System.out.println("test0 0 distance");
         return d;

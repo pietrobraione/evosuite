@@ -1,6 +1,8 @@
 package org.evosuite.ga.metaheuristics.mosa.jbse;
 
 import static org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunnerUtil.bytecodeJump;
+import static org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunnerUtil.bytecodeLoadConstant;
+import static jbse.bc.Signatures.JAVA_STRING;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -14,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import javax.tools.JavaCompiler;
@@ -28,9 +31,12 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.utils.LoggingUtils;
 
 import jbse.algo.exc.CannotManageStateException;
+import jbse.apps.run.DecisionProcedureGuidance;
 import jbse.apps.run.DecisionProcedureGuidanceJDI;
+import jbse.apps.run.GuidanceException;
 import jbse.bc.exc.InvalidClassFileFactoryClassException;
 import jbse.common.exc.ClasspathException;
+import jbse.common.exc.InvalidInputException;
 import jbse.dec.DecisionProcedureAlgorithms;
 import jbse.dec.DecisionProcedureAlwSat;
 import jbse.dec.DecisionProcedureClassInit;
@@ -46,14 +52,22 @@ import jbse.jvm.exc.EngineStuckException;
 import jbse.jvm.exc.FailureException;
 import jbse.jvm.exc.InitializationException;
 import jbse.jvm.exc.NonexistingObservedVariablesException;
+import jbse.mem.Objekt;
 import jbse.mem.State;
+import jbse.mem.State.Phase;
 import jbse.mem.exc.ContradictionException;
 import jbse.mem.exc.FrozenStateException;
+import jbse.mem.exc.InvalidNumberOfOperandsException;
 import jbse.mem.exc.ThreadStackEmptyException;
 import jbse.rewr.CalculatorRewriting;
 import jbse.rewr.RewriterOperationOnSimplex;
 import jbse.rules.ClassInitRulesRepo;
 import jbse.tree.StateTree.BranchPoint;
+import jbse.val.Reference;
+import jbse.val.ReferenceSymbolic;
+import jbse.val.ReferenceConcrete;
+import jbse.val.Value;
+
 
 public class JBSERunner {
 	
@@ -148,8 +162,10 @@ public class JBSERunner {
 	private final RunnerParameters commonParamsGuided;
 	private final RunnerParameters commonParamsGuiding;
 	private State initialState = null;
+	private State finalState = null;
+    private HashMap<Long, String> stringLiterals = null;
 
-	public static void main(String[] args) throws DecisionException, CannotBuildEngineException, InitializationException, InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, CannotManageStateException, ThreadStackEmptyException, ContradictionException, EngineStuckException, FailureException {
+	public static void main(String[] args) throws DecisionException, CannotBuildEngineException, InitializationException, InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, CannotManageStateException, ThreadStackEmptyException, ContradictionException, EngineStuckException, FailureException, InvalidInputException {
 		
 		System.out.println("ARGS: " + Arrays.toString(args));
 		TARGET_BRANCH_CLASS = args[0];
@@ -168,17 +184,21 @@ public class JBSERunner {
 		int APC_ID = Integer.parseInt(args[10]);
 			
 
+		final CalculatorRewriting calc = new CalculatorRewriting();
+		calc.addRewriter(new RewriterOperationOnSimplex());
+
 		JBSERunner runner = new JBSERunner(); 
-		State finalState = runner.runProgram();	
-		if (finalState != null) {
+		runner.runProgram(calc);	
+		if (runner.finalState != null) {
 			String evaluatorNames[] = emitAndCompilePathConditionEvaluator(
-					APC_ID, runner.initialState, finalState);
+					APC_ID, runner.initialState, runner.finalState, runner.stringLiterals, calc);
 			String successString = "SUCCESS";
 			for (int i = 0; i < evaluatorNames.length; i++) {
 				successString += ":" + evaluatorNames[i];
 			}
 			System.out.println(successString);
 		}
+		System.out.println("DONE");
 	}
 	
 	public JBSERunner() {
@@ -198,7 +218,7 @@ public class JBSERunner {
 		//builds the template parameters object for the guided (symbolic) execution
 		this.commonParamsGuided = new RunnerParameters();
 		this.commonParamsGuided.addUserClasspath(this.classpath);
-		this.commonParamsGuided.setCountScope(1000); // To avoid infinte loops
+		this.commonParamsGuided.setCountScope(100000); // To avoid infinte loops
 
 		//builds the template parameters object for the guiding (concrete) execution
 		this.commonParamsGuiding = new RunnerParameters();
@@ -227,26 +247,27 @@ public class JBSERunner {
 	 * @throws ContradictionException
 	 * @throws EngineStuckException
 	 * @throws FailureException
+	 * @throws InvalidInputException 
 	 */
-	public State runProgram()
+	public void runProgram(CalculatorRewriting calc)
 			throws DecisionException, CannotBuildEngineException, InitializationException, 
 			InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, 
 			ClasspathException, CannotBacktrackException, CannotManageStateException, 
 			ThreadStackEmptyException, ContradictionException, EngineStuckException, 
-			FailureException {
+			FailureException, InvalidInputException {
 
 		//builds the parameters
 		final RunnerParameters pGuided = this.commonParamsGuided.clone();
 		final RunnerParameters pGuiding = this.commonParamsGuiding.clone();
 
 		//sets the calculator
-		final CalculatorRewriting calc = new CalculatorRewriting();
-		calc.addRewriter(new RewriterOperationOnSimplex());
 		pGuided.setCalculator(calc);
 		pGuiding.setCalculator(calc);
 		
 		//sets the decision procedures
-		pGuided.setDecisionProcedure(new DecisionProcedureAlgorithms(new DecisionProcedureAlwSat(), calc));
+		final ClassInitRulesRepo initRules = new ClassInitRulesRepo();
+		//initRules.addNotInitializedClassPattern(".*");
+		pGuided.setDecisionProcedure(new DecisionProcedureAlgorithms(new DecisionProcedureClassInit(new DecisionProcedureAlwSat(calc), initRules)));
 		/*pGuided.setDecisionProcedure(new DecisionProcedureAlgorithms(
 				new DecisionProcedureClassInit( //useless?
 						new DecisionProcedureLICS( //useless?
@@ -258,9 +279,7 @@ public class JBSERunner {
 		pGuiding.setDecisionProcedure(
 				new DecisionProcedureAlgorithms(
 						new DecisionProcedureClassInit(
-								new DecisionProcedureAlwSat(), 
-								calc, new ClassInitRulesRepo()), 
-						calc)); //for concrete execution
+								new DecisionProcedureAlwSat(calc), initRules))); //for concrete execution
 
 		//sets the guiding method (to be executed concretely) and the entry method (symbolically)
 		pGuiding.setMethodSignature(GUIDING_TC_DATA.getClassName(), GUIDING_TC_DATA.getMethodDescriptor(), GUIDING_TC_DATA.getMethodName());
@@ -287,7 +306,7 @@ public class JBSERunner {
 		rd.fillRunnerParameters(pGuided);*/
 		
 		//sets the actions
-		final ActionsRunner actions = new ActionsRunner();
+		final ActionsRunner actions = new ActionsRunner(guid);
 		pGuided.setActions(actions);
 
 		/*((CalculatorRewriting) pGuided.getCalculator()).addRewriter(new RewriterPolynomials());
@@ -295,6 +314,14 @@ public class JBSERunner {
 		((CalculatorRewriting) pGuided.getCalculator()).addRewriter(new RewriterSqrt());
 		((CalculatorRewriting) pGuided.getCalculator()).addRewriter(new RewriterAbsSum());*/
 
+		// Uninterpreted functions   
+		pGuided.addUninterpreted("java/lang/String", "(Ljava/lang/Object;)Z", "equals");
+		pGuided.addUninterpreted("java/util/HashMap", "(Ljava/lang/Object;)Z", "containsKey");
+		pGuided.addUninterpreted("java/util/HashSet", "(Ljava/lang/Object;)Z", "contains");
+		pGuided.addUninterpreted("java/util/HashSet", "(Ljava/lang/Object;)Ljava/lang/Object;", "get");
+		pGuided.addUninterpreted("java/util/ArrayList", "(I)Ljava/lang/Object;", "get");
+
+		
 		//builds the runner and runs it
 		final RunnerBuilder rb = new RunnerBuilder();
 		final Runner r = rb.build(pGuided);
@@ -305,8 +332,9 @@ public class JBSERunner {
 		
 		//finalizes
 		rb.getEngine().close();
-
-		return actions.getFinalState();
+		this.stringLiterals = actions.stringLiterals;
+		this.finalState = actions.getFinalState();
+		System.out.println("done");
 	}
 	
 /*	private static class CountVisitor extends VoidVisitorAdapter<Object> {
@@ -355,9 +383,14 @@ public class JBSERunner {
 		private State finalState = null;
 		private boolean postInitial = false;
 		private boolean atJump = false;
+		private boolean atLoadConstant = false;
+		private int loadConstantStackSize = 0;
+        private final HashMap<Long, String> stringLiterals = new HashMap<>();
 		private int targetBranchOccurrences = 0;
+		private final DecisionProcedureGuidance guid;
 		
-		public ActionsRunner() {
+		public ActionsRunner(DecisionProcedureGuidance guid) {
+			this.guid = guid;
 		}
 		
 		public State getFinalState() {
@@ -384,22 +417,30 @@ public class JBSERunner {
 					final State currentState = getEngine().getCurrentState();
 					//System.out.println(currentState.getIdentifier() + "[" + currentState.getSequenceNumber() + "] " + currentState.getCurrentMethodSignature() + " " + currentState.getPC());
 				
+                    //if at a load constant bytecode, saves the stack size
+                    this.atLoadConstant = bytecodeLoadConstant(currentState.getInstruction());
+                    if (this.atLoadConstant) {
+                        this.loadConstantStackSize = currentState.getStackSize();
+                    }
+
+					
 					String searchedSig = TARGET_BRANCH_CLASS.replace('.', '/') + ":" +
 							TARGET_BRANCH_METHOD;
 					String currentSig = currentState.getCurrentMethodSignature().getClassName() + ":" +
 							currentState.getCurrentMethodSignature().getName() + 
 							currentState.getCurrentMethodSignature().getDescriptor();
-					//System.out.println(currentState.getPC() + ": " + currentState.getCurrentMethodSignature());						
+					//System.out.println(currentState.getCurrentProgramCounter() + ": " + currentState.getCurrentMethodSignature());						
 					if (!currentSig.equals(searchedSig)) {
 						if (currentSig.contains(TARGET_BRANCH_METHOD)) {
 							System.out.println("DIFFERENT? " + currentSig);	
 						}
 						return super.atStepPre();
 					}
+					//System.out.println(currentState.getCurrentProgramCounter() + ": " + currentState.getCurrentMethodSignature());						
 					this.atJump = bytecodeJump(currentState.getInstruction());
 					if (this.atJump) {
 						//System.out.println(currentState.getPC() + ": Jump instr in target method");						
-						this.atJump = currentState.getPC() >= TARGET_BRANCH_BYTECODE_OFFSET - 2 && currentState.getPC() <= TARGET_BRANCH_BYTECODE_OFFSET + 2; //TODO: identify precise bytecode offset
+						this.atJump = currentState.getCurrentProgramCounter() >= TARGET_BRANCH_BYTECODE_OFFSET - 3 && currentState.getCurrentProgramCounter() <= TARGET_BRANCH_BYTECODE_OFFSET + 3; //TODO: identify precise bytecode offset
 						if (this.atJump) {
 							targetBranchOccurrences++;
 						}
@@ -416,26 +457,67 @@ public class JBSERunner {
 			return super.atStepPre();
 		}
 		
+		private int atBranchCount = 0;
+		@Override
+		public boolean atBranch(BranchPoint bp) {
+			final State currentState = getEngine().getCurrentState();
+			++atBranchCount;
+			return super.atBranch(bp);
+		}
+		
 		@Override
 		public boolean atStepPost() {
 			final State currentState = getEngine().getCurrentState();
-			if (this.postInitial && this.atJump) {
+            //steps guidance
+
+            if (this.postInitial && this.atJump) {
 				this.finalState = currentState.clone();				
-				//System.out.println("atStepPost: " + Arrays.toString(finalState.getPathCondition().toArray()));
 				getEngine().stopCurrentTrace();
+				return true;
+			} else if (!currentState.isStuck()) {
+				try {
+					//System.out.println(currentState.getSequenceNumber());
+					this.guid.step(currentState);
+				} catch (GuidanceException e) {
+					throw new RuntimeException(e); //TODO better exception!
+				}
+				//if (currentState.getStackSize() > 1000) getEngine().stopCurrentTrace(); //TODO
 			}
+
+            //manages constant loading
+			if (currentState.phase() != Phase.PRE_INITIAL && this.atLoadConstant) {
+				try {
+					if (this.loadConstantStackSize == currentState.getStackSize()) {
+						Value operand = currentState.getCurrentFrame().operands(1)[0];
+						if (operand instanceof Reference) {
+							final Reference r = (Reference) operand;
+							final Objekt o = currentState.getObject(r);
+							if (o != null && JAVA_STRING.equals(o.getType().getClassName())) {
+								final String s = jbse.algo.Util.valueString(currentState, r);
+								final long heapPosition = (r instanceof ReferenceConcrete ? ((ReferenceConcrete) r).getHeapPosition() : currentState.getResolution((ReferenceSymbolic) r));
+								this.stringLiterals.put(heapPosition, s);
+							}
+						}					
+					}
+				} catch (FrozenStateException | InvalidNumberOfOperandsException | ThreadStackEmptyException e) {
+					throw new RuntimeException(e); //TODO better exception!
+				} 
+			}
+
 			return super.atStepPost();
 		}
 		
 		@Override
-		public boolean atBacktrackPost(BranchPoint bp) {
-			final State currentState = getEngine().getCurrentState();
-			if (this.atJump) {
-				this.finalState = currentState.clone();
-				//System.out.println("atBacktrackPost: " + Arrays.toString(finalState.getPathCondition().toArray()));
-				getEngine().stopCurrentTrace();
+		public boolean atTraceEnd() {
+			if (!this.atJump) {
+				System.out.println("WARNING: JBSE GOT TO END-OF-TRACE WITHOUT TRAVERSING THE TARGET BRANCH: POSSIBLE CAUSE IS THAT "
+						+ "JDI GUIDANCE IS INCOMPLETE ON ARRAY-RANGE BRANCHES. THERE ARE " + (atBranchCount - 1) + " SPURIOUS BRANCHES IN THIS TRACE");
+				this.finalState = getEngine().getCurrentState();
+			} else if (atBranchCount > 1) {
+				System.out.println("WARNING: THERE ARE " + (atBranchCount - 1) + " SPURIOUS BRANCHES IN THIS TRACE: POSSIBLE CAUSE IS THAT " + 
+						"JDI GUIDANCE IS INCOMPLETE ON ARRAY-RANGE BRANCHES."); 
 			}
-			return super.atBacktrackPost(bp);
+			return true; //stop to the first trace anyway
 		}
 
 		@Override
@@ -451,7 +533,7 @@ public class JBSERunner {
 		TestSuiteWriter suiteWriter = new TestSuiteWriter();
 		suiteWriter.insertTest(tc, "Reach frontier of (even though does not cover) coverage goal");
 		List<?> testFiles = suiteWriter.writeTestSuite(testClassName, Properties.TMP_TEST_DIR, new ArrayList<ExecutionResult>());
-		LoggingUtils.getEvoLogger().info("[JBSE] WRITTEN TEMPORARY TEST CASE FOR JBSE: " + testFiles.get(0) + ", " + testFiles.get(1));		
+		LoggingUtils.getEvoLogger().info("[JBSE] WRITTEN TEMPORARY TEST CASE FOR JBSE: " + testFiles.toString());	
 		
 		//compile the test case
 		final Path javacLogFilePath = Paths.get(Properties.TMP_TEST_DIR).resolve("javac-log-test_" + id + ".txt");
@@ -459,11 +541,10 @@ public class JBSERunner {
 				File.pathSeparator + ClassPathHandler.getInstance().getTargetProjectClasspath().replace("\\", "/") +
 				File.pathSeparator + "/Users/denaro/Documents/workspace.luna/sushi-experiments-closure01/lib/junit.jar" + //TODO: how can I get this path?
 				File.pathSeparator + "/Users/denaro/git/DynaMOSA-SUSHI/runtime/target/classes"; //TODO: how can I get this path?
-		final String[] javacParametersTestCase = { "-cp", classpathCompilationTest, "-d", Properties.TMP_TEST_DIR, testFiles.get(0).toString() };
-		final String[] javacParametersTestScaff = { "-cp", classpathCompilationTest, "-d", Properties.TMP_TEST_DIR, testFiles.get(1).toString()};
 		try (final OutputStream w = new BufferedOutputStream(Files.newOutputStream(javacLogFilePath))) {
-			compiler.run(null, w, w, javacParametersTestScaff);
-			compiler.run(null, w, w, javacParametersTestCase);
+			for (int i = 0; i < testFiles.size(); i++) {
+				compiler.run(null, w, w, new String[] { "-cp", classpathCompilationTest, "-d", Properties.TMP_TEST_DIR, testFiles.get(i).toString() });
+			}
 		} catch (IOException e) {
 			LoggingUtils.getEvoLogger().info("[JBSE] CANNOT GENERATE AIDING PATH CONDITION: Unexpected I/O error while creating log file " + javacLogFilePath + ": " + e);
 			return null; //TODO throw an exception?
@@ -495,9 +576,11 @@ public class JBSERunner {
 	 *        for which we want to generate the wrapper.
 	 * @param finalState a {@link State}; must be the final state in the execution 
 	 *        for which we want to generate the wrapper.
+	 * @param stringLiterals2 
+	 * @param calc 
 	 * @return a {@link Path}, the file path of the generated EvoSuite wrapper.
 	 */
-	private static String[] emitAndCompilePathConditionEvaluator(int id, State initialState, State finalState) {
+	private static String[] emitAndCompilePathConditionEvaluator(int id, State initialState, State finalState, HashMap<Long, String> stringLiterals, CalculatorRewriting calc) {
 		final String evaluatorName = "APCFitnessEvaluator_" + id;
 		String packageString = ENTRY_METHOD_DATA.getClassNameDotted();
 		int lastDotIndex = packageString.lastIndexOf('.');
@@ -508,7 +591,7 @@ public class JBSERunner {
 		}
 
 		
-		final StateFormatterAidingPathCondition fmt = new StateFormatterAidingPathCondition(id, packageString, () -> initialState);
+		final StateFormatterAidingPathCondition fmt = new StateFormatterAidingPathCondition(id, packageString, () -> initialState, calc, stringLiterals);
 		fmt.decomposePathConditionInIndipendentFormulas(finalState);
 		String[] ret = new String[fmt.getNumOfIndipendentFormulas()];
 		for (int i = 0; i < fmt.getNumOfIndipendentFormulas(); i++) {

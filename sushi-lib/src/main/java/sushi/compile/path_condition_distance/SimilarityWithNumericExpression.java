@@ -20,8 +20,8 @@ public class SimilarityWithNumericExpression implements ClauseSimilarityHandler 
 	}
 
 	@Override
-	public double evaluateSimilarity(CandidateBackbone backbone, Map<String, Object> candidateObjects, SushiLibCache cache) {
-		//logger.debug("Handling similarity for numeric expression");
+	public double evaluateSimilarity(CandidateBackbone backbone, Map<String, Object> candidateObjects, Map<Long, String> constants, SushiLibCache cache) {
+		logger.debug("Handling similarity for numeric expression");
 		
 		double similarity = 0.0d;
 		String theVariableOrigin = null; //only for exceptions
@@ -29,17 +29,17 @@ public class SimilarityWithNumericExpression implements ClauseSimilarityHandler 
 			final ArrayList<Object> variables = new ArrayList<>();
 			for (String variableOrigin : this.theValueCalculator.getVariableOrigins()) {
 				theVariableOrigin = variableOrigin;
-				Object variableValue = backbone.retrieveOrVisitField(variableOrigin, candidateObjects, cache);
+				Object variableValue = backbone.retrieveOrVisitField(variableOrigin, candidateObjects, constants, cache);
 				variables.add(variableValue);
 			}
 			similarity += inverseDistanceRatio(this.theValueCalculator.calculate(variables), 1.0d);
 		} catch (FieldNotInCandidateException e) {
-			//logger.debug("Field " + theVariableOrigin + " does not yet exist in candidate");			
+			logger.debug("Field " + theVariableOrigin + " does not yet exist in candidate");			
 		} catch (FieldDependsOnInvalidFieldPathException e) {
-			//logger.debug("Field " + theVariableOrigin + " depends on field path that did not converge yet: " + e.getMessage());			
+			logger.debug("Field " + theVariableOrigin + " depends on field path that did not converge yet: " + e.getMessage());			
 		}
 		
-		//logger.debug("Similarity increases by: " + similarity);
+		logger.debug("Similarity increases by: " + similarity);
 		return similarity;
 	}
 

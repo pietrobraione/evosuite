@@ -17,22 +17,21 @@ public abstract class SimilarityWithRef implements ClauseSimilarityHandler {
 	}
 
 	@Override
-	public final double evaluateSimilarity(CandidateBackbone backbone, Map<String, Object> candidateObjects, SushiLibCache cache) {
-		//logger.debug("Handling similarity with field reference " + theReferenceOrigin);
+	public final double evaluateSimilarity(CandidateBackbone backbone, Map<String, Object> candidateObjects, Map<Long, String> constants, SushiLibCache cache) {
+		logger.debug("Handling similarity with field reference " + this.theReferenceOrigin);
 		
 		double similarity = 0.0d;
 		try {
-			Object referredObj = backbone.retrieveOrVisitField(theReferenceOrigin, candidateObjects, cache);
-
+			final Object referredObj = backbone.retrieveOrVisitField(this.theReferenceOrigin, candidateObjects, constants, cache);
 			similarity = evaluateSimilarity(backbone, referredObj);
-			
-			if(similarity != 1.0d) {
-				backbone.addInvalidOrgin(theReferenceOrigin);
+			if (similarity != 1.0d) {
+				backbone.addInvalidFieldPath(this.theReferenceOrigin);
 			}			
 		} catch (FieldNotInCandidateException e) {
-			//logger.debug("Field " + theReferenceOrigin + " does not yet exist in candidate");			
+			logger.debug("Field " + theReferenceOrigin + " does not yet exist in candidate");			
+			backbone.addInvalidFieldPath(this.theReferenceOrigin);
 		} catch (FieldDependsOnInvalidFieldPathException e) {
-			//logger.debug("Field " + theReferenceOrigin + " depends on field path that did not converge yet: " + e.getMessage());			
+			logger.debug("Field " + theReferenceOrigin + " depends on field path that did not converge yet: " + e.getMessage());			
 		}
 		return similarity;
 	}

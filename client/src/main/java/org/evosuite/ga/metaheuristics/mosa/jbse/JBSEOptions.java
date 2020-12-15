@@ -1,5 +1,6 @@
 package org.evosuite.ga.metaheuristics.mosa.jbse;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -222,11 +223,11 @@ public final class JBSEOptions implements Cloneable {
 		this.sushiPath = sushiPath;
 	}
 	
-	public Classpath getClasspath() {
-		final ArrayList<String> userClasspath = new ArrayList<>();
-		userClasspath.add(getJBSELibraryPath().toString());
-		userClasspath.addAll(getClassesPath().stream().map(Object::toString).collect(Collectors.toList()));
-		return new Classpath(System.getProperty("java.home"), Collections.emptyList(), userClasspath);
+	public Classpath getClasspath() throws IOException {
+		final ArrayList<Path> userClasspath = new ArrayList<>();
+		userClasspath.add(getJBSELibraryPath());
+		userClasspath.addAll(getClassesPath());
+		return new Classpath(Paths.get(System.getProperty("java.home")), Collections.emptyList(), userClasspath);
 
 	}
 	

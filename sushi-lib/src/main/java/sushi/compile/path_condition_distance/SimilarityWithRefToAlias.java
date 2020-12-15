@@ -18,30 +18,30 @@ public class SimilarityWithRefToAlias extends SimilarityWithRef {
 
 	@Override
 	protected double evaluateSimilarity(CandidateBackbone backbone, Object referredObject) {
-		//logger.debug("Ref that aliases another ref");
+		logger.debug("Ref that aliases another ref");
 		
 		double similarity = 0.0d;
 		
 		Object alias = backbone.getVisitedObject(theAliasOrigin);
 
-		if (referredObject == alias) {
-			//logger.debug("Matching aliases between field " + theReferenceOrigin + " and field " + theAliasOrigin);
+		if (referredObject != null && referredObject == alias) {
+			logger.debug("Matching aliases between field " + theReferenceOrigin + " and field " + theAliasOrigin);
 			similarity += 1.0d;
 		}
 		else if (referredObject == null) {
-			//logger.debug("Non matching aliases: field " + theReferenceOrigin + " is null rather than alias of " + theAliasOrigin);
+			logger.debug("Non matching aliases: field " + theReferenceOrigin + " is null rather than alias of " + theAliasOrigin);
 		}
 		else {
 			String objOrigin = backbone.getOrigin(referredObject);
-			//logger.debug("Non matching aliases: field " + theReferenceOrigin + " corresponds to field " + 
-			//		objOrigin + " rather than to " + theAliasOrigin);
+			logger.debug("Non matching aliases: field " + theReferenceOrigin + " corresponds to field " + 
+					objOrigin + " rather than to " + theAliasOrigin);
 			assert (objOrigin != null);
 			int distance = PrefixDistance.calculateDistance(theAliasOrigin, objOrigin);
 			assert (distance != 0);
 			similarity += InverseDistances.inverseDistanceExp(distance, 1.0d);
 		}	
 		
-		//logger.debug("Similarity increases by: " + similarity);
+		logger.debug("Similarity increases by: " + similarity);
 		return similarity;
 	}
 

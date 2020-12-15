@@ -23,8 +23,10 @@
 package org.evosuite.testcase.execution;
 
 import java.util.*;
+import java.util.Map.Entry;
 
 import org.evosuite.coverage.dataflow.DefUse;
+import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
@@ -638,5 +640,16 @@ public interface ExecutionTrace {
 	 * @return a {@link java.util.Map} object.
 	 */
 	public Map<Integer, Double> getPathConditionDistances(); /*SUSHI: Path condition fitness*/
+
+	/**
+	 * Retrieve the list of traversed lines, wrt the set of relevent lines set in the ExecutionTracer
+	 * 
+	 * @return a {@link java.util.List} object.
+	 */
+	public List<SeepepTraceItem> getTraversedSeepepItems(); /*SEEPEP: DAG coverage*/
+
+	public void passedSeepepItem(SeepepTraceItem seepepMethod); /*SEEPEP: DAG coverage*/
+
+	boolean checkSetSeepepDone(boolean done); /*SEEPEP: DAG coverage*/
 
 }

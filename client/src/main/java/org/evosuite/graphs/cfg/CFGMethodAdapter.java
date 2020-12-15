@@ -167,6 +167,7 @@ public class CFGMethodAdapter extends MethodVisitor {
 		List<MethodInstrumentation> instrumentations = new ArrayList<MethodInstrumentation>();
 		if (DependencyAnalysis.shouldInstrument(className, methodName)) {
 			if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION) /*SUSHI: Path condition fitness*/	
+					|| ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP) /*SEEPEP: DAG coverage*//* use PC instrumentation for tracking ret values of actions */
 					|| ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) { /*SUSHI: Aiding path conditions*/
 				instrumentations.add(new BranchInstrumentation());
 				instrumentations.add(new PathConditonInstrumentation()); 			

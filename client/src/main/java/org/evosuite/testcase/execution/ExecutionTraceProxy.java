@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.coverage.dataflow.DefUse;
+import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
@@ -746,5 +747,20 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 		return trace.getPathConditionDistances();
 	}
 
+	@Override
+	public List<SeepepTraceItem> getTraversedSeepepItems() { /*SEEPEP: DAG coverage*/
+		return trace.getTraversedSeepepItems();
+	}
+
+	@Override
+	public void passedSeepepItem(SeepepTraceItem seepepTraceItem) { /*SEEPEP: DAG coverage*/
+		copyOnWrite();
+		trace.passedSeepepItem(seepepTraceItem);
+	}
+
+	@Override
+	public boolean checkSetSeepepDone(boolean done) { /*SEEPEP: DAG coverage*/
+		return trace.checkSetSeepepDone(done);
+	}
 
 }

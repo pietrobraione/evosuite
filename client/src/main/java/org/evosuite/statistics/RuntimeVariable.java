@@ -378,7 +378,9 @@ public enum RuntimeVariable {
 	/** How many SAT queries led to Unuseful (i.e. no better fitness) new tests*/ 
 	NumberOfUnusefulNewTests,
 	
-	PathConditionCoverage /*Sushi: Path condition fitness*/
+	PathConditionCoverage, /*Sushi: Path condition fitness*/
+
+	SeepepCoverage /*SEEPEP: DAG coverage*/
 	;
 	/* -------------------------------------------------- */
 

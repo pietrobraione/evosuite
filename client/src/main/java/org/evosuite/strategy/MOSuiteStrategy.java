@@ -95,6 +95,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 				ArrayUtil.contains(Properties.CRITERION, Criterion.RHO) || 
 				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH) ||
 				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS) || /*SUSHI: Aiding path conditions*/
+				ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP) || /*SEEPEP: DAG coverage*/
 				ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY))
 			ExecutionTracer.enableTraceCalls();
 

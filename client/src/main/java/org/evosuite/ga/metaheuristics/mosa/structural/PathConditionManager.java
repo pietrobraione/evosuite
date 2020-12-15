@@ -17,7 +17,6 @@ import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
-import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEManager;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.TestCase;
@@ -112,9 +111,9 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			FitnessFunction<T> fitnessFunction = targets.poll();
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
-				if (!(fitnessFunction instanceof AidingPathConditionGoalFitness)) {
+				//if (!(fitnessFunction instanceof AidingPathConditionGoalFitness)) {
 					updateCoveredGoals(fitnessFunction, c);
-				}
+				//}
 
 				if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
 					emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
@@ -208,33 +207,6 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 		for (PathConditionCoverageGoalFitness pc : toRemove) {
 			doneWithPathCondition(pc);
 		}
-	}
-
-	public AidingPathConditionGoalFitness[] introduceAidingPathCondition(BranchCoverageTestFitness branchF, TestChromosome bestTest) {
-		
-		//Clone and minimize the test case
-		TestChromosome minimizedTest = (TestChromosome) bestTest.clone();
-		TestCaseMinimizer minimizer = new TestCaseMinimizer(branchF);
-		minimizer.minimize(minimizedTest);
-		if (branchF.getFitness(bestTest) != branchF.getFitness(minimizedTest)) {
-			LoggingUtils.getEvoLogger().info("[JBSE] Failed to generate the path condition: mimized test fitness ("+ branchF.getFitness(minimizedTest) +") differs from original one (" + branchF.getFitness(bestTest) + ")");
-			return null;
-		}
-
-		//Compute the new path condition goal 
-		AidingPathConditionGoalFitness[] aidingPathConditionGoals = JBSEManager.computeAidingPathConditionGoal(branchF, minimizedTest);
-		
-		//Schedule the new path condition goal 
-		if (aidingPathConditionGoals != null) {
-			for (AidingPathConditionGoalFitness apc : aidingPathConditionGoals) {
-				LoggingUtils.getEvoLogger().info("  Scheduling New aiding path condition: {}", apc.toString());
-				ExecutionTracer.addEvaluatorForPathCondition(apc.getPathConditionGoal());
-				getCurrentGoals().add((FitnessFunction<T>) apc); 
-				getUncoveredGoals().add((FitnessFunction<T>) apc);		
-			}
-		}
-		
-		return aidingPathConditionGoals;
 	}
 	
 }

@@ -1,5 +1,6 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
+import java.lang.reflect.Executable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,17 +13,20 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
+import org.evosuite.coverage.seepep.SeepepCoverageFactory;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.mosa.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.BranchesManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.SeepepManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StatementManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StrongMutationsManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.StructuralGoalManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.SushiManager;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -136,9 +140,18 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			//LoggingUtils.getEvoLogger().info("N. fronts = {}", ranking.getNumberOfSubfronts());
 			LoggingUtils.getEvoLogger().info("* Covered goals = {}", goalsManager.getCoveredGoals().size());
 			LoggingUtils.getEvoLogger().info("* Current goals = {}", goalsManager.getCurrentGoals().size());
+			int numOfPCGoals = 0;
+			for (FitnessFunction<T> g : goalsManager.getCurrentGoals()) {
+				if (g instanceof PathConditionCoverageGoalFitness) ++numOfPCGoals;
+			}
+			LoggingUtils.getEvoLogger().info("* Current PC goals = {}", numOfPCGoals);
+			if(ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+				int satisfied = ((SushiManager<?>) goalsManager).getPathConditionManager().getCoveredGoals().size();
+				LoggingUtils.getEvoLogger().info("* Satisfied PC goals = {}", satisfied);
+			}
+
 			//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
 			LoggingUtils.getEvoLogger().info("* 1st front size = {}", ranking.getSubfront(0).size());
-
 			LoggingUtils.getEvoLogger().info("* {} no change iterations,  {} resets, {} good offsprings ({} mutation only)", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
 			LoggingUtils.getEvoLogger().info("* Top front includes {} individuals:", ranking.getSubfront(0).size());
 			for (T c : ranking.getSubfront(0)) {
@@ -327,6 +340,9 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			goalsManager = new SushiManager<T>(fitnessFunctions);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
 			goalsManager = new SushiManager<T>(fitnessFunctions);			
+		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)){ /*SEEPEP: DAG coverage*/
+			ExecutionTracer.enableSeepepTracing();
+			goalsManager = new SeepepManager<T>(fitnessFunctions);
 		}
 
 		LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());
@@ -355,7 +371,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 	}
 
 	protected void completeCalculateFitness() {
-		goalsManager.restoreInstrumentationForAllGoals(); //Needed for path conditions, since these were removed
+		goalsManager.restoreInstrumentationForAllGoals(); //Needed for path conditions, since covered ones were removed
 		logger.debug("Calculating fitness for " + population.size() + " individuals");
 		for (T c : goalsManager.getCoveredGoals().values()){
 			completeCalculateFitness(c);

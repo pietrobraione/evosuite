@@ -869,7 +869,6 @@ public class ExecutionTracer {
 	public static void passedMethodCall(String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();
 
-
 		if (tracer.disabled)
 			return;
 
@@ -921,8 +920,11 @@ public class ExecutionTracer {
 			Class.forName("sushi.compile.path_condition_distance.CandidateBackbone", false, cl).
 			getMethod("resetAndReuseUntilReset", null).invoke(null, null);
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
-				| SecurityException | ClassNotFoundException e1) {
+				| SecurityException e) {
 			LoggingUtils.getEvoLogger().info("FAILED ATTEMPT TO RESET BACKBONE");
+		} catch (ClassNotFoundException e) {
+			//This means that either Evaluators are designed not to use sushi-lib, or we have an higher level problem.
+			//Thus, we do not log the problem to support the case in which indeed users do not care of sushi-lib
 		}
 		
 		for (PathConditionCoverageGoal goal : methodEvaluators) {
@@ -977,19 +979,30 @@ public class ExecutionTracer {
 			} catch (IllegalAccessException | IllegalArgumentException e) {
 				//throw new EvosuiteError
 				LoggingUtils.getEvoLogger().info("Cannot execute path condition evaluator: " + goal.getEvaluatorName()
-						+ "\n\t path condition for method " + className + "." + methodName
-						+ "\n\t called on objects " + Arrays.toString(params)
-						+ "\n\t failed because of: " + e
+				+ "\n\t path condition for method " + className + "." + methodName
+				+ "\n\t called on objects " + Arrays.toString(params)
+				+ "\n\t failed because of: " + e
 						);
 			} catch (InvocationTargetException e) {
 				StackTraceElement[] st = e.getCause().getStackTrace();
 				LoggingUtils.getEvoLogger().info("Exception thrown within path condition evaluator: " + goal.getEvaluatorName() 
-						+ "\n\t path condition for method " + className + "." + methodName
-						+ "\n\t called on objects " + Arrays.toString(params)
-						+ "\n\t failed because of: " + e.getCause()
-						+ "\n\t stack trace is " + st.length + " items long: "+ 
-							Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + " ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))
-						);
+				+ "\n\t path condition for method " + className + "." + methodName
+				+ "\n\t called on objects " + Arrays.toString(params)
+				+ "\n\t failed because of: " + e.getCause()
+				+ "\n\t stack trace is " + st.length + " items long: " + 
+				(st.length <= 50 ? Arrays.toString(st) :
+					Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
+					" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
+			} catch (Throwable e) {
+				StackTraceElement[] st = e.getCause().getStackTrace();
+				throw new EvosuiteError("Unexpected failure when executing evaluator: " + goal.getEvaluatorName() 
+				+ "\n\t path condition for method " + className + "." + methodName
+				+ "\n\t called on objects " + Arrays.toString(params)
+				+ "\n\t failed because of: " + e.getCause()
+				+ "\n\t stack trace is " + st.length + " items long: " + 
+				(st.length <= 50 ? Arrays.toString(st) :
+					Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
+					" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
 			}
 			// Add path condition distance to control trace
 			tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
@@ -1031,7 +1044,10 @@ public class ExecutionTracer {
 			classEvaluators.put(g.getMethodName(), methodEvaluators);
 		}
 		methodEvaluators.add(g);
-		LoggingUtils.getEvoLogger().info("GOALS: " + tracer.pathConditions.toString());
+	}
+	public static void logEvaluatorsForPathConditions() {
+		ExecutionTracer tracer = getExecutionTracer();
+		LoggingUtils.getEvoLogger().info("GOALS: " + tracer.pathConditions.toString());		
 	}
 	public static void removeEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();

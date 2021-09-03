@@ -202,8 +202,12 @@ public class GenericTypeInference extends TestVisitor {
 					logger.info("Not assignable: " + typeVar + " with bounds "
 					        + Arrays.asList(typeVar.getBounds()) + " and current type "
 					        + currentType + " from " + actualType);
+					try {
 					logger.info(""
 					        + GenericTypeReflector.isSuperType(currentType, actualType));
+					} catch (RuntimeException e) {
+						//GIO: Fix: here we can get a RuntimeException because the library cannot conclude isGenericSuperTypeOf in some cases;
+					}
 					logger.info("" + TypeUtils.isAssignable(actualType, typeVar));
 				}
 			} else {

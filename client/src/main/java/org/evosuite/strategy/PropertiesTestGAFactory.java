@@ -306,6 +306,7 @@ public class PropertiesTestGAFactory extends PropertiesSearchAlgorithmFactory<Te
 			for (PathConditionCoverageGoalFitness g : goals) {
 				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
 			}
+			ExecutionTracer.logEvaluatorsForPathConditions();
 		}
 		return ga;
 	}

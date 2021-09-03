@@ -94,7 +94,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		// Obtain the next front
 		front = ranking.getSubfront(index);
 
-		while (remain > 0 && remain >= front.size()) {
+		while (remain > 0 && remain >= front.size() && index < ranking.getNumberOfSubfronts()) {
 			// Assign crowding distance to individuals
 			distance.fastEpsilonDominanceAssignment(front, goalsManager.getCurrentGoals());
 
@@ -106,7 +106,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 
 			// Obtain the next front
 			index++;
-			if (remain > 0) {
+			if (remain > 0 && index < ranking.getNumberOfSubfronts()) {
 				front = ranking.getSubfront(index);
 			} // if
 		} // while
@@ -170,7 +170,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 		} 
 		fits += " from it " + c.getAge();
 		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}", System.identityHashCode(c), fits, c.getFitness());			
-		//LoggingUtils.getEvoLogger().info("TEST CASE = {}", ((TestChromosome)c).getTestCase().toString());			
+		LoggingUtils.getEvoLogger().info("TEST CASE = {}", ((TestChromosome)c).getTestCase().toString());			
 	}
 	
 
@@ -345,7 +345,7 @@ public class DynaMOSA<T extends Chromosome> extends AbstractMOSA<T> {
 			goalsManager = new SeepepManager<T>(fitnessFunctions);
 		}
 
-		LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());
+		//LoggingUtils.getEvoLogger().info("\n Initial Number of Goals = "+goalsManager.getCurrentGoals().size());
 
 		//initialize population
 		if (population.isEmpty())

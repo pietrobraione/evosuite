@@ -787,7 +787,14 @@ public class TestClusterGenerator {
 			addDependency(parameterClass, recursionLevel);
 
 		}
-
+		java.lang.reflect.Type parameter = method.getReturnType();
+		logger.debug("Current parameter " + parameter);
+		GenericClass parameterClass = new GenericClass(parameter);
+		if (!parameterClass.isPrimitive() && !parameterClass.isString()) {
+			logger.debug("Adding dependency " + parameterClass.getClassName());
+			addDependency(parameterClass, recursionLevel);
+		}
+		
 		// If mocking is enabled, also return values are dependencies
 		// as we might attempt to mock the method
 		//

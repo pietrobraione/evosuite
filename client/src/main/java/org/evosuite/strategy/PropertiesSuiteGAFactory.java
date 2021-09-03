@@ -414,6 +414,7 @@ public class PropertiesSuiteGAFactory extends PropertiesSearchAlgorithmFactory<T
 				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
 			}
 		}
+		ExecutionTracer.logEvaluatorsForPathConditions();
 		return ga;
 	}
 

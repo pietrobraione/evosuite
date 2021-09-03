@@ -108,12 +108,14 @@ public class ConcreteClassAnalyzer {
                 name = Properties.TARGET_CLASS;
             }
             for (String subClass : subClasses) {
-                int distance = TestClusterUtils.getPackageDistance(subClass, name);
+                int distance1 = TestClusterUtils.getPackageDistance(subClass, name);
+                int distance2 = TestClusterUtils.getPackageDistance(subClass, Properties.TARGET_CLASS);
+                int distance = Math.min(distance1, distance2);
                 classDistance.put(subClass, distance);
                 maxDistance = Math.max(distance, maxDistance);
             }
             int distance = 0;
-            while (actualClasses.isEmpty() && distance <= maxDistance) {
+            while (actualClasses.size() <= Properties.MAX_SUBCLASSES_PER_CLASS /*actualClasses.isEmpty()*/ && distance <= maxDistance) {
                 logger.debug(" Current distance: " + distance);
                 for (String subClass : subClasses) {
                     if (TestClusterUtils.isAnonymousClass(subClass)) {

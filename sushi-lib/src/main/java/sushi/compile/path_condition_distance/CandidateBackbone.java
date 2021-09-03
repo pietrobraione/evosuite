@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+
 public class CandidateBackbone {
 	private static CandidateBackbone _I = null;
 	private static boolean reuseBackbone = false;
@@ -24,10 +25,15 @@ public class CandidateBackbone {
 	public ClassLoader getClassLoader() {
 		return this.classLoader;
 	}
-
-	public static CandidateBackbone _I(ClassLoader classLoader) {
-		if (!reuseBackbone || _I == null) {
+	
+	public static CandidateBackbone makeNewBackbone(ClassLoader classLoader) {
+		if (!reuseBackbone) {
+			return new CandidateBackbone(classLoader);
+		}
+		if(_I == null) {
 			_I = new CandidateBackbone(classLoader);
+		} else {
+			_I.invalidFieldPaths.clear();
 		}
 		return _I;
 	}
@@ -99,6 +105,7 @@ public class CandidateBackbone {
 	throws FieldNotInCandidateException, FieldDependsOnInvalidFieldPathException {
 		assert (origin != null); 
 		
+		boolean usingCache = cache == null;
 		if (cache == null) {
 			cache = new SushiLibCache(); //no-cache behavior: use a throw-away local cache 
 		}

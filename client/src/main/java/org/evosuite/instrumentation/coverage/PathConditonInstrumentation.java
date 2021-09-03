@@ -75,15 +75,12 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			String methodName, int access) {
 		RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(className, methodName);
 	
-		if (mn.name.equals("<init>")) {
-			return; //TODO: shall we cope with path conditions of constructors?
-		}
-		
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
 			if (!(className.startsWith(Properties.TARGET_CLASS))) {
 				return;
 			}
 		}
+		LoggingUtils.getEvoLogger().info("Instrumenting {}::{}", className, methodName);
 		
 		AbstractInsnNode firstInstr = mn.instructions.getFirst();
 		for (BytecodeInstruction v : completeCFG.vertexSet()) {
@@ -149,7 +146,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}*/
 		
 		try {
-			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0);
+			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0, methodName.startsWith("<init>"));
 		} catch(IllegalStateException e) {
 			throw new IllegalStateException("Method " + className + "." + mn.name + ":" + e.getMessage());
 		}
@@ -191,14 +188,18 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 	}*/
 
-	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic) {
+	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic, boolean isConstructor) {
 
 		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: both L and [ refer to non primitive params
 		int nextParamInDescriptor = 1;
 		while (methodDescr.charAt(nextParamInDescriptor) != ')') {
 			char paramType = methodDescr.charAt(nextParamInDescriptor++);
 			simplifiedDescriptor += paramType;
-			
+			if (paramType == '[') {
+				while (methodDescr.charAt(nextParamInDescriptor) == '[') {
+					++nextParamInDescriptor;
+				}
+			} 
 			if (paramType == '[' && methodDescr.charAt(nextParamInDescriptor) != 'L') {
 				++nextParamInDescriptor;
 			} else if (paramType == 'L' || (paramType == '[' &&  methodDescr.charAt(nextParamInDescriptor) == 'L')) {
@@ -217,42 +218,37 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
 			instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
 
-			if (paramType == 'Z') {
+			if (isConstructor && paramIndex == 0) {
+				instrumentation.add(new InsnNode(Opcodes.ACONST_NULL));
+			} else if (paramType == 'Z') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
-			}
-			else if (paramType == 'B') {
+			} else if (paramType == 'B') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;"));
-			}
-			else if (paramType == 'C') {
+			} else if (paramType == 'C') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;"));
-			}
-			else if (paramType == 'S') {
+			} else if (paramType == 'S') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;"));
-			}
-			else if (paramType == 'I') {
+			} else if (paramType == 'I') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;"));
-			}
-			else if (paramType == 'J') {
+			} else if (paramType == 'J') {
 				instrumentation.add(new VarInsnNode(Opcodes.LLOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;"));
 				paramByteCodeIndex++;
-			}
-			else if (paramType == 'F') {
+			} else if (paramType == 'F') {
 				instrumentation.add(new VarInsnNode(Opcodes.FLOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;"));
-			}
-			else if (paramType == 'D') {
+			} else if (paramType == 'D') {
 				instrumentation.add(new VarInsnNode(Opcodes.DLOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;"));
 				paramByteCodeIndex++;
-			}
-			else
+			} else {
 				instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramByteCodeIndex));
+			}
 
 			instrumentation.add(new InsnNode(Opcodes.AASTORE));
 		}

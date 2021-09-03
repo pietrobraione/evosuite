@@ -1914,9 +1914,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		//LoggingUtils.getEvoLogger().info("--computed d: " + distance + ", pc = " + pathConditionID);
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
-			if (currentDistance == null)
+			if (currentDistance == null) {
 				pathConditionDistances.put(pathConditionID, distance);
-			else if (Properties.PATH_CONDITION_TARGET != PathConditionTarget.FIRST_ONLY) {				
+			} else if (Properties.PATH_CONDITION_TARGET != PathConditionTarget.FIRST_ONLY) {				
 				if (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST) {
 					distance = Math.min(currentDistance, distance);
 				} /* else PathConditionTarget.LAST_ONLY, meaning that the new value must replace the old one*/

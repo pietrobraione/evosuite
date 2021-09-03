@@ -1584,6 +1584,10 @@ public class Properties {
 	@Parameter(key = "apc_max", group = "SUSHI", description = "The maximum number of simultaneous aiding path conditions that can be considered")
 	public static int APC_MAX = 15; /*SUSHI: Aiding path conditions*/
 
+	/** Constant <code>MAX_SUBCLASSES_PER_CLASS=""</code> */
+	@Parameter(key = "max_subclasses_per_class", group = "Test Creation", description = "The maximum amount of sub-classes from which we can select the generators for a depended class (in particular this applies for each non-concrete depended class) out of all possible subclasses. The possibile generator-classes are selected in order of package distance, until overcoming this threshold. A value of 0 (default) means that only the generators with minimum distance will be selected.")
+	public static int MAX_SUBCLASSES_PER_CLASS = 0;/*GIO: allowing further available generators */
+
 	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 	

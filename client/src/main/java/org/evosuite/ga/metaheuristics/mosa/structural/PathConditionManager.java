@@ -88,7 +88,7 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 	}
 
 	@Override
-	public void calculateFitness(T c){
+	public void calculateFitness(T c) {
 		// run the test
 		if (c.isChanged()){
 			TestCase test = ((TestChromosome) c).getTestCase();
@@ -112,14 +112,13 @@ public class PathConditionManager<T extends Chromosome> extends StructuralGoalMa
 			double value = fitnessFunction.getFitness(c);
 			if (value == 0.0) {
 				//if (!(fitnessFunction instanceof AidingPathConditionGoalFitness)) {
-					updateCoveredGoals(fitnessFunction, c);
+				updateCoveredGoals(fitnessFunction, c);
 				//}
-
-				if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
-					emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
-				}
-
+					
 				if (fitnessFunction instanceof PathConditionCoverageGoalFitness) {
+					if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
+						emitTestCase((PathConditionCoverageGoalFitness) fitnessFunction, (TestChromosome) c);
+					}
 					doneWithPathCondition((PathConditionCoverageGoalFitness) fitnessFunction);
 				}
 			}

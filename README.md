@@ -98,4 +98,3 @@ The developers' mailing list is hosted at <https://groups.google.com/forum/#!for
 
 EvoSuite has resulted in a number of publications, all of which are available at <http://www.evosuite.org/publications/>
 
-

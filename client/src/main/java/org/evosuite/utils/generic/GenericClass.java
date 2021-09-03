@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -618,7 +619,7 @@ public class GenericClass implements Serializable {
 	private GenericClass getGenericTypeVariableInstantiation(
 	        Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
 	        throws ConstructionFailedException {
-		if (typeMap.containsKey(type)) {
+		if (typeMap.containsKey(type) /*GIO: added:*/ && typeMap.get(type) != type) {
 			if(typeMap.get(type) == type) {
 				throw new ConstructionFailedException("Type points to itself");
 			}
@@ -627,7 +628,7 @@ public class GenericClass implements Serializable {
 			                                                                                         recursionLevel + 1);
 			if (!selectedClass.satisfiesBoundaries((TypeVariable<?>) type)) {
 				logger.debug("Cannot be instantiated to: " + selectedClass);
-				throw new ConstructionFailedException("Unable to instantiate "
+				throw new ConstructionFailedException("Boundaries not satisfied: Unable to instantiate "
 				        + toString());
 			} else {
 				logger.debug("Can be instantiated to: " + selectedClass);
@@ -643,7 +644,7 @@ public class GenericClass implements Serializable {
 
 			if (selectedClass == null) {
 				throw new ConstructionFailedException("Unable to instantiate "
-				        + toString());
+				        + toString() + " when typeMap is " + typeMap);
 			}
 			logger.debug("Getting instantiation of type variable " + toString() + ": "
 			        + selectedClass);
@@ -1147,7 +1148,11 @@ public class GenericClass implements Serializable {
 	 * @return
 	 */
 	public boolean hasGenericSuperType(GenericClass superType) {
+	try {	
 		return GenericTypeReflector.isSuperType(superType.getType(), type);
+	} catch (RuntimeException e) {
+		return false; //GIO: Fix: here we can get a RuntimeException because the library cannot conclude isGenericSuperTypeOf in some cases;
+	}
 	}
 
 	/**
@@ -1157,7 +1162,11 @@ public class GenericClass implements Serializable {
 	 * @return
 	 */
 	public boolean hasGenericSuperType(Type superType) {
+	try {
 		return GenericTypeReflector.isSuperType(superType, type);
+	} catch (RuntimeException e) {
+		return false; //GIO: Fix: here we can get a RuntimeException because the library cannot conclude isGenericSuperTypeOf in some cases;
+	}
 	}
 
 	/* (non-Javadoc)
@@ -1360,7 +1369,11 @@ public class GenericClass implements Serializable {
 	 * @return
 	 */
 	public boolean isGenericSuperTypeOf(GenericClass subType) {
+	try {
 		return GenericTypeReflector.isSuperType(type, subType.getType());
+	} catch (RuntimeException e) {
+		return false; //GIO: Fix: here we can get a RuntimeException because the library cannot conclude isGenericSuperTypeOf in some cases;
+	}
 	}
 
 	/**
@@ -1370,7 +1383,11 @@ public class GenericClass implements Serializable {
 	 * @return
 	 */
 	public boolean isGenericSuperTypeOf(Type subType) {
+	try {
 		return GenericTypeReflector.isSuperType(type, subType);
+	} catch (RuntimeException e) {
+		return false; //GIO: Fix: here we can get a RuntimeException because the library cannot conclude isGenericSuperTypeOf in some cases;
+	}
 	}
 
 	/**
@@ -1480,7 +1497,28 @@ public class GenericClass implements Serializable {
 			}
 		}
 		ownerVariableMap.putAll(typeMap);
-		boolean changed = true;
+		
+		Set<TypeVariable<?>> todo = new HashSet<>(); 
+		for (TypeVariable<?> key : ownerVariableMap.keySet()) {
+			todo.clear();
+			TypeVariable<?> var = key;
+			Type val = ownerVariableMap.get(var);
+			while (val != var && ownerVariableMap.containsKey(val) && !todo.contains(val)) {
+				Type otherVal = ownerVariableMap.get(val);
+				if (otherVal == val) {
+					break;
+				}
+				todo.add(var);
+				var = (TypeVariable<?>) val;
+				val = otherVal;
+			}
+			for (TypeVariable<?> updt: todo) {
+				ownerVariableMap.put(updt, val);
+			}
+		}		
+		
+		/*boolean changed = true;
+		Map<TypeVariable<?>, Set<Type>> doneReplacements = new HashMap<>();//GIO: avoid infinite loop 
 		while(changed) {
 			changed = false;
 			for (TypeVariable<?> var : ownerVariableMap.keySet()) {
@@ -1492,8 +1530,19 @@ public class GenericClass implements Serializable {
 						Type other = ownerVariableMap.get(value);
 						if(var != other && value != other) {
 							//logger.debug("Replacing "+var+" with "+other);
-							ownerVariableMap.put(var, other);
-							changed = true;
+							//GIO: avoid infinite loop: BEGIN
+							if (!doneReplacements.containsKey(var)) {
+								doneReplacements.put(var, new HashSet<>());
+							}
+							if (!doneReplacements.get(var).contains(other)) {
+								doneReplacements.get(var).add(other);
+								//GIO: avoid infinite loop: END
+								ownerVariableMap.put(var, other);
+								changed = true;
+							}//GIO: avoid infinite loop: END
+							else {
+								toString();
+							}
 						}
 					} else {
 						//logger.debug("Not in map: "+value);
@@ -1503,7 +1552,7 @@ public class GenericClass implements Serializable {
 				}
 			}
 			//logger.debug("Current iteration of map: " + ownerVariableMap);
-		}
+		}*/
 		
 		GenericClass concreteClass = new GenericClass(GenericUtils.replaceTypeVariables(type, ownerVariableMap));
 		//logger.debug("Concrete class after variable replacement: " + concreteClass);

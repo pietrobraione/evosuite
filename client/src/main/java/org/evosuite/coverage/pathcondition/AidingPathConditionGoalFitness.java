@@ -82,7 +82,7 @@ public class AidingPathConditionGoalFitness extends PathConditionCoverageGoalFit
 		
 		logger.debug("Aiding path condition fitness = " + fitness);
 
-		updateIndividual(this, individual, fitness);
+		updateIndividual(individual, fitness);
 		return fitness;
 	}
 

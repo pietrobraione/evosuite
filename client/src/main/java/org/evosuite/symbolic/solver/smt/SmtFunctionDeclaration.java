@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -19,22 +19,30 @@
  */
 package org.evosuite.symbolic.solver.smt;
 
+import org.evosuite.symbolic.solver.SmtSort;
+
 public final class SmtFunctionDeclaration {
 
 	private final String functionName;
 
-	private final String functionSort;
+	private final SmtSort[] functionSorts;
 
-	public SmtFunctionDeclaration(String funcName, String funcSort) {
+	public SmtFunctionDeclaration(String funcName, SmtSort... funcSorts) {
 		this.functionName = funcName;
-		this.functionSort = funcSort;
+		this.functionSorts = funcSorts;
 	}
 
 	public String getFunctionName() {
 		return functionName;
 	}
 
-	public String getFunctionSort() {
-		return functionSort;
+	public SmtSort[] getFunctionSorts() {
+		return functionSorts;
+	}
+	
+	public String toString() {
+		SmtQueryPrinter printer = new SmtQueryPrinter();
+		String str = printer.print(this);
+		return str;
 	}
 }

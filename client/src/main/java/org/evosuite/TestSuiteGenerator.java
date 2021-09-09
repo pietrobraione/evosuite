@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -22,8 +22,8 @@ package org.evosuite;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.TestFactory;
+import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
-import org.evosuite.classpath.ResourceList;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
@@ -34,8 +34,6 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
-import org.evosuite.regression.bytecode.RegressionClassDiff;
-import org.evosuite.regression.RegressionSuiteMinimizer;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
@@ -45,11 +43,12 @@ import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.StatisticsSender;
-import org.evosuite.strategy.*;
-import org.evosuite.symbolic.DSEStats;
+import org.evosuite.strategy.TestGenerationStrategy;
+import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -66,7 +65,10 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.testsuite.*;
+import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.evosuite.testsuite.TestSuiteMinimizer;
+import org.evosuite.testsuite.TestSuiteSerialization;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.generic.GenericMethod;
@@ -78,7 +80,11 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.text.NumberFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation
@@ -89,11 +95,18 @@ import java.util.*;
 public class TestSuiteGenerator {
 
 	private static final String FOR_NAME = "forName";
-	private static Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
+	private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
 
 
 	private void initializeTargetClass() throws Throwable {
 		String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+
+		// Generate inheritance tree and call graph *before* loading the CUT
+		// as these are required for instrumentation for context-sensitive
+		// criteria (e.g. ibranch)
+		DependencyAnalysis.initInheritanceTree(Arrays.asList(cp.split(File.pathSeparator)));
+		DependencyAnalysis.initCallGraph(Properties.TARGET_CLASS);
+
 		// Here is where the <clinit> code should be invoked for the first time
 		DefaultTestCase test = buildLoadTargetClassTestCase(Properties.TARGET_CLASS);
 		ExecutionResult execResult = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
@@ -109,8 +122,11 @@ public class TestSuiteGenerator {
 			throw t;
 		}
 
+		// Analysis has to happen *after* the CUT is loaded since it will cause
+		// several other classes to be loaded (including the CUT), but we require
+		// the CUT to be loaded first
 		DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
-		LoggingUtils.getEvoLogger().info("* Finished analyzing classpath");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
 
 		if (Properties.PATH_CONDITION_EVALUATORS_DIR != null) {  /*SUSHI: Path condition fitness*/
 
@@ -135,12 +151,13 @@ public class TestSuiteGenerator {
 	 */
 	public TestGenerationResult generateTestSuite() {
 
-		LoggingUtils.getEvoLogger().info("* Analyzing classpath: ");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing classpath: ");
 
 		ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
 
 		// Deactivate loop counter to make sure classes initialize properly
 		LoopCounter.getInstance().setActive(false);
+		ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
 
 		TestCaseExecutor.initExecutor();
 		try {
@@ -154,15 +171,18 @@ public class TestSuiteGenerator {
 			boolean error = true;
 
 			String message = e.getMessage();
-			if(message != null && message.contains("Method code too large")) {
-				LoggingUtils.getEvoLogger().info("* Instrumentation exceeds Java's 64K limit per method in target class");
+			if (message != null && (message.contains("Method code too large") || message.contains("Class file too large"))) {
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Instrumentation exceeds Java's 64K limit per method in target class");
 				Properties.Criterion[] newCriteria = Arrays.stream(Properties.CRITERION).filter(t -> !t.equals(Properties.Criterion.STRONGMUTATION) && !t.equals(Properties.Criterion.WEAKMUTATION) && !t.equals(Properties.Criterion.MUTATION)).toArray(Properties.Criterion[]::new);
 				if(newCriteria.length < Properties.CRITERION.length) {
 					TestGenerationContext.getInstance().resetContext();
-					LoggingUtils.getEvoLogger().info("* Attempting re-instrumentation without mutation");
+					LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                            + "Attempting re-instrumentation without mutation");
 					Properties.CRITERION = newCriteria;
 					if(Properties.NEW_STATISTICS) {
-						LoggingUtils.getEvoLogger().info("* Deactivating EvoSuite statistics because of instrumentation problem");
+						LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                                + "Deactivating EvoSuite statistics because of instrumentation problem");
 						Properties.NEW_STATISTICS = false;
 					}
 
@@ -173,14 +193,16 @@ public class TestSuiteGenerator {
 						// No-op, error handled below
 					}
 					if(Properties.ASSERTIONS && Properties.ASSERTION_STRATEGY == AssertionStrategy.MUTATION) {
-						LoggingUtils.getEvoLogger().info("* Deactivating assertion minimization because mutation instrumentation does not work");
+						LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                                + "Deactivating assertion minimization because mutation instrumentation does not work");
 						Properties.ASSERTION_STRATEGY = AssertionStrategy.ALL;
 					}
 				}
 			}
 
 		    if(error) {
-				LoggingUtils.getEvoLogger().error("* Error while initializing target class: "
+				LoggingUtils.getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Error while initializing target class: "
 						+ (e.getMessage() != null ? e.getMessage() : e.toString()));
 				logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
 				return TestGenerationResultBuilder.buildErrorResult(e.getMessage() != null ? e.getMessage() : e.toString());
@@ -203,7 +225,8 @@ public class TestSuiteGenerator {
 		// TODO: Do parts of this need to be wrapped into sandbox statements?
 		ObjectPoolManager.getInstance();
 
-		LoggingUtils.getEvoLogger().info("* Generating tests for class " + Properties.TARGET_CLASS);
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
+                + Properties.TARGET_CLASS);
 		TestSuiteGeneratorHelper.printTestCriterion();
 
 		if (!Properties.hasTargetClassBeenLoaded()) {
@@ -211,54 +234,25 @@ public class TestSuiteGenerator {
 			return TestGenerationResultBuilder.buildErrorResult("Could not load target class");
 		}
 
-		if (Properties.isRegression() && Properties.REGRESSION_SKIP_SIMILAR) {
-			// Sanity checks
-			if (Properties.getTargetClassRegression(true) == null) {
-			    Properties.IGNORE_MISSING_STATISTICS = false;
-				logger.error("class {} was not on the regression projectCP", Properties.TARGET_CLASS);
-				return TestGenerationResultBuilder.buildErrorResult("Could not load target regression class");
-			}
-			if (!ResourceList.getInstance(TestGenerationContext.getInstance().getRegressionClassLoaderForSUT())
-					.hasClass(Properties.TARGET_CLASS)) {
-			    Properties.IGNORE_MISSING_STATISTICS = false;
-				logger.error("class {} was not on the regression_cp", Properties.TARGET_CLASS);
-				return TestGenerationResultBuilder.buildErrorResult(
-						"Class " + Properties.TARGET_CLASS + " did not exist on regression classpath");
-
-			}
-
-			boolean areDifferent = RegressionClassDiff.differentAcrossClassloaders(Properties.TARGET_CLASS);
-
-			// If classes are different, no point in continuing.
-			// TODO: report it to master to create a nice regression report
-			if (!areDifferent) {
-			    Properties.IGNORE_MISSING_STATISTICS = false;
-				logger.error("class {} was equal on both versions", Properties.TARGET_CLASS);
-				return TestGenerationResultBuilder.buildErrorResult(
-						"Class " + Properties.TARGET_CLASS + " was not changed between the two versions");
-			}
-		}
-
-		if (Properties.isRegression() && Properties.REGRESSION_SKIP_DIFFERENT_CFG) {
-			// Does the class have the same CFG across the two versions of the program?
-			boolean sameBranches = RegressionClassDiff.sameCFG();
-
-			if (!sameBranches) {
-				Properties.IGNORE_MISSING_STATISTICS = false;
-				logger.error("Could not match the branches across the two versions.");
-				return TestGenerationResultBuilder.buildErrorResult("Could not match the branches across the two versions.");
-			}
-		}
-
 		TestSuiteChromosome testCases = generateTests();
 
-		postProcessTests(testCases);
-		ClientServices.getInstance().getClientNode().publishPermissionStatistics();
-		PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
+		// As post process phases such as minimisation, coverage analysis, etc., may call getFitness()
+		// of each fitness function, which may try to update the Archive, in here we explicitly disable
+		// Archive to avoid any problem and at the same time to improve the performance of post process
+		// phases (as no CPU cycles would be wasted updating the Archive).
+		Properties.TEST_ARCHIVE = false;
 
-		// progressMonitor.setCurrentPhase("Writing JUnit test cases");
-		TestGenerationResult result = writeJUnitTestsAndCreateResult(testCases);
-		writeJUnitFailingTests();
+		TestGenerationResult result = null;
+		if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
+			postProcessTests(testCases);
+			ClientServices.getInstance().getClientNode().publishPermissionStatistics();
+			PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
+
+			// progressMonitor.setCurrentPhase("Writing JUnit test cases");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing tests to file");
+			result = writeJUnitTestsAndCreateResult(testCases);
+			writeJUnitFailingTests();
+		}
 		TestCaseExecutor.pullDown();
 		/*
 		 * TODO: when we will have several processes running in parallel, we ll
@@ -266,10 +260,10 @@ public class TestSuiteGenerator {
 		 */
 		ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 
-		LoggingUtils.getEvoLogger().info("* Done!");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
 		LoggingUtils.getEvoLogger().info("");
 
-		return result;
+		return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
 	}
 
 	/**
@@ -432,21 +426,19 @@ public class TestSuiteGenerator {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			// progressMonitor.setCurrentPhase("Minimizing test cases");
 			if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-				LoggingUtils.getEvoLogger().info("* Skipping minimization because not enough time is left");
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping minimization because not enough time is left");
 				ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
 				ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
 				ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
 				ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-			} else if (Properties.isRegression()) {
-				RegressionSuiteMinimizer minimizer = new RegressionSuiteMinimizer();
-				minimizer.minimize(testSuite);
 			} else {
 
 				double before = testSuite.getFitness();
 
 				TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
 
-				LoggingUtils.getEvoLogger().info("* Minimizing test suite");
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Minimizing test suite");
 				minimizer.minimize(testSuite, true);
 
 				double after = testSuite.getFitness();
@@ -456,7 +448,8 @@ public class TestSuiteGenerator {
 			}
 		} else {
 			if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-				LoggingUtils.getEvoLogger().info("* Skipping minimization because not enough time is left");
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping minimization because not enough time is left");
 			}
 
 			ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
@@ -478,8 +471,8 @@ public class TestSuiteGenerator {
 		}
 
 		StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-		LoggingUtils.getEvoLogger().info(
-				"* Generated " + testSuite.size() + " tests with total length " + testSuite.totalLengthOfTestCases());
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generated " + testSuite.size()
+                + " tests with total length " + testSuite.totalLengthOfTestCases());
 
 		// TODO: In the end we will only need one analysis technique
 		if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
@@ -489,24 +482,21 @@ public class TestSuiteGenerator {
 			// FIXME: can we send all bestSuites?
 		}
 		if (Properties.CRITERION.length > 1)
-			LoggingUtils.getEvoLogger()
-					.info("* Resulting test suite's coverage: " + NumberFormat.getPercentInstance().format(coverage)
-							+ " (average coverage for all fitness functions)");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Resulting test suite's coverage: "
+                    + NumberFormat.getPercentInstance().format(coverage)
+                    + " (average coverage for all fitness functions)");
 		else
-			LoggingUtils.getEvoLogger()
-					.info("* Resulting test suite's coverage: " + NumberFormat.getPercentInstance().format(coverage));
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Resulting test suite's coverage: "
+                    + NumberFormat.getPercentInstance().format(coverage));
 
 		// printBudget(ga); // TODO - need to move this somewhere else
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && Properties.ANALYSIS_CRITERIA.isEmpty())
 			DefUseCoverageSuiteFitness.printCoverage();
 
-		DSEStats.getInstance().trackConstraintTypes();
+		DSEStatistics.getInstance().trackStatistics();
 
-		DSEStats.getInstance().trackSolverStatistics();
-
-		if (Properties.DSE_PROBABILITY > 0.0 && Properties.LOCAL_SEARCH_RATE > 0
-				&& Properties.LOCAL_SEARCH_PROBABILITY > 0.0) {
-			DSEStats.getInstance().logStatistics();
+		if (Properties.isDSEEnabledInLocalSearch() || Properties.isDSEStrategySelected()) {
+			DSEStatistics.getInstance().logStatistics();
 		}
 
 		if (Properties.FILTER_SANDBOX_TESTS) {
@@ -527,12 +517,13 @@ public class TestSuiteGenerator {
 			}
 		}
 
-		if (Properties.ASSERTIONS && !Properties.isRegression()) {
-			LoggingUtils.getEvoLogger().info("* Generating assertions");
+		if (Properties.ASSERTIONS) {
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
 			// progressMonitor.setCurrentPhase("Generating assertions");
 			ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
 			if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-				LoggingUtils.getEvoLogger().info("* Skipping assertion generation because not enough time is left");
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping assertion generation because not enough time is left");
 			} else {
 				TestSuiteGeneratorHelper.addAssertions(testSuite);
 			}
@@ -543,20 +534,18 @@ public class TestSuiteGenerator {
 		}
 
 		if(Properties.NO_RUNTIME_DEPENDENCY) {
-			LoggingUtils.getEvoLogger().info("* Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
-			LoggingUtils.getEvoLogger().info("* WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
+			LoggingUtils.getEvoLogger().info("* " +ClientProcess.getPrettyPrintIdentifier()
+                    + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
 		}
-		else if (Properties.JUNIT_TESTS && Properties.JUNIT_CHECK) {
-			compileAndCheckTests(testSuite);
-		}
-
-		if (Properties.SERIALIZE_REGRESSION_TEST_SUITE) {
-			RegressionSuiteSerializer.appendToRegressionTestSuite(testSuite);
-		}
-
-		if(Properties.isRegression() && Properties.KEEP_REGRESSION_ARCHIVE){
-			RegressionSuiteSerializer.storeRegressionArchive();
-		}
+        else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
+                Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
+            if(ClassPathHacker.isJunitCheckAvailable())
+                compileAndCheckTests(testSuite);
+            else
+                logger.warn("Cannot run Junit test. Cause {}",ClassPathHacker.getCause());
+        }
 	}
 
 	/**
@@ -567,7 +556,7 @@ public class TestSuiteGenerator {
 	 * @param chromosome
 	 */
 	private void compileAndCheckTests(TestSuiteChromosome chromosome) {
-		LoggingUtils.getEvoLogger().info("* Compiling and checking tests");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Compiling and checking tests");
 
 		if (!JUnitAnalyzer.isJavaCompilerAvailable()) {
 			String msg = "No Java compiler is available. Make sure to run EvoSuite with the JDK and not the JRE."
@@ -712,7 +701,8 @@ public class TestSuiteGenerator {
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
 
-			LoggingUtils.getEvoLogger().info("* Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing JUnit test case '"
+                    + (name + suffix) + "' to " + testDir);
 			suiteWriter.writeTestSuite(name + suffix, testDir, testSuite.getLastExecutionResults());
 		}
 		return TestGenerationResultBuilder.buildSuccessResult();
@@ -746,7 +736,8 @@ public class TestSuiteGenerator {
 
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
-			LoggingUtils.getEvoLogger().info("* Writing failing test cases '" + (name + Properties.JUNIT_SUFFIX) + "' to " + testDir);
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing failing test cases '"
+                    + (name + Properties.JUNIT_SUFFIX) + "' to " + testDir);
 			suiteWriter.insertAllTests(suite.getTests());
 			FailingTestSet.writeJUnitTestSuite(suiteWriter);
 
@@ -756,7 +747,7 @@ public class TestSuiteGenerator {
 
 	private void writeObjectPool(TestSuiteChromosome suite) {
 		if (!Properties.WRITE_POOL.isEmpty()) {
-			LoggingUtils.getEvoLogger().info("* Writing sequences to pool");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing sequences to pool");
 			ObjectPool pool = ObjectPool.getPoolFromTestSuite(suite);
 			pool.writePool(Properties.WRITE_POOL);
 		}
@@ -771,7 +762,7 @@ public class TestSuiteGenerator {
 	 *         objects.
 	 */
 	public static List<TestSuiteFitnessFunction> getFitnessFunctions() {
-		List<TestSuiteFitnessFunction> ffs = new ArrayList<TestSuiteFitnessFunction>();
+		List<TestSuiteFitnessFunction> ffs = new ArrayList<>();
 		for (int i = 0; i < Properties.CRITERION.length; i++) {
 			ffs.add(FitnessFunctions.getFitnessFunction(Properties.CRITERION[i]));
 		}
@@ -785,8 +776,8 @@ public class TestSuiteGenerator {
 	 * So far only used for testing purposes in TestSuiteGenerator
 	 */
 	public void printBudget(GeneticAlgorithm<?> algorithm) {
-		LoggingUtils.getEvoLogger().info("* Search Budget:");
-		for (StoppingCondition sc : algorithm.getStoppingConditions())
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Search Budget:");
+		for (StoppingCondition<?> sc : algorithm.getStoppingConditions())
 			LoggingUtils.getEvoLogger().info("\t- " + sc.toString());
 	}
 
@@ -799,7 +790,7 @@ public class TestSuiteGenerator {
 	 */
 	public String getBudgetString(GeneticAlgorithm<?> algorithm) {
 		String r = "";
-		for (StoppingCondition sc : algorithm.getStoppingConditions())
+		for (StoppingCondition<?> sc : algorithm.getStoppingConditions())
 			r += sc.toString() + " ";
 
 		return r;
@@ -814,7 +805,7 @@ public class TestSuiteGenerator {
 	 *         objects.
 	 */
 	public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories() {
-		List<TestFitnessFactory<? extends TestFitnessFunction>> goalsFactory = new ArrayList<TestFitnessFactory<? extends TestFitnessFunction>>();
+		List<TestFitnessFactory<? extends TestFitnessFunction>> goalsFactory = new ArrayList<>();
 		for (int i = 0; i < Properties.CRITERION.length; i++) {
 			goalsFactory.add(FitnessFunctions.getFitnessFactory(Properties.CRITERION[i]));
 		}

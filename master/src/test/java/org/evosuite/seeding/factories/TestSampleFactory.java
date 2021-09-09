@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,8 +25,9 @@ import org.evosuite.testcase.TestChromosome;
 public class TestSampleFactory implements ChromosomeFactory<TestChromosome> {
 
 	public static final TestChromosome CHROMOSOME;
-	
-	static {
+    private static final long serialVersionUID = -3729823431724553477L;
+
+    static {
 		CHROMOSOME = new TestChromosome();
 	}
 	

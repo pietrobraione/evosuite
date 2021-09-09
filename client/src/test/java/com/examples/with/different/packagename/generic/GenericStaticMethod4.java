@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -32,7 +32,7 @@ public class GenericStaticMethod4 {
     
     public static <E> List<E> select(final Collection<? extends E> inputCollection,
             final Predicate<? super E> predicate) {
-    	List<E> result = new ArrayList<E>();
+    	List<E> result = new ArrayList<>();
     	for(E elem : inputCollection) {
     		if(predicate.evaluate(elem)) {
     			result.add(elem);
@@ -43,7 +43,7 @@ public class GenericStaticMethod4 {
 	
     public static <E> List<E> selectRejected(final Collection<? extends E> inputCollection,
             final Predicate<? super E> predicate) {
-    	List<E> result = new ArrayList<E>();
+    	List<E> result = new ArrayList<>();
     	for(E elem : inputCollection) {
     		if(!predicate.evaluate(elem)) {
     			result.add(elem);

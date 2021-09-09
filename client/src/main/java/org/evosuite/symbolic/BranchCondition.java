@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,6 +20,7 @@
 package org.evosuite.symbolic;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.symbolic.expr.Constraint;
@@ -32,35 +33,47 @@ import org.evosuite.symbolic.expr.Constraint;
  * @author Gordon Fraser
  */
 public class BranchCondition {
+	/**
+	 * Class where the branch instruction is
+	 */
 	private final String className;
+
+	/**
+	 * Method where the branch instruction is
+	 */
 	private final String methodName;
-	private final int branchIndex;
+
+	/**
+	 * Position of the instruction in the method bytecode
+	 */
+	private final int instructionIndex;
 
 	private final Constraint<?> constraint;
 
 	private final List<Constraint<?>> supportingConstraints;
 
 	/**
-	 * A branch condition is identified by the className, methodName and
-	 * branchIndex belonging to the class in the SUT, the target constraint and
-	 * all the suporting constraint for that particular branch (zero checks,
-	 * etc)
+	 * A branch condition is identified by the className, methodName and branchIndex
+	 * belonging to the class in the SUT, the target constraint and all the
+	 * supporting constraint for that particular branch (zero checks, etc)
 	 * 
+	 * @param className
+	 *            a {@link java.lang.String} object
+	 * @param methodName
+	 *            a {@link java.lang.String} object
+	 * @param instructionIndex
+	 *            an {@link int} value
 	 * @param constraint
-	 *            TODO
+	 *            a {@link Constraint} object
 	 * @param supportingConstraints
 	 *            a {@link java.util.Set} object.
-	 * @param reachingConstraints
-	 *            a {@link java.util.Set} object.
-	 * @param ins
-	 *            a {@link gov.nasa.jpf.jvm.bytecode.Instruction} object.
 	 */
-	public BranchCondition(String className, String methodName, int branchIndex, Constraint<?> constraint,
-			List<Constraint<?>> supportingConstraints) {
+	public BranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
+												 List<Constraint<?>> supportingConstraints) {
 
 		this.className = ResourceList.getClassNameFromResourcePath(className);
 		this.methodName = methodName;
-		this.branchIndex = branchIndex;
+		this.instructionIndex = instructionIndex;
 
 		this.constraint = constraint;
 		this.supportingConstraints = supportingConstraints;
@@ -83,7 +96,7 @@ public class BranchCondition {
 	}
 
 	public int getInstructionIndex() {
-		return branchIndex;
+		return instructionIndex;
 	}
 
 	public String getFullName() {
@@ -91,8 +104,8 @@ public class BranchCondition {
 	}
 
 	/**
-	 * Returns the constraint for actual branch. This constraint has to be
-	 * negated to take another path.
+	 * Returns the constraint for actual branch. This constraint has to be negated
+	 * to take another path.
 	 * 
 	 * @return
 	 */
@@ -101,9 +114,9 @@ public class BranchCondition {
 	}
 
 	/**
-	 * Returns a list of implicit constraints (nullity checks, zero division,
-	 * index within bounds, negative size array length, etc.) collected before
-	 * the current branch condtion and after the last symbolic branch condition
+	 * Returns a list of implicit constraints (nullity checks, zero division, index
+	 * within bounds, negative size array length, etc.) collected before the current
+	 * branch condition and after the last symbolic branch condition
 	 * 
 	 * @return
 	 */
@@ -115,7 +128,35 @@ public class BranchCondition {
 		return methodName;
 	}
 
-	public int getBranchIndex() {
-		return branchIndex;
+	/**
+	 * For simplicity we create this construction of the object to handle path conditions easily.
+	 *
+	 * @return
+	 */
+	public BranchCondition getNegatedVersion() {
+		return new BranchCondition(className, methodName, instructionIndex, constraint.negate(), supportingConstraints);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		BranchCondition that = (BranchCondition) o;
+		return instructionIndex == that.instructionIndex &&
+				className.equals(that.className) &&
+				methodName.equals(that.methodName) &&
+				constraint.equals(that.constraint) &&
+				supportingConstraints.equals(that.supportingConstraints);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(
+				className,
+				methodName,
+				instructionIndex,
+				constraint,
+				supportingConstraints
+		);
 	}
 }

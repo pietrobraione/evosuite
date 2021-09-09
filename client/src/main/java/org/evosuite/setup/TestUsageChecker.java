@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -22,10 +22,13 @@ package org.evosuite.setup;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
+import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
+import org.evosuite.runtime.util.AtMostOnceLogger;
+import org.evosuite.utils.Java9InvisiblePackage;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -43,18 +46,14 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.text.MessageFormat;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Created by Andrea Arcuri on 30/06/15.
  */
 public class TestUsageChecker {
 
-	private static Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
+	private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
 
 	public static boolean canUse(Constructor<?> c) {
 
@@ -143,12 +142,21 @@ public class TestUsageChecker {
         if (Modifier.isPrivate(c.getModifiers()))
             return false;
 
-        if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)) {
-    		final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (!Properties.USE_DEPRECATED) {
+	        try {
+                if(c.isAnnotationPresent(Deprecated.class)) {
+                    final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
-            if(Properties.hasTargetClassBeenLoaded() && !c.equals(targetClass)) {
-                logger.debug("Skipping deprecated class " + c.getName());
-                return false;
+                    if(Properties.hasTargetClassBeenLoaded() && !c.equals(targetClass)) {
+                        logger.debug("Skipping deprecated class " + c.getName());
+                        return false;
+                    }
+                }
+            } catch(java.lang.ArrayStoreException e) {
+	            // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
+	            AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(), "ArrayStoreException caught while handling class "+c.getName());
+                AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(), "This is likely due to a missing dependency used as annotation: https://bugs.java.com/view_bug.do?bug_id=JDK-7183985");
+	            return false;
             }
         }
 
@@ -156,8 +164,13 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (c.getName().startsWith("junit"))
+        if(isClassIncludedInPackage(c.getName(), Java9InvisiblePackage.instance.getClassesToBeIgnored())){
             return false;
+        }
+
+        if (c.getName().startsWith("junit")) {
+            return false;
+        }
 
         if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())) {
             return false;
@@ -181,7 +194,16 @@ public class TestUsageChecker {
             return false;
         }
 
-        if(c.getName().contains("EnhancerByMockito")){
+        if(c.getName().contains("EnhancerByMockito")) {
+            return false;
+        }
+
+        if(c.getName().contains("$MockitoMock")) {
+            return false;
+        }
+
+        // Don't use Lambdas...for now
+        if(c.getName().contains("$$Lambda")) {
             return false;
         }
 
@@ -251,6 +273,10 @@ public class TestUsageChecker {
             return false;
         }
 
+        if(f.getName().equals("serialVersionUID")) {
+            return false;
+        }
+
         if (Modifier.isPublic(f.getModifiers())) {
             // It may still be the case that the field is defined in a non-visible superclass of the class
             // we already know we can use. In that case, the compiler would be fine with accessing the
@@ -282,6 +308,13 @@ public class TestUsageChecker {
     }
 
     public static boolean canUse(Method m, Class<?> ownerClass) {
+
+        final MethodNameMatcher matcher = new MethodNameMatcher();
+        String methodSignature = m.getName() + Type.getMethodDescriptor(m);
+        if (!matcher.methodMatches(methodSignature)) {
+            logger.debug("Excluding method '" + methodSignature + "' that does not match criteria");
+            return false;
+        }
 
         if (m.isBridge()) {
             logger.debug("Excluding bridge method: " + m.toString());
@@ -319,6 +352,16 @@ public class TestUsageChecker {
         }
 
         if (m.getDeclaringClass().equals(java.lang.Object.class)) {
+            return false;
+        }
+
+        // FIXME: EvoSuite currently can't deal properly with the Map.of(...) methods introduced in Java 9
+        if(m.getDeclaringClass().equals(java.util.Map.class) && Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+
+        // FIXME: EvoSuite currently can't deal properly with the Set.of(...) methods introduced in Java 9
+        if(m.getDeclaringClass().equals(java.util.Set.class) && Modifier.isStatic(m.getModifiers())) {
             return false;
         }
 
@@ -411,7 +454,8 @@ public class TestUsageChecker {
             String packageName = ClassUtils.getPackageName(ownerClass);
             String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
             if (packageName.equals(Properties.CLASS_PREFIX)
-                    && packageName.equals(declaredPackageName)) {
+                    && packageName.equals(declaredPackageName)
+                    && !Modifier.isAbstract(m.getModifiers())) {
             		TestClusterUtils.makeAccessible(m);
                 return true;
             }
@@ -494,5 +538,13 @@ public class TestUsageChecker {
 
 		return false;
 	}
+
+    private static boolean isClassIncludedInPackage(String className, List<String> classList) {
+        String result = classList.stream()
+                .filter(class1 -> className.startsWith(class1))
+                .findAny()
+                .orElse(null);
+        return result != null ? true : false;
+    }
 
 }

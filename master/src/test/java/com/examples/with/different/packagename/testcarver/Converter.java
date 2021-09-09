@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -53,7 +53,7 @@ public interface Converter {
      * @exception ConversionException if conversion cannot be performed
      *  successfully
      */
-    public Object convert(Class type, Object value);
+    Object convert(Class type, Object value);
 
 
 }

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -46,7 +46,7 @@ public class ClassHierarchyIncludingInterfaces {
     
             @Override
             public Iterator<Class<?>> iterator() {
-                final MutableObject<Class<?>> next = new MutableObject<Class<?>>(type);
+                final MutableObject<Class<?>> next = new MutableObject<>(type);
                 return new Iterator<Class<?>>() {
     
                     @Override
@@ -77,7 +77,7 @@ public class ClassHierarchyIncludingInterfaces {
     
             @Override
             public Iterator<Class<?>> iterator() {
-                final Set<Class<?>> seenInterfaces = new HashSet<Class<?>>();
+                final Set<Class<?>> seenInterfaces = new HashSet<>();
                 final Iterator<Class<?>> wrapped = classes.iterator();
     
                 return new Iterator<Class<?>>() {
@@ -96,7 +96,7 @@ public class ClassHierarchyIncludingInterfaces {
                             return nextInterface;
                         }
                         final Class<?> nextSuperclass = wrapped.next();
-                        final Set<Class<?>> currentInterfaces = new LinkedHashSet<Class<?>>();
+                        final Set<Class<?>> currentInterfaces = new LinkedHashSet<>();
                         walkInterfaces(currentInterfaces, nextSuperclass);
                         interfaces = currentInterfaces.iterator();
                         return nextSuperclass;

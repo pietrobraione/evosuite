@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,9 +25,9 @@ import java.util.List;
 
 public class ListContainerUser {
 
-	private final List<Object> myList = new LinkedList<Object>();
+	private final List<Object> myList = new LinkedList<>();
 
-	private final List<Object> myEmptyList = new LinkedList<Object>();
+	private final List<Object> myEmptyList = new LinkedList<>();
 
 	private final boolean isMyContainsFlag;
 	private final boolean isMyContainsAllFlag;

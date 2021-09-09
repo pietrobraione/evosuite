@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -44,7 +44,7 @@ public class GuiSupport {
 
 	private static Field headless; // need reflection
 
-	static{
+	static {
 		try {
 			//AWT classes check GraphicsEnvironment for headless state
 			headless = java.awt.GraphicsEnvironment.class.getDeclaredField("headless");
@@ -58,7 +58,7 @@ public class GuiSupport {
 	/**
 	 * Set the JVM in headless mode
 	 */
-	public static void setHeadless(){
+	public static void setHeadless() {
 		
 		if(isDefaultHeadless){
 			//already headless: nothing to do
@@ -68,7 +68,7 @@ public class GuiSupport {
 		setHeadless(true);
 	}
 
-	public static void initialize(){
+	public static void initialize() {
 
 		/*
 			Since trying Java 8, started to get weird behavior on a Linux cluster.
@@ -81,7 +81,7 @@ public class GuiSupport {
 			in this method, which is usually called from a @BeforeClass). Reason is that
 			maybe not all tests will access GUI.
 		 */
-		try{
+		try {
 			FileSystems.getDefault();
 		} catch(Throwable t){
 			logger.error("Failed to load default file system: "+t.getMessage());
@@ -103,20 +103,20 @@ public class GuiSupport {
 	 *  This is necessary for when EvoSuite tests (which are in headless mode) are
 	 *  run together with manual tests that are not headless. 
 	 */
-	public static void restoreHeadlessMode(){
-		if(GraphicsEnvironment.isHeadless() && !isDefaultHeadless){
+	public static void restoreHeadlessMode() {
+		if (GraphicsEnvironment.isHeadless() && !isDefaultHeadless) {
 			setHeadless(false);
 		}
 	}
 	
 	
-	private static void setHeadless(boolean isHeadless){
+	private static void setHeadless(boolean isHeadless) {
 		
 		//changing system property is not enough
 		java.lang.System.setProperty("java.awt.headless", ""+isHeadless);
 
 		try {
-			headless.set(null, (Boolean) isHeadless);
+			headless.set(null, isHeadless);
 		} catch (IllegalAccessException e) {
 			//this should never happen. if it doesn't work, then all GUI tests would be messed up :(
 			throw new RuntimeException("ERROR: failed to change AWT Headless state: "+e.getMessage(),e);

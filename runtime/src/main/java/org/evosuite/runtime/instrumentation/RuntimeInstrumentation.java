@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -42,7 +42,7 @@ import java.util.List;
  */
 public class RuntimeInstrumentation {
 
-	private static Logger logger = LoggerFactory.getLogger(RuntimeInstrumentation.class);
+	private static final Logger logger = LoggerFactory.getLogger(RuntimeInstrumentation.class);
 
 	/**
 	 * If we are re-instrumenting a class, then we cannot change its
@@ -88,6 +88,11 @@ public class RuntimeInstrumentation {
 			return false;
 		}
 
+		if(className.contains("__CLR")) {
+			// Instrumenting clover coverage instrumentation helper classes breaks clover
+			return false;
+		}
+
 		return true;
 	}
 
@@ -96,7 +101,7 @@ public class RuntimeInstrumentation {
 
 		int readFlags = ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE;
 		reader.accept(classNode, readFlags);
-		for(String interfaceName : ((List<String>)classNode.interfaces)) {
+		for(String interfaceName : classNode.interfaces) {
 			if(InstrumentedClass.class.getName().equals(interfaceName.replace('/', '.')))
 				return true;
 		}

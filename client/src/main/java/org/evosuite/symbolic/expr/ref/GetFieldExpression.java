@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -27,9 +27,7 @@ import org.objectweb.asm.Type;
 
 public final class GetFieldExpression extends ReferenceExpression {
 
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 4517401722564017247L;
 
 	private final ReferenceExpression receiverExpr;

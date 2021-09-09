@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -21,6 +21,6 @@ package com.examples.with.different.packagename.assertion;
 
 public class WrapperCreatingCopy {
 	public Integer foo(Integer x) {
-		return new Integer(x.intValue());
+		return x;
 	}
 }

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -50,11 +50,11 @@ public class MathInt {
 	}
 	
 	public int castToInt(int f) {
-		return (int)f;
+		return f;
 	}
 	
 	public long castToLong(int f) {
-		return (long)f;
+		return f;
 	}
 	
 	public char castToChar(int f) {

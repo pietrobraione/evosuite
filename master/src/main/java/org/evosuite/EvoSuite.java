@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,16 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- *
- */
-package org.evosuite;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+package org.evosuite;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -34,18 +26,20 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.executionmode.Continuous;
 import org.evosuite.executionmode.Help;
 import org.evosuite.executionmode.ListClasses;
-import org.evosuite.executionmode.WriteDependencies;
 import org.evosuite.executionmode.ListParameters;
 import org.evosuite.executionmode.MeasureCoverage;
 import org.evosuite.executionmode.PrintStats;
 import org.evosuite.executionmode.Setup;
 import org.evosuite.executionmode.TestGeneration;
+import org.evosuite.executionmode.WriteDependencies;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.sandbox.MSecurityManager;
+import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.InheritanceTreeGenerator;
 import org.evosuite.utils.LoggingUtils;
@@ -53,6 +47,12 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.SpawnProcessKeepAliveChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * <p>
@@ -63,22 +63,22 @@ import org.slf4j.LoggerFactory;
  */
 public class EvoSuite {
 
-    static {
-        LoggingUtils.loadLogbackForEvoSuite();
-    }
-
-    private static Logger logger = LoggerFactory.getLogger(EvoSuite.class);
-
-    private static String separator = System.getProperty("file.separator");
-    private static String javaHome = System.getProperty("java.home");
-
     /**
+     * Functional moved to @{@link JavaExecCmdUtil#getJavaBinExecutablePath()}
      * Constant
      * <code>JAVA_CMD="javaHome + separator + bin + separatorj"{trunked}</code>
      */
-    public final static String JAVA_CMD = javaHome + separator + "bin" + separator + "java";
+    //public final static String JAVA_CMD = javaHome + separator + "bin" + separator + "java";
 
     public static String base_dir_path = System.getProperty("user.dir");
+    private static final Logger logger = LoggerFactory.getLogger(EvoSuite.class);
+
+    private static String separator = System.getProperty("file.separator");
+    //private static String javaHome = System.getProperty("java.home");
+
+    static {
+        LoggingUtils.loadLogbackForEvoSuite();
+    }
 
     public static String generateInheritanceTree(String cp) throws IOException {
         LoggingUtils.getEvoLogger().info("* Analyzing classpath (generating inheritance tree)");
@@ -90,6 +90,40 @@ public class EvoSuite {
         outputFile.deleteOnExit();
         InheritanceTreeGenerator.writeInheritanceTree(tree, outputFile);
         return outputFile.getAbsolutePath();
+    }
+
+    public static boolean hasLegacyTargets() {
+        File directory = new File(Properties.OUTPUT_DIR);
+        if (!directory.exists()) {
+            return false;
+        }
+        String[] extensions = {"task"};
+        return !FileUtils.listFiles(directory, extensions, false).isEmpty();
+    }
+
+    /**
+     * <p>
+     * main
+     * </p>
+     *
+     * @param args an array of {@link java.lang.String} objects.
+     */
+    public static void main(String[] args) {
+
+        try {
+            EvoSuite evosuite = new EvoSuite();
+            evosuite.parseCommandLine(args);
+        } catch (Throwable t) {
+            logger.error("Fatal crash on main EvoSuite process. Class "
+                    + Properties.TARGET_CLASS + " using seed " + Randomness.getSeed()
+                    + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
+            System.exit(-1);
+        }
+
+        /*
+         * Some threads could still be running, so we need to kill the process explicitly
+         */
+        System.exit(0);
     }
 
     private void setupProperties() {
@@ -114,7 +148,7 @@ public class EvoSuite {
     public Object parseCommandLine(String[] args) {
         Options options = CommandLineParameters.getCommandLineOptions();
 
-        List<String> javaOpts = new ArrayList<String>();
+        List<String> javaOpts = new ArrayList<>();
 
         String version = EvoSuite.class.getPackage().getImplementationVersion();
         if (version == null) {
@@ -130,14 +164,14 @@ public class EvoSuite {
 
             if (!line.hasOption(Setup.NAME)) {
                 /*
-				 * -setup is treated specially because it uses the extra input arguments
-				 * 
-				 * TODO: Setup should be refactored/fixed
-				 */
+                 * -setup is treated specially because it uses the extra input arguments
+                 *
+                 * TODO: Setup should be refactored/fixed
+                 */
                 String[] unrecognized = line.getArgs();
                 if (unrecognized.length > 0) {
                     String msg = "";
-                    if(unrecognized.length==1){
+                    if (unrecognized.length == 1) {
                         msg = "There is one unrecognized input:";
                     } else {
                         msg = "There are " + unrecognized.length + " unrecognized inputs:";
@@ -149,40 +183,83 @@ public class EvoSuite {
             }
 
             setupProperties();
+            final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
 
-            if (TestSuiteWriterUtils.needToUseAgent() && Properties.JUNIT_CHECK) {
+            if (TestSuiteWriterUtils.needToUseAgent() &&
+                    (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
+                            Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
                 ClassPathHacker.initializeToolJar();
             }
 
-            if (!line.hasOption("regressionSuite")) {
-                if (line.hasOption("criterion")) {
-                    //TODO should check if already defined
-                    javaOpts.add("-Dcriterion=" + line.getOptionValue("criterion"));
+            if (line.hasOption("criterion")) {
+                //TODO should check if already defined
+                javaOpts.add("-Dcriterion=" + line.getOptionValue("criterion"));
 
-                    //FIXME should really better handle the validation of javaOpts in the master, not client
-                    try {
-                        Properties.getInstance().setValue("criterion", line.getOptionValue("criterion"));
-                    } catch (Exception e) {
-                        throw new Error("Invalid value for criterion: "+e.getMessage());
-                    }
+                //FIXME should really better handle the validation of javaOpts in the master, not client
+                try {
+                    Properties.getInstance().setValue("criterion", line.getOptionValue("criterion"));
+                } catch (Exception e) {
+                    throw new Error("Invalid value for criterion: " + e.getMessage());
                 }
-            } else {
-                javaOpts.add("-Dcriterion=regression");
             }
 
-			/*
-			 * FIXME: every time in the Master we set a parameter with -D,
-			 * we should check if it actually exists (ie detect typos)
-			 */
+            if (line.hasOption("parallel")) {
+                String[] values = line.getOptionValues("parallel");
+
+                if (values.length != 3) {
+                    throw new Error("Invalid amount of arguments for parallel");
+                }
+
+                javaOpts.add("-Dnum_parallel_clients=" + values[0]);
+                javaOpts.add("-Dmigrants_iteration_frequency=" + values[1]);
+                javaOpts.add("-Dmigrants_communication_rate=" + values[2]);
+
+                try {
+                    Properties.getInstance().setValue("num_parallel_clients", values[0]);
+                    Properties.getInstance().setValue("migrants_iteration_frequency", values[1]);
+                    Properties.getInstance().setValue("migrants_communication_rate", values[2]);
+                } catch (Properties.NoSuchParameterException | IllegalAccessException e) {
+                    throw new Error("Invalid values for parallel: " + e.getMessage());
+                }
+            } else {
+                // Just to be save
+                javaOpts.add("-Dnum_parallel_clients=" + 1);
+
+                try {
+                    Properties.getInstance().setValue("num_parallel_clients", 1);
+                } catch (Properties.NoSuchParameterException | IllegalAccessException e) {
+                    throw new Error("Could not set value: " + e.getMessage());
+                }
+            }
+
+            /*
+             * FIXME: every time in the Master we set a parameter with -D,
+             * we should check if it actually exists (ie detect typos)
+             */
 
             CommandLineParameters.handleSeed(javaOpts, line);
 
             CommandLineParameters.addJavaDOptions(javaOpts, line);
 
+//            if (TestSuiteWriterUtils.needToUseAgent() && Properties.JUNIT_CHECK) {
+//                ClassPathHacker.initializeToolJar();
+//            }
+
             CommandLineParameters.handleClassPath(line);
 
             CommandLineParameters.handleJVMOptions(javaOpts, line);
 
+
+            if (!ClassPathHacker.isJunitCheckAvailable()) {
+                if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE) {
+                    logger.error("Can not execute Junit tests. Run EvoSuite with -Djunit_check=optional to generate tests, but dont check them.");
+                    throw new IllegalStateException(ClassPathHacker.getCause());
+                }
+            }
+
+            if (Properties.JEE == true){
+                throw new IllegalStateException("JEE is not supported due to the Java 9+ update of EvoSuite");
+            }
 
             if (line.hasOption("base_dir")) {
                 base_dir_path = line.getOptionValue("base_dir");
@@ -201,36 +278,39 @@ public class EvoSuite {
 
             CommandLineParameters.validateInputOptionsAndParameters(line);
 
-			/*
-			 * We shouldn't print when -listClasses, as we do not want to have
-			 * side effects (eg, important when using it in shell scripts)
-			 */
+            /*
+             * We shouldn't print when -listClasses, as we do not want to have
+             * side effects (eg, important when using it in shell scripts)
+             */
             if (!line.hasOption(ListClasses.NAME)) {
 
                 LoggingUtils.getEvoLogger().info("* EvoSuite " + version);
 
                 String conf = Properties.CONFIGURATION_ID;
                 if (conf != null && !conf.isEmpty()) {
-					/*
-					 * This is useful for debugging on cluster
-					 */
+                    /*
+                     * This is useful for debugging on cluster
+                     */
                     LoggingUtils.getEvoLogger().info("* Configuration: " + conf);
                 }
             }
 
-            if(Properties.CLIENT_ON_THREAD){
+
+            if (Properties.CLIENT_ON_THREAD) {
                 MSecurityManager.setRunningClientOnThread(true);
             }
 
-            if(Properties.SPAWN_PROCESS_MANAGER_PORT != null){
+            if (Properties.SPAWN_PROCESS_MANAGER_PORT != null) {
                 SpawnProcessKeepAliveChecker.getInstance().registerToRemoteServerAndDieIfFails(
                         Properties.SPAWN_PROCESS_MANAGER_PORT
                 );
             }
 
-			/*
-			 * Following "options" are the actual (mutually exclusive) execution modes of EvoSuite
-			 */
+            checkProperties();
+
+            /*
+             * Following "options" are the actual (mutually exclusive) execution modes of EvoSuite
+             */
 
             if (line.hasOption(Help.NAME)) {
                 return Help.execute(options);
@@ -276,39 +356,12 @@ public class EvoSuite {
         return null;
     }
 
-
-    public static boolean hasLegacyTargets() {
-        File directory = new File(Properties.OUTPUT_DIR);
-        if (!directory.exists()) {
-            return false;
+    private static void checkProperties(){
+        Logger evoLogger = LoggingUtils.getEvoLogger();
+        if(Properties.USE_SEPARATE_CLASSLOADER && Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5){
+            evoLogger.warn("* WARNING - Generating JUnit 5 tests with the option to use a separate classloader will result in not " +
+                    "runnable tests. Set either -Dtest_format=JUNIT4 or -Duse_separate_classloader=false");
         }
-        String[] extensions = {"task"};
-        return !FileUtils.listFiles(directory, extensions, false).isEmpty();
-    }
-
-    /**
-     * <p>
-     * main
-     * </p>
-     *
-     * @param args an array of {@link java.lang.String} objects.
-     */
-    public static void main(String[] args) {
-
-        try {
-            EvoSuite evosuite = new EvoSuite();
-            evosuite.parseCommandLine(args);
-        } catch (Throwable t) {
-            logger.error("Fatal crash on main EvoSuite process. Class "
-                    + Properties.TARGET_CLASS + " using seed " + Randomness.getSeed()
-                    + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
-            System.exit(-1);
-        }
-
-		/*
-		 * Some threads could still be running, so we need to kill the process explicitly
-		 */
-        System.exit(0);
     }
 
 }

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -23,7 +23,9 @@ import java.io.File;
 
 public class ExtendingFile extends File{
 
-	public ExtendingFile(String pathname) {
+    private static final long serialVersionUID = -3575700212493895858L;
+
+    public ExtendingFile(String pathname) {
 		super(pathname);
 	}
 

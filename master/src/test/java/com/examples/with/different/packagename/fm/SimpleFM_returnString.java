@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -27,7 +27,7 @@ public class SimpleFM_returnString {
     public final static String TRUE_BRANCH = "true branch";
     public final static String FALSE_BRANCH = "false branch";
 
-    public static interface Foo{
+    public interface Foo{
         boolean foo();
     }
 

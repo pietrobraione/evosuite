@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,7 +25,8 @@ package com.examples.with.different.packagename.concolic;
  */
 public class MalformedMIMETypeException extends Exception
 {
-  /** The MIME type that could not be parsed.
+    private static final long serialVersionUID = 5518532230387487864L;
+    /** The MIME type that could not be parsed.
    */
   String type;
   

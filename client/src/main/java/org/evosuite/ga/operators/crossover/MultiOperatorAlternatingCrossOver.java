@@ -61,7 +61,7 @@ public class MultiOperatorAlternatingCrossOver extends SushiCrossOver  { /*SUSHI
 	//Forward SushiCrossOver notifications to sub operators
 	
 	@Override
-	public void searchStarted(GeneticAlgorithm<?> algorithm) {
+	public void searchStarted(GeneticAlgorithm algorithm) {
 		super.searchStarted(algorithm);
 		for (CrossOverFunction co : crossoverOperators) {
 			if (co instanceof SushiCrossOver)
@@ -70,7 +70,7 @@ public class MultiOperatorAlternatingCrossOver extends SushiCrossOver  { /*SUSHI
 	}
 
 	@Override
-	public void iteration(GeneticAlgorithm<?> algorithm) {
+	public void iteration(GeneticAlgorithm algorithm) {
 		super.iteration(algorithm);
 
 		currentOperator = algorithm.getAge() % crossoverOperators.length;
@@ -82,7 +82,7 @@ public class MultiOperatorAlternatingCrossOver extends SushiCrossOver  { /*SUSHI
 	}
 
 	@Override
-	public void searchFinished(GeneticAlgorithm<?> algorithm) {
+	public void searchFinished(GeneticAlgorithm algorithm) {
 		super.searchFinished(algorithm);
 
 		for (CrossOverFunction co : crossoverOperators) {

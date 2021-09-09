@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -60,7 +60,7 @@ public class CarverSystemTest extends SystemTestBase {
 
 		SearchStatistics result = (SearchStatistics)evosuite.parseCommandLine(command);
 		Assert.assertNotNull(result);
-		OutputVariable coverage = (OutputVariable)result.getOutputVariables().get("Coverage");
+		OutputVariable coverage = result.getOutputVariables().get("Coverage");
 		Assert.assertEquals("Non-optimal coverage", 1d, (double)coverage.getValue(), 0.01);
 	}
 
@@ -88,7 +88,7 @@ public class CarverSystemTest extends SystemTestBase {
 
 		SearchStatistics result = (SearchStatistics)evosuite.parseCommandLine(command);
 		Assert.assertNotNull(result);
-		OutputVariable coverage = (OutputVariable)result.getOutputVariables().get("Coverage");
+		OutputVariable coverage = result.getOutputVariables().get("Coverage");
 		Assert.assertEquals("Non-optimal coverage", 1d, (double)coverage.getValue(), 0.01);
 	}
 
@@ -120,7 +120,7 @@ public class CarverSystemTest extends SystemTestBase {
 
 		SearchStatistics result = (SearchStatistics)evosuite.parseCommandLine(command);
 		Assert.assertNotNull(result);
-		OutputVariable coverage = (OutputVariable)result.getOutputVariables().get("MethodCoverage");
+		OutputVariable coverage = result.getOutputVariables().get("MethodCoverage");
 		Assert.assertEquals("Non-optimal method coverage value", 1d, (double)coverage.getValue(), 0.01);
 	}
 
@@ -154,7 +154,7 @@ public class CarverSystemTest extends SystemTestBase {
 
 		SearchStatistics result = (SearchStatistics)evosuite.parseCommandLine(command);
 		Assert.assertNotNull(result);
-		OutputVariable coverage = (OutputVariable)result.getOutputVariables().get("MethodCoverage");
+		OutputVariable coverage = result.getOutputVariables().get("MethodCoverage");
 		Assert.assertEquals("Non-optimal method coverage value", 1d, (double)coverage.getValue(), 0.01);
 	}
 

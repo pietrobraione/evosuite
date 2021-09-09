@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -31,11 +31,11 @@ public class GuavaExample<R, C, V> {
 	}
 	
 	public static <R extends Comparable, C extends Comparable, V> GuavaExample<R, C, V> create(R value) {
-		return new GuavaExample<R, C, V>(value);
+		return new GuavaExample<>(value);
 	}
 	
 	public Map<C, V> row(R rowKey) {
-	    Map<C,V> map = new HashMap<C, V>();
+	    Map<C,V> map = new HashMap<>();
 	    if(rowKey == value)
 	    	return map;
 	    else

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,11 +20,10 @@
 package org.evosuite.coverage.exception;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.archive.TestsArchive;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
-import org.evosuite.testcase.ExecutableChromosome;
+import org.evosuite.ga.archive.Archive;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 
 import java.util.List;
 import java.util.Map;
@@ -34,15 +33,17 @@ import java.util.Map;
  */
 public class TryCatchCoverageSuiteFitness extends BranchCoverageSuiteFitness {
 
+     private static final long serialVersionUID = -8849382855802052405L;
+
     /**
      * Make sure we only include artificial branches
      */
-    protected void determineCoverageGoals() {
+    protected void determineCoverageGoals(boolean updateArchive) {
         List<TryCatchCoverageTestFitness> goals = new TryCatchCoverageFactory().getCoverageGoals();
         for (TryCatchCoverageTestFitness goal : goals) {
 
-            if(Properties.TEST_ARCHIVE)
-                TestsArchive.instance.addGoalToCover(this, goal);
+            if(updateArchive && Properties.TEST_ARCHIVE)
+                Archive.getArchiveInstance().addTarget(goal);
 
             branchesId.add(goal.getBranch().getActualBranchId());
             if (goal.getBranchExpressionValue())
@@ -50,16 +51,16 @@ public class TryCatchCoverageSuiteFitness extends BranchCoverageSuiteFitness {
             else
                 branchCoverageFalseMap.put(goal.getBranch().getActualBranchId(), goal);
         }
-        totalGoals = goals.size();
     }
 
     @Override
-    protected void handleBranchlessMethods(AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite, ExecutionResult result, Map<String, Integer> callCount) {
+    protected void handleBranchlessMethods(TestChromosome test, ExecutionResult result, Map<String, Integer> callCount) {
         // no-op
     }
 
-    @Override
-    protected void handleFalseDistances(AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite, ExecutionResult result, Map<Integer, Double> falseDistance) {
-        // We only aim to cover true branches
-    }
+//    @Override
+//    protected void handleTrueDistances(TestChromosome test, ExecutionResult result, Map<Integer, Double> falseDistance) {
+//        // We only aim to cover false branches
+//    }
+
 }

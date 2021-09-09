@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,7 +20,6 @@
 package org.evosuite.clinit;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
@@ -36,7 +35,6 @@ import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.junit.Test;
 
-import com.examples.with.different.packagename.clinit.FinalPrimitiveField;
 import com.examples.with.different.packagename.clinit.FinalReferenceField;
 
 public class TestFinalReferenceFieldIsNotAddedToCluster {

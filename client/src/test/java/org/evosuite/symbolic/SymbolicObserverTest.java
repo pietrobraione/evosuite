@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -27,6 +27,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import org.evosuite.Properties;
+import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.DefaultTestCase;
@@ -50,8 +51,7 @@ public class SymbolicObserverTest {
 		System.out.println("Constraints=");
 		for (BranchCondition branchCondition : branch_conditions) {
 
-			for (Constraint<?> constr : branchCondition
-					.getSupportingConstraints()) {
+			for (Constraint<?> constr : branchCondition.getSupportingConstraints()) {
 				System.out.println(constr.toString());
 			}
 			System.out.println(branchCondition.getConstraint().toString());
@@ -67,21 +67,17 @@ public class SymbolicObserverTest {
 		StringHandler.checkEquals(boolean0, boolean1);
 	}
 
-	private static DefaultTestCase build_test_input_1()
-			throws SecurityException, NoSuchMethodException {
+	private static DefaultTestCase build_test_input_1() throws SecurityException, NoSuchMethodException {
 
 		test_input1();
 
-		Method string_matches_method = StringHandler.class.getMethod(
-				"stringMatches", String.class, String.class);
-		Method checkEquals_method = StringHandler.class.getMethod(
-				"checkEquals", boolean.class, boolean.class);
+		Method string_matches_method = StringHandler.class.getMethod("stringMatches", String.class, String.class);
+		Method checkEquals_method = StringHandler.class.getMethod("checkEquals", boolean.class, boolean.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 		VariableReference string0 = tc.appendStringPrimitive("aaaaaaaaaaab");
 		VariableReference string1 = tc.appendStringPrimitive("a*b");
-		VariableReference boolean0 = tc.appendMethod(null,
-				string_matches_method, string0, string1);
+		VariableReference boolean0 = tc.appendMethod(null, string_matches_method, string0, string1);
 		VariableReference boolean1 = tc.appendBooleanPrimitive(true);
 		tc.appendMethod(null, checkEquals_method, boolean0, boolean1);
 
@@ -99,8 +95,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -116,32 +112,23 @@ public class SymbolicObserverTest {
 		StringHandler.checkEquals(boolean0, boolean1);
 	}
 
-	private static DefaultTestCase build_test_input_2()
-			throws SecurityException, NoSuchMethodException {
+	private static DefaultTestCase build_test_input_2() throws SecurityException, NoSuchMethodException {
 
 		test_input2();
 
-		Constructor<?> constructor = StringHandler.class
-				.getConstructor(String.class);
+		Constructor<?> constructor = StringHandler.class.getConstructor(String.class);
 
-		Method toUpperCase_method = StringHandler.class
-				.getMethod("toUpperCase");
-		Method equals_method = StringHandler.class.getMethod("equals",
-				String.class);
+		Method toUpperCase_method = StringHandler.class.getMethod("toUpperCase");
+		Method equals_method = StringHandler.class.getMethod("equals", String.class);
 
-		Method checkEquals_method = StringHandler.class.getMethod(
-				"checkEquals", boolean.class, boolean.class);
+		Method checkEquals_method = StringHandler.class.getMethod("checkEquals", boolean.class, boolean.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
-		VariableReference string0 = tc
-				.appendStringPrimitive("Togliere sta roba");
-		VariableReference stringHandler0 = tc.appendConstructor(constructor,
-				string0);
-		VariableReference string1 = tc
-				.appendStringPrimitive("TOGLIERE STA ROBA");
+		VariableReference string0 = tc.appendStringPrimitive("Togliere sta roba");
+		VariableReference stringHandler0 = tc.appendConstructor(constructor, string0);
+		VariableReference string1 = tc.appendStringPrimitive("TOGLIERE STA ROBA");
 		tc.appendMethod(stringHandler0, toUpperCase_method);
-		VariableReference boolean0 = tc.appendMethod(stringHandler0,
-				equals_method, string1);
+		VariableReference boolean0 = tc.appendMethod(stringHandler0, equals_method, string1);
 		VariableReference boolean1 = tc.appendBooleanPrimitive(true);
 		tc.appendMethod(null, checkEquals_method, boolean0, boolean1);
 
@@ -159,8 +146,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -176,27 +163,21 @@ public class SymbolicObserverTest {
 		Assertions.checkEquals(double2, double3);
 	}
 
-	private static DefaultTestCase build_test_input_3()
-			throws SecurityException, NoSuchMethodException {
+	private static DefaultTestCase build_test_input_3() throws SecurityException, NoSuchMethodException {
 
 		test_input3();
 
-		Constructor<?> constructor = Calculator.class
-				.getConstructor(String.class);
+		Constructor<?> constructor = Calculator.class.getConstructor(String.class);
 
-		Method compute_method = Calculator.class.getMethod("compute",
-				double.class, double.class);
-		Method checkEquals_method = Assertions.class.getMethod("checkEquals",
-				double.class, double.class);
+		Method compute_method = Calculator.class.getMethod("compute", double.class, double.class);
+		Method checkEquals_method = Assertions.class.getMethod("checkEquals", double.class, double.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 		VariableReference string0 = tc.appendStringPrimitive("add");
-		VariableReference calculator0 = tc.appendConstructor(constructor,
-				string0);
+		VariableReference calculator0 = tc.appendConstructor(constructor, string0);
 		VariableReference double0 = tc.appendDoublePrimitive(1.5);
 		VariableReference double1 = tc.appendDoublePrimitive(-1.5);
-		VariableReference double2 = tc.appendMethod(calculator0,
-				compute_method, double0, double1);
+		VariableReference double2 = tc.appendMethod(calculator0, compute_method, double0, double1);
 		VariableReference double3 = tc.appendDoublePrimitive(0.0);
 		tc.appendMethod(null, checkEquals_method, double2, double3);
 		return tc.getDefaultTestCase();
@@ -213,8 +194,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(2, branch_conditions.size());
@@ -238,8 +219,7 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_4()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input4();
 
@@ -249,8 +229,7 @@ public class SymbolicObserverTest {
 
 		Method getValue_method = MemoryCell.class.getMethod("getValue");
 
-		Method checkEquals_method = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkEquals_method = Assertions.class.getMethod("checkEquals", int.class, int.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 
@@ -260,8 +239,7 @@ public class SymbolicObserverTest {
 
 		tc.appendAssignment(memoryCell0, anotherCell_field, memoryCell0);
 
-		VariableReference memoryCell1 = tc.appendFieldStmt(memoryCell0,
-				anotherCell_field);
+		VariableReference memoryCell1 = tc.appendFieldStmt(memoryCell0, anotherCell_field);
 
 		VariableReference int1 = tc.appendMethod(memoryCell0, getValue_method);
 
@@ -272,8 +250,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test4() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test4() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -283,8 +260,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -312,8 +289,7 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_5()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input5();
 
@@ -323,8 +299,7 @@ public class SymbolicObserverTest {
 
 		Method getValue = IntHolder.class.getMethod("getValue");
 
-		Method checkEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 
@@ -350,8 +325,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test5() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test5() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -361,8 +335,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -380,30 +354,25 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_6()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input6();
 
 		Field string_field = StaticFields.class.getField("string_field");
 
-		Method equals = StaticFields.class.getMethod("equals", String.class,
-				String.class);
+		Method equals = StaticFields.class.getMethod("equals", String.class, String.class);
 
-		Method checkEquals = Assertions.class.getMethod("checkEquals",
-				boolean.class, boolean.class);
+		Method checkEquals = Assertions.class.getMethod("checkEquals", boolean.class, boolean.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 
-		VariableReference string0 = tc
-				.appendStringPrimitive("Togliere sta roba");
+		VariableReference string0 = tc.appendStringPrimitive("Togliere sta roba");
 
 		tc.appendAssignment(null, string_field, string0);
 
 		VariableReference string1 = tc.appendStaticFieldStmt(string_field);
 
-		VariableReference boolean0 = tc.appendMethod(null, equals, string0,
-				string1);
+		VariableReference boolean0 = tc.appendMethod(null, equals, string0, string1);
 
 		VariableReference boolean1 = tc.appendBooleanPrimitive(true);
 
@@ -413,8 +382,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test6() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test6() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -424,8 +392,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -446,8 +414,7 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_7()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input7();
 
@@ -459,8 +426,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test7() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test7() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -470,16 +436,15 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(0, branch_conditions.size());
 	}
 
 	private static DefaultTestCase build_test_input_8()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input8();
 
@@ -493,8 +458,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test8() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test8() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -504,8 +468,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(0, branch_conditions.size());
@@ -533,13 +497,11 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_9()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input9();
 
-		Method checkEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 
@@ -557,8 +519,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test9() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test9() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -568,11 +529,11 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
-		assertEquals(1, branch_conditions.size());
+		assertEquals(6, branch_conditions.size());
 	}
 
 	private static void test_input10() {
@@ -587,13 +548,11 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_10()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		test_input10();
 
-		Method checkEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
 
 		Method max = Math.class.getMethod("max", int.class, int.class);
 
@@ -608,8 +567,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test10() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test10() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -619,16 +577,15 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
 	}
 
 	private static DefaultTestCase build_test_input_11()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		Constructor<?> newBoolean = Boolean.class.getConstructor(boolean.class);
 		Constructor<?> newInteger = Integer.class.getConstructor(int.class);
@@ -648,22 +605,14 @@ public class SymbolicObserverTest {
 		Method floatValue = Float.class.getMethod("floatValue");
 		Method doubleValue = Double.class.getMethod("doubleValue");
 
-		Method checkBooleanEquals = Assertions.class.getMethod("checkEquals",
-				boolean.class, boolean.class);
-		Method checkIntEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
-		Method checkByteEquals = Assertions.class.getMethod("checkEquals",
-				byte.class, byte.class);
-		Method checkShortEquals = Assertions.class.getMethod("checkEquals",
-				short.class, short.class);
-		Method checkCharEquals = Assertions.class.getMethod("checkEquals",
-				char.class, char.class);
-		Method checkLongEquals = Assertions.class.getMethod("checkEquals",
-				long.class, long.class);
-		Method checkFloatEquals = Assertions.class.getMethod("checkEquals",
-				float.class, float.class);
-		Method checkDoubleEquals = Assertions.class.getMethod("checkEquals",
-				double.class, double.class);
+		Method checkBooleanEquals = Assertions.class.getMethod("checkEquals", boolean.class, boolean.class);
+		Method checkIntEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
+		Method checkByteEquals = Assertions.class.getMethod("checkEquals", byte.class, byte.class);
+		Method checkShortEquals = Assertions.class.getMethod("checkEquals", short.class, short.class);
+		Method checkCharEquals = Assertions.class.getMethod("checkEquals", char.class, char.class);
+		Method checkLongEquals = Assertions.class.getMethod("checkEquals", long.class, long.class);
+		Method checkFloatEquals = Assertions.class.getMethod("checkEquals", float.class, float.class);
+		Method checkDoubleEquals = Assertions.class.getMethod("checkEquals", double.class, double.class);
 
 		TestCaseBuilder tc = new TestCaseBuilder();
 
@@ -676,8 +625,7 @@ public class SymbolicObserverTest {
 		VariableReference byte1 = tc.appendMethod(byte_instance0, byteValue);
 
 		VariableReference short0 = tc.appendShortPrimitive(Short.MAX_VALUE);
-		VariableReference short_instance0 = tc.appendConstructor(newShort,
-				short0);
+		VariableReference short_instance0 = tc.appendConstructor(newShort, short0);
 		VariableReference short1 = tc.appendMethod(short_instance0, shortValue);
 
 		VariableReference char0 = tc.appendCharPrimitive(Character.MAX_VALUE);
@@ -689,21 +637,16 @@ public class SymbolicObserverTest {
 		VariableReference long1 = tc.appendMethod(long_instance0, longValue);
 
 		VariableReference float1 = tc.appendFloatPrimitive(Float.MAX_VALUE);
-		VariableReference float_instance1 = tc.appendConstructor(newFloat,
-				float1);
+		VariableReference float_instance1 = tc.appendConstructor(newFloat, float1);
 		VariableReference float2 = tc.appendMethod(float_instance1, floatValue);
 
 		VariableReference double0 = tc.appendDoublePrimitive(Double.MAX_VALUE);
-		VariableReference double_instance1 = tc.appendConstructor(newDouble,
-				double0);
-		VariableReference double1 = tc.appendMethod(double_instance1,
-				doubleValue);
+		VariableReference double_instance1 = tc.appendConstructor(newDouble, double0);
+		VariableReference double1 = tc.appendMethod(double_instance1, doubleValue);
 
 		VariableReference boolean0 = tc.appendBooleanPrimitive(Boolean.TRUE);
-		VariableReference boolean_instance0 = tc.appendConstructor(newBoolean,
-				boolean0);
-		VariableReference boolean1 = tc.appendMethod(boolean_instance0,
-				booleanValue);
+		VariableReference boolean_instance0 = tc.appendConstructor(newBoolean, boolean0);
+		VariableReference boolean1 = tc.appendMethod(boolean_instance0, booleanValue);
 
 		tc.appendMethod(null, checkIntEquals, int0, int1);
 		tc.appendMethod(null, checkByteEquals, byte0, byte1);
@@ -718,8 +661,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test11() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test11() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -729,25 +671,22 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(8, branch_conditions.size());
 	}
 
 	private static DefaultTestCase build_test_input_12()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		Constructor<?> newString = String.class.getConstructor(String.class);
 		Method length = String.class.getMethod("length");
-		Method checkIntEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkIntEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
 		TestCaseBuilder tc = new TestCaseBuilder();
 
-		VariableReference string0 = tc
-				.appendStringPrimitive("Togliere sta roba");
+		VariableReference string0 = tc.appendStringPrimitive("Togliere sta roba");
 		VariableReference string1 = tc.appendConstructor(newString, string0);
 		VariableReference int0 = tc.appendMethod(string0, length);
 		VariableReference int1 = tc.appendMethod(string1, length);
@@ -757,8 +696,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test12() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test12() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -768,19 +706,17 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
 	}
 
 	private static DefaultTestCase build_test_input_13()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
-		Method checkDoubleEquals = Assertions.class.getMethod("checkEquals",
-				double.class, double.class);
+		Method checkDoubleEquals = Assertions.class.getMethod("checkEquals", double.class, double.class);
 		TestCaseBuilder tc = new TestCaseBuilder();
 
 		VariableReference int0 = tc.appendIntPrimitive(10);
@@ -791,8 +727,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test13() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test13() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -802,8 +737,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -818,11 +753,9 @@ public class SymbolicObserverTest {
 	}
 
 	private static DefaultTestCase build_test_input_14()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
-		Method checkIntEquals = Assertions.class.getMethod("checkEquals",
-				int.class, int.class);
+		Method checkIntEquals = Assertions.class.getMethod("checkEquals", int.class, int.class);
 
 		Method boxInteger = Boxer.class.getMethod("boxInteger", Integer.class);
 
@@ -839,8 +772,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test14() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test14() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -850,8 +782,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
@@ -859,8 +791,7 @@ public class SymbolicObserverTest {
 
 	// Fraction fraction0 = Fraction.ONE_FIFTH;
 	private static DefaultTestCase build_test_input_15()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		Field one_fifth = Fraction.class.getField("ONE_FIFTH");
 
@@ -871,8 +802,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test15() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test15() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -882,8 +812,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(0, branch_conditions.size());
@@ -892,8 +822,7 @@ public class SymbolicObserverTest {
 	// Double double0 = null;
 	// Double double1 = Double.valueOf((double) double0);
 	private static DefaultTestCase build_test_input_16()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		Method valueOf = Double.class.getMethod("valueOf", double.class);
 
@@ -905,8 +834,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test16() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test16() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -916,16 +844,15 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(0, branch_conditions.size());
 	}
 
 	private static DefaultTestCase build_test_input_17()
-			throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+			throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 
 		Method test = TestCase86.class.getMethod("test", int.class);
 
@@ -938,8 +865,7 @@ public class SymbolicObserverTest {
 	}
 
 	@Test
-	public void test17() throws SecurityException, NoSuchMethodException,
-			NoSuchFieldException {
+	public void test17() throws SecurityException, NoSuchMethodException, NoSuchFieldException {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.PRINT_TO_SYSTEM = true;
 		Properties.TIMEOUT = 5000000;
@@ -949,8 +875,8 @@ public class SymbolicObserverTest {
 		System.out.println("TestCase=");
 		System.out.println(tc.toCode());
 
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());

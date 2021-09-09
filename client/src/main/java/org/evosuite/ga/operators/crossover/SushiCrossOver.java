@@ -99,7 +99,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 	// Implements methods of interface SearchListener by notifying all CrossOverListeners
 	
 	@Override
-	public void searchStarted(GeneticAlgorithm<?> algorithm) {
+	public void searchStarted(GeneticAlgorithm algorithm) {
 		for (CrossOverListener listener : crossOverListeners) {
 			try {
 				listener.searchStarted(algorithm);
@@ -112,7 +112,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 	}
 
 	@Override
-	public void iteration(GeneticAlgorithm<?> algorithm) {
+	public void iteration(GeneticAlgorithm algorithm) {
 		for (CrossOverListener listener : crossOverListeners) {
 			try {
 				listener.iteration(algorithm);
@@ -125,7 +125,7 @@ public abstract class SushiCrossOver extends CrossOverFunction implements Search
 	}
 
 	@Override
-	public void searchFinished(GeneticAlgorithm<?> algorithm) {
+	public void searchFinished(GeneticAlgorithm algorithm) {
 		for (CrossOverListener listener : crossOverListeners) {
 			try {
 				listener.searchFinished(algorithm);

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -39,13 +39,13 @@ public class FontSystemTest extends SystemTestBase {
 
 		Properties.TARGET_CLASS = targetClass;
 		Properties.JUNIT_TESTS = true;
-		Properties.JUNIT_CHECK = true;
+		Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
 		
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
 		Object result = evosuite.parseCommandLine(command);
 
-		Assert.assertTrue(result != null);
+        Assert.assertNotNull(result);
 
 		GeneticAlgorithm<?> ga = getGAFromResult(result);
 		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();

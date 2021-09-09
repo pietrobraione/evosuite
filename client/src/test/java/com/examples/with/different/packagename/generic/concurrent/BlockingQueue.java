@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -21,7 +21,7 @@ package com.examples.with.different.packagename.generic.concurrent;
 
 public interface BlockingQueue<E> {
 
-	public boolean add(E e);
+	boolean add(E e);
 	
-	public E take();
+	E take();
 }

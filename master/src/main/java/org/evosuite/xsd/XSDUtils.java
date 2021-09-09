@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -33,7 +33,7 @@ public class XSDUtils {
    * @param i
    * @return
    */
-  public static final BigInteger convert(final long i) {
+  public static BigInteger convert(final long i) {
     return BigInteger.valueOf(i);
   }
 }

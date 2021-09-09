@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,7 +20,7 @@
 package org.evosuite.symbolic.vm;
 
 import org.evosuite.symbolic.expr.Comparator;
-import org.evosuite.symbolic.expr.IntegerConstraint;
+import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 
 /**
@@ -46,6 +46,11 @@ public abstract class ConstraintFactory {
 
 	}
 
+	public static IntegerConstraint lte(IntegerValue left,
+			IntegerValue right) {
+		return new IntegerConstraint(left, Comparator.LE, right);
+
+	}
 	public static IntegerConstraint gte(IntegerValue left,
 			IntegerValue right) {
 		return new IntegerConstraint(left, Comparator.GE, right);

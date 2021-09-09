@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,6 +26,8 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
  * Created by gordon on 03/04/2016.
  */
 public class TryCatchCoverageTestFitness extends BranchCoverageTestFitness {
+
+    private static final long serialVersionUID = -4566865257473233101L;
 
     public TryCatchCoverageTestFitness(BranchCoverageGoal goal) throws IllegalArgumentException {
         super(goal);

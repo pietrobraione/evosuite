@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -34,7 +34,7 @@ public class TargetMethodPrefix {
 	 * @return
 	 * @throws InterruptedException 
 	 */
-	private boolean foo_bar0(String x) {
+	public boolean foo_bar0(String x) {
 		if (x.length() > 1)
 			return true;
 		else
@@ -47,7 +47,7 @@ public class TargetMethodPrefix {
 	 * @return
 	 * @throws InterruptedException 
 	 */
-	private boolean foo_bar1(String x) {
+	public boolean foo_bar1(String x) {
 		if (x.length() > 0)
 			return true;
 		else

@@ -19,10 +19,9 @@ package org.evosuite.coverage.pathcondition;
 
 import java.util.List;
 
-import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testsuite.AbstractTestSuiteChromosome;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,26 +62,26 @@ public class PathConditionCoverageSuiteFitness extends TestSuiteFitnessFunction 
 	 */
 	@Override
 	public double getFitness(
-	        AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite) {
+	        TestSuiteChromosome suite) {
 		logger.trace("Calculating path condition fitness");
 
 		double suiteFitness = 0d;
 		for (PathConditionCoverageGoalFitness g : goals) {
 			double minFitness = Double.MAX_VALUE;
-			for (ExecutableChromosome t : suite.getTestChromosomes()) {
-				double f = g.getFitness((TestChromosome) t);
+			for (TestChromosome t : suite.getTestChromosomes()) {
+				double f = g.getFitness(t);
 				if (f < minFitness) 
 					minFitness = f;
 			}
 			suiteFitness += minFitness;
 		}
 		
-		updateIndividual(this, suite, suiteFitness);
+		updateIndividual(suite, suiteFitness);
 
 		// Assign also fitness to single test cases, to allow reasoning on the results crossover steps
 		TestFitnessFunction tf = PathConditionCoverageFactory._I().getPathConditionCoverageTestFitness();
-		for (ExecutableChromosome t : suite.getTestChromosomes()) {
-			tf.getFitness((TestChromosome) t);
+		for (TestChromosome t : suite.getTestChromosomes()) {
+			tf.getFitness(t);
 		}
 
 		return suiteFitness;		

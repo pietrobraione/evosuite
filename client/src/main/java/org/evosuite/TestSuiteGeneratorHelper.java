@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -32,15 +32,8 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
-import org.evosuite.strategy.EntBugTestStrategy;
-import org.evosuite.strategy.FixedNumRandomTestStrategy;
-import org.evosuite.strategy.IndividualTestStrategy;
-import org.evosuite.strategy.MOSuiteStrategy;
-import org.evosuite.strategy.RandomTestStrategy;
-import org.evosuite.strategy.RegressionSuiteStrategy;
-import org.evosuite.strategy.TestGenerationStrategy;
-import org.evosuite.strategy.WholeTestSuiteStrategy;
-import org.evosuite.symbolic.DSEStrategy;
+import org.evosuite.strategy.*;
+import org.evosuite.symbolic.dse.DSEStrategyFactory;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
@@ -116,9 +109,6 @@ public class TestSuiteGeneratorHelper {
         break;
       case TRYCATCH:
         LoggingUtils.getEvoLogger().info("  - Try-Catch Branch Coverage");
-        break;
-      case REGRESSION:
-        LoggingUtils.getEvoLogger().info("  - Regression");
         break;
       case PATHCONDITION:
   	  	LoggingUtils.getEvoLogger().info("  - Path Condition Coverage");  /*SUSHI: Path condition fitness*/
@@ -253,9 +243,9 @@ public class TestSuiteGeneratorHelper {
 
   static void printTestCriterion() {
     if (Properties.CRITERION.length > 1) {
-      LoggingUtils.getEvoLogger().info("* Test criteria:");
+      LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Test criteria:");
     } else {
-      LoggingUtils.getEvoLogger().info("* Test criterion:");
+      LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()+ "Test criterion:");
     }
     for (int i = 0; i < Properties.CRITERION.length; i++) {
       printTestCriterion(Properties.CRITERION[i]);
@@ -272,14 +262,16 @@ public class TestSuiteGeneratorHelper {
       return new FixedNumRandomTestStrategy();
     case ONEBRANCH:
       return new IndividualTestStrategy();
-    case REGRESSION:
-      return new RegressionSuiteStrategy();
     case ENTBUG:
       return new EntBugTestStrategy();
     case MOSUITE:
       return new MOSuiteStrategy();
     case DSE:
-      return new DSEStrategy();
+      return DSEStrategyFactory.getDSEStrategy(Properties.CURRENT_DSE_MODULE_VERSION);
+    case NOVELTY:
+      return new NoveltyStrategy();
+    case MAP_ELITES:
+      return new MAPElitesStrategy();
     default:
       throw new RuntimeException("Unsupported strategy: " + Properties.STRATEGY);
     }

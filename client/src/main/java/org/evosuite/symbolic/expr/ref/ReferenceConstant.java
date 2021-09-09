@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -36,11 +36,9 @@ import org.objectweb.asm.Type;
  * @author galeotti
  * 
  */
-public final class ReferenceConstant extends ReferenceExpression {
+public class ReferenceConstant extends ReferenceExpression {
 
-	/**
-	 * 
-	 */
+
 	private static final long serialVersionUID = 4288259851884045452L;
 
 	public ReferenceConstant(Type objectType, int instanceId) {

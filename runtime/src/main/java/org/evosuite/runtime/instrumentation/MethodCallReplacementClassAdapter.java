@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,14 +17,9 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * 
- */
+
 package org.evosuite.runtime.instrumentation;
 
-import java.awt.*;
-import java.io.ObjectStreamClass;
-import java.io.Serializable;
 import java.util.Arrays;
 
 import org.evosuite.runtime.RuntimeSettings;
@@ -71,7 +66,7 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 	}
 
 	public MethodCallReplacementClassAdapter(ClassVisitor cv, String className, boolean canAddMethods) {
-		super(Opcodes.ASM5, cv);
+		super(Opcodes.ASM9, cv);
 		this.className = className;
 		this.superClassName = null;
 		this.canChangeSignature = canAddMethods;
@@ -101,10 +96,18 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 			String signature, Object value) {
 		if(name.equals("serialVersionUID")) {
 			definesUid = true;
+			// FIXXME: This shouldn't be necessary, but the ASM SerialUIDVisitor seems to set a
+			//         wrong access modifier for the serialVersionUID field on interfaces
+			//         so we're overriding the access modifier here.
+			if(isInterface) {
+				return super.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name, desc, signature, value);
+			} else {
+				return super.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name, desc, signature, value);
+			}
 		}
 		return super.visitField(access, name, desc, signature, value);
 	}
-	
+
 	@Override
 	public void visit(int version, int access, String name, String signature,
 			String superName, String[] interfaces) {
@@ -168,34 +171,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 				mg.endMethod();
 			}
 
-		}
-
-		/*
-		 * If the class is serializable, then doing any change (adding hashCode, static reset, etc)
-		 * will change the serialVersionUID if it is not defined in the class.
-		 * Hence, if it is not defined, we have to define it to
-		 * avoid problems in serialising the class, as reading Master will not do instrumentation.
-		 * The serialVersionUID HAS to be the same as the un-instrumented class
-		 */
-		if(!definesUid && !isInterface  && RuntimeSettings.applyUIDTransformation) {
-			ClassLoader threadCL = Thread.currentThread().getContextClassLoader();
-			try {
-				ClassLoader evoCL = MethodCallReplacementClassAdapter.class.getClassLoader();
-				Thread.currentThread().setContextClassLoader(evoCL);
-
-				Class<?> clazz = Class.forName(className.replace('/', '.'), false, evoCL);
-
-				if(Serializable.class.isAssignableFrom(clazz)) {
-					ObjectStreamClass c = ObjectStreamClass.lookup(clazz);
-					long serialID = c.getSerialVersionUID();
-					logger.info("Adding serialId to class "+className);
-					visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "serialVersionUID", "J", null, serialID);
-				}
-			} catch(ClassNotFoundException | NoClassDefFoundError | HeadlessException | ExceptionInInitializerError e) {
-				logger.warn("Failed to add serialId to class "+className+": "+e.getMessage());
-			} finally {
-				Thread.currentThread().setContextClassLoader(threadCL);
-			}
 		}
 
 		super.visitEnd();

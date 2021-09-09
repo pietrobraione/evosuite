@@ -91,7 +91,7 @@ public class SelectSuccessfulModifiersCrossOverStrategy implements CrossOverList
 	//Implements methods of SearchListener
 	
 	@Override
-	public void searchStarted(GeneticAlgorithm<?> algorithm) {
+	public void searchStarted(GeneticAlgorithm algorithm) {
 		if (!Properties.SUSHI_MODIFIERS_LOCAL_SEARCH) return;
 		
 		this.algorithm = algorithm;
@@ -124,11 +124,11 @@ public class SelectSuccessfulModifiersCrossOverStrategy implements CrossOverList
 
 		if (candidates.isEmpty()) return;
 		
-		Set<FitnessFunction<TestChromosome>> coveredGoals = ((DynaMOSA<TestChromosome>) algorithm).getCoveredGoals();
+		Set<TestFitnessFunction> coveredGoals = ((DynaMOSA) algorithm).getCoveredGoals();
 		goals.removeAll(coveredGoals);
 		
 		for (FitnessFunction<?> g: goals) {
-			Double individualFitness = individual.getFitnessValues().get(g);
+			Double individualFitness = ((TestChromosome) individual).getFitnessValues().get(g);
 			if (individualFitness == null) {
 				continue; // some goals may still be beyond the current frontier of DynaMosa
 				//throw new RuntimeException("new generation offspring misses a fitness value for: " + g);
@@ -167,7 +167,7 @@ public class SelectSuccessfulModifiersCrossOverStrategy implements CrossOverList
 	public void modification(Chromosome individual)  { /*nothing to do */ }
 	
 	@Override
-	public void iteration(GeneticAlgorithm<?> algorithm)  { 
+	public void iteration(GeneticAlgorithm algorithm)  { 
 		List<GenericMethod> toRemove = new LinkedList<>(); 
 		for (GenericMethod m: successfulModifiers.keySet()) { // decrease the ttl of unseen modifiers
 			if (!iterationSuccessfullModifiers.contains(m)) {
@@ -188,6 +188,6 @@ public class SelectSuccessfulModifiersCrossOverStrategy implements CrossOverList
 	}
 	
 	@Override
-	public void searchFinished(GeneticAlgorithm<?> algorithm)  { /*nothing to do */ }
+	public void searchFinished(GeneticAlgorithm algorithm)  { /*nothing to do */ }
 		
 }

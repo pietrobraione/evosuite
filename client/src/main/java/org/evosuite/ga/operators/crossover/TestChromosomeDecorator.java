@@ -57,17 +57,17 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public Chromosome clone() {
+	public TestChromosome clone() {
 		return embeddedTestChromosome.clone();
 	}
 
 	@Override
-	public void copyCachedResults(ExecutableChromosome other) {
+	public void copyCachedResults(TestChromosome other) {
 		embeddedTestChromosome.copyCachedResults(other);
 	}
 
 	@Override
-	public void crossOver(Chromosome other, int position1, int position2) throws ConstructionFailedException {
+	public void crossOver(TestChromosome other, int position1, int position2) throws ConstructionFailedException {
 		embeddedTestChromosome.crossOver(other, position1, position2);
 	}
 
@@ -97,7 +97,7 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public boolean localSearch(LocalSearchObjective<? extends Chromosome> objective) {
+	public boolean localSearch(LocalSearchObjective<TestChromosome> objective) {
 		return embeddedTestChromosome.localSearch(objective);
 	}
 
@@ -117,7 +117,7 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public int compareTo(Chromosome o) {
+	public int compareTo(TestChromosome o) {
 		return embeddedTestChromosome.compareTo(o);
 	}
 
@@ -137,7 +137,7 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public <T extends Chromosome> int compareSecondaryObjective(T o) {
+	public int compareSecondaryObjective(TestChromosome o) {
 		return embeddedTestChromosome.compareSecondaryObjective(o);
 	}
 
@@ -172,36 +172,36 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public <T extends Chromosome> double getFitness(FitnessFunction<T> ff) {
+	public double getFitness(FitnessFunction ff) {
 		return embeddedTestChromosome.getFitness(ff);
 	}
 
 	@Override
-	public Map<FitnessFunction<?>, Double> getFitnessValues() {
+	public Map getFitnessValues() {
 		return embeddedTestChromosome.getFitnessValues();
 	}
 
 	@Override
-	public Map<FitnessFunction<?>, Double> getPreviousFitnessValues() {
+	public Map getPreviousFitnessValues() {
 		return embeddedTestChromosome.getPreviousFitnessValues();
 	}
 
 	@Override
-	public boolean hasExecutedFitness(FitnessFunction<?> ff) {
+	public boolean hasExecutedFitness(FitnessFunction ff) {
 		return embeddedTestChromosome.hasExecutedFitness(ff);
 	}
 
 	@Override
-	public void setFitnessValues(Map<FitnessFunction<?>, Double> fits) {
+	public void setFitnessValues(Map fits) {
 		embeddedTestChromosome.setFitnessValues(fits);
 	}
 
 	@Override
-	public void setPreviousFitnessValues(Map<FitnessFunction<?>, Double> lastFits) {
+	public void setPreviousFitnessValues(Map lastFits) {
 		embeddedTestChromosome.setPreviousFitnessValues(lastFits);
 	}
 
-	@Override
+/*	@Override
 	public boolean isToBeUpdated() {
 		return embeddedTestChromosome.isToBeUpdated();
 	}
@@ -209,30 +209,30 @@ public class TestChromosomeDecorator extends TestChromosome {
 	@Override
 	public void isToBeUpdated(boolean toBeUpdated) {
 		embeddedTestChromosome.isToBeUpdated(toBeUpdated);
-	}
+	}*/
 
 	@Override
-	public void addFitness(FitnessFunction<?> ff) {
+	public void addFitness(FitnessFunction ff) {
 		embeddedTestChromosome.addFitness(ff);
 	}
 
 	@Override
-	public void addFitness(FitnessFunction<?> ff, double fitnessValue) {
+	public void addFitness(FitnessFunction ff, double fitnessValue) {
 		embeddedTestChromosome.addFitness(ff, fitnessValue);
 	}
 
 	@Override
-	public void addFitness(FitnessFunction<?> ff, double fitnessValue, double coverage) {
+	public void addFitness(FitnessFunction ff, double fitnessValue, double coverage) {
 		embeddedTestChromosome.addFitness(ff, fitnessValue, coverage);
 	}
 
 	@Override
-	public void addFitness(FitnessFunction<?> ff, double fitnessValue, double coverage, int numCoveredGoals) {
+	public void addFitness(FitnessFunction ff, double fitnessValue, double coverage, int numCoveredGoals) {
 		embeddedTestChromosome.addFitness(ff, fitnessValue, coverage, numCoveredGoals);
 	}
 
 	@Override
-	public void setFitness(FitnessFunction<?> ff, double value) throws IllegalArgumentException {
+	public void setFitness(FitnessFunction ff, double value) throws IllegalArgumentException {
 		embeddedTestChromosome.setFitness(ff, value);
 	}
 
@@ -242,7 +242,7 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public void crossOver(Chromosome other, int position) throws ConstructionFailedException {
+	public void crossOver(TestChromosome other, int position) throws ConstructionFailedException {
 		embeddedTestChromosome.crossOver(other, position);
 	}
 
@@ -277,47 +277,47 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public void setNumsOfCoveredGoals(Map<FitnessFunction<?>, Integer> fits) {
+	public void setNumsOfCoveredGoals(Map fits) {
 		embeddedTestChromosome.setNumsOfCoveredGoals(fits);
 	}
 
 	@Override
-	public void setNumsOfNotCoveredGoals(Map<FitnessFunction<?>, Integer> fits) {
+	public void setNumsOfNotCoveredGoals(Map fits) {
 		embeddedTestChromosome.setNumsOfNotCoveredGoals(fits);
 	}
 
 	@Override
-	public void setNumOfNotCoveredGoals(FitnessFunction<?> ff, int numCoveredGoals) {
+	public void setNumOfNotCoveredGoals(FitnessFunction ff, int numCoveredGoals) {
 		embeddedTestChromosome.setNumOfNotCoveredGoals(ff, numCoveredGoals);
 	}
 
 	@Override
-	public Map<FitnessFunction<?>, Integer> getNumsOfCoveredGoals() {
+	public Map getNumsOfCoveredGoals() {
 		return embeddedTestChromosome.getNumsOfCoveredGoals();
 	}
 
 	@Override
-	public LinkedHashMap<FitnessFunction<?>, Integer> getNumsNotCoveredGoals() {
+	public LinkedHashMap getNumsNotCoveredGoals() {
 		return embeddedTestChromosome.getNumsNotCoveredGoals();
 	}
 
 	@Override
-	public Map<FitnessFunction<?>, Double> getCoverageValues() {
+	public Map getCoverageValues() {
 		return embeddedTestChromosome.getCoverageValues();
 	}
 
 	@Override
-	public void setCoverageValues(Map<FitnessFunction<?>, Double> coverages) {
+	public void setCoverageValues(Map coverages) {
 		embeddedTestChromosome.setCoverageValues(coverages);
 	}
 
 	@Override
-	public double getCoverage(FitnessFunction<?> ff) {
+	public double getCoverage(FitnessFunction ff) {
 		return embeddedTestChromosome.getCoverage(ff);
 	}
 
 	@Override
-	public void setCoverage(FitnessFunction<?> ff, double coverage) {
+	public void setCoverage(FitnessFunction ff, double coverage) {
 		embeddedTestChromosome.setCoverage(ff, coverage);
 	}
 
@@ -332,7 +332,7 @@ public class TestChromosomeDecorator extends TestChromosome {
 	}
 
 	@Override
-	public void setNumOfCoveredGoals(FitnessFunction<?> ff, int numCoveredGoals) {
+	public void setNumOfCoveredGoals(FitnessFunction ff, int numCoveredGoals) {
 		embeddedTestChromosome.setNumOfCoveredGoals(ff, numCoveredGoals);
 	}
 

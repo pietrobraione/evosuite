@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -32,6 +32,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.runtime.util.JarPathing;
+import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ import org.slf4j.LoggerFactory;
  */
 public class JobHandler extends Thread {
 
-	private static Logger logger = LoggerFactory.getLogger(JobHandler.class);
+	private static final Logger logger = LoggerFactory.getLogger(JobHandler.class);
 
 	private final JobExecutor executor;
 
@@ -205,7 +206,7 @@ public class JobHandler extends Thread {
 	private List<String> getCommandString(JobDefinition job) {
 
 		List<String> commands = new ArrayList<>();
-		commands.add("java");		
+		commands.add(JavaExecCmdUtil.getJavaBinExecutablePath()/*"java"*/);
 
 		commands.add("-cp");
 		commands.add(configureAndGetClasspath());
@@ -319,9 +320,13 @@ public class JobHandler extends Thread {
 		commands.add("-Dreport_dir=" + reports.getAbsolutePath() + File.separator + job.cut);
 		commands.add("-Dtest_dir=" + tests.getAbsolutePath());
 
-		String seedsFileName = job.cut + "." + Properties.CTG_SEEDS_EXT;
-		commands.add("-Dctg_seeds_file_out=" + seedOut.getAbsolutePath() + File.separator +seedsFileName);
-		commands.add("-Dctg_seeds_file_in=" + seedIn.getAbsolutePath() + File.separator +seedsFileName);
+		if (Properties.CTG_SCHEDULE == Properties.AvailableSchedule.SEEDING
+				|| Properties.CTG_SCHEDULE == Properties.AvailableSchedule.BUDGET_AND_SEEDING
+				|| Properties.CTG_SCHEDULE == Properties.AvailableSchedule.HISTORY) {
+			String seedsFileName = job.cut + "." + Properties.CTG_SEEDS_EXT;
+			commands.add("-Dctg_seeds_file_out=" + seedOut.getAbsolutePath() + File.separator +seedsFileName);
+			commands.add("-Dctg_seeds_file_in=" + seedIn.getAbsolutePath() + File.separator +seedsFileName);
+		}
 
 		commands.addAll(getOutputVariables());
 		commands.add("-Danalysis_criteria=" + Properties.ANALYSIS_CRITERIA);
@@ -384,7 +389,7 @@ public class JobHandler extends Thread {
 
 	private List<String> getPoolInfo(JobDefinition job) {
 
-		List<String> commands = new ArrayList<String>();
+		List<String> commands = new ArrayList<>();
 		StorageManager storage = executor.getStorage();
 		File poolFolder = storage.getTmpPools();
 

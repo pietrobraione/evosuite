@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -34,7 +34,7 @@ public class TestCase10 {
 		int int0 = mathDouble0.castToInt(double3);
 		char char0 = mathDouble0.castToChar(double3);
 		long long0 = mathDouble0.castToLong(double4);
-		double double5 = mathDouble0.substract((double) int0, (double) int0);
+		double double5 = mathDouble0.substract(int0, int0);
 		if (double5 == double4) {
 			mathDouble0.castToFloat(double5);
 		}

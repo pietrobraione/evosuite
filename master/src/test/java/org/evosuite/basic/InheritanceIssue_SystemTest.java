@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -46,8 +46,8 @@ public class InheritanceIssue_SystemTest extends SystemTestBase {
         String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
         Object result = evosuite.parseCommandLine(command);
-        GeneticAlgorithm<?> ga = getGAFromResult(result);
-        TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
+        TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);

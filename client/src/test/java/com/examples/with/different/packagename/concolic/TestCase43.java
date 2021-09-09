@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -24,8 +24,8 @@ import static com.examples.with.different.packagename.concolic.Assertions.checkE
 public class TestCase43 {
 
 	public static void test(int int0) {
-		Integer integer0 = new Integer(int0);
-		int int1 = integer0.intValue();
+		Integer integer0 = int0;
+		int int1 = integer0;
 		int int2 = Integer.MAX_VALUE;
 		checkEquals(int1, int2);
 

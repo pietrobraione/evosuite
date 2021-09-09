@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -35,6 +35,10 @@ import org.evosuite.utils.Randomness;
 public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteChromosome> {
 
 	private static final long serialVersionUID = -3769862881038106087L;
+
+	public ChromosomeFactory<TestChromosome> getTestChromosomeFactory() {
+		return testChromosomeFactory;
+	}
 
 	/** Factory to manipulate and generate method sequences */
 	protected ChromosomeFactory<TestChromosome> testChromosomeFactory;

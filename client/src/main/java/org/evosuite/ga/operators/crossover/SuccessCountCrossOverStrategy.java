@@ -36,7 +36,7 @@ public class SuccessCountCrossOverStrategy implements CrossOverListener { /*SUSH
 	}
 	
 	@Override
-	public void iteration(GeneticAlgorithm<?> algorithm)  {
+	public void iteration(GeneticAlgorithm algorithm)  {
 		if (!Properties.SUSHI_STATISTICS) return;
 		
 		unretained += unretainedGoodOffsprings.size();
@@ -162,10 +162,10 @@ public class SuccessCountCrossOverStrategy implements CrossOverListener { /*SUSH
 	}
 
 	@Override
-	public void searchStarted(GeneticAlgorithm<?> algorithm) { /*nothing to do */ }
+	public void searchStarted(GeneticAlgorithm algorithm) { /*nothing to do */ }
 
 	@Override
-	public void searchFinished(GeneticAlgorithm<?> algorithm)  { /*nothing to do */ }
+	public void searchFinished(GeneticAlgorithm algorithm)  { /*nothing to do */ }
 
 	@Override
 	public void inNextGeneration(Chromosome chromosome) {

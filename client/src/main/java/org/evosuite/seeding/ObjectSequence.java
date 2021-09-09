@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -23,21 +23,22 @@ import java.io.Serializable;
 
 import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassImpl;
 
 class ObjectSequence implements Serializable {
 
 	private static final long serialVersionUID = 346185306757522598L;
 
-	private GenericClass generatedType;
+	private GenericClass<?> generatedType;
 	
 	private TestCase test;
 	
-	public ObjectSequence(GenericClass generatedType, TestCase test) {
+	public ObjectSequence(GenericClass<?> generatedType, TestCase test) {
 		this.generatedType = generatedType;
 		this.test = test;
 	}
 	
-	public GenericClass getGeneratedClass() {
+	public GenericClass<?> getGeneratedClass() {
 		return generatedType;
 	}
 	

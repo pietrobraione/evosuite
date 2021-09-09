@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,9 +26,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
@@ -215,7 +213,7 @@ public class TestLocalSearchMIMEType {
 	public void testFitness()
 			throws NoSuchFieldException, SecurityException, NoSuchMethodException, ClassNotFoundException {
 		Properties.RESET_STATIC_FINAL_FIELDS = false;
-		
+		Properties.TEST_ARCHIVE = false;
 		Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
 		Properties.LOCAL_SEARCH_RATE = 1;
 		Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
@@ -252,7 +250,7 @@ public class TestLocalSearchMIMEType {
 				.getFitnessFunction(Criterion.METHODNOEXCEPTION);
 		TestSuiteFitnessFunction cbranchCoverage = FitnessFunctions.getFitnessFunction(Criterion.CBRANCH);
 
-		List<TestSuiteFitnessFunction> fitnessFunctions = new ArrayList<TestSuiteFitnessFunction>();
+		List<TestSuiteFitnessFunction> fitnessFunctions = new ArrayList<>();
 		fitnessFunctions.add(lineCoverage);
 		fitnessFunctions.add(branchCoverage);
 		fitnessFunctions.add(exceptionCoverage);

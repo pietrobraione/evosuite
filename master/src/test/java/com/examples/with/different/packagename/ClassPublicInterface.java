@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -73,7 +73,7 @@ public class ClassPublicInterface {
         EventBindingInvocationHandler(final Object target, final String methodName, final String[] eventTypes) {
             this.target = target;
             this.methodName = methodName;
-            this.eventTypes = new HashSet<String>(Arrays.asList(eventTypes));
+            this.eventTypes = new HashSet<>(Arrays.asList(eventTypes));
         }
 
         /**

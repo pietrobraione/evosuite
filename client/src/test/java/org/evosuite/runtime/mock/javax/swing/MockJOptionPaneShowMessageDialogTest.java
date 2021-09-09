@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -74,7 +74,7 @@ public class MockJOptionPaneShowMessageDialogTest {
 	public void testShowMessageDialog0() throws Exception {
 
 		TestSuiteChromosome suite = new TestSuiteChromosome();
-		InstrumentingClassLoader cl = new InstrumentingClassLoader();
+		InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		TestCase t0 = buildTestCase0TrueBranch(cl);
 		TestCase t1 = buildTestCase0FalseBranch(cl);
 		suite.addTest(t0);
@@ -91,7 +91,7 @@ public class MockJOptionPaneShowMessageDialogTest {
 	public void testShowMessageDialog1() throws Exception {
 
 		TestSuiteChromosome suite = new TestSuiteChromosome();
-		InstrumentingClassLoader cl = new InstrumentingClassLoader();
+		InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		TestCase t0 = buildTestCase1TrueBranch(cl);
 		TestCase t1 = buildTestCase1FalseBranch(cl);
 		suite.addTest(t0);
@@ -108,7 +108,7 @@ public class MockJOptionPaneShowMessageDialogTest {
 	public void testShowMessageDialog2() throws Exception {
 
 		TestSuiteChromosome suite = new TestSuiteChromosome();
-		InstrumentingClassLoader cl = new InstrumentingClassLoader();
+		InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		TestCase t0 = buildTestCase2TrueBranch(cl);
 		TestCase t1 = buildTestCase2FalseBranch(cl);
 		suite.addTest(t0);

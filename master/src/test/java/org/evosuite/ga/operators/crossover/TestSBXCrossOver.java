@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -31,12 +31,12 @@ import org.junit.Test;
  * 
  * @author José Campos
  */
-@SuppressWarnings("rawtypes")
+
 public class TestSBXCrossOver
 {
 	@BeforeClass
 	public static void setUp() {
-		Properties.RANDOM_SEED = 1l;
+		Properties.RANDOM_SEED = 1L;
 	}
 
 	@Test

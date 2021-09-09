@@ -66,7 +66,7 @@ public class PathConditionCoverageTestFitness extends TestFitnessFunction { /*SU
 		
 		logger.debug("Cumulative Path condition fitness = " + fitness);
 
-		updateIndividual(this, individual, fitness);
+		updateIndividual(individual, fitness);
 		return fitness;
 	}
 

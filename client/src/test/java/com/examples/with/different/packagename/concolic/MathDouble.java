@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -41,11 +41,11 @@ public class MathDouble {
 		return a-b;
 	}
 	
-	private Double f = new Double(3.1416);
+	private Double f = 3.1416;
 	
 	public void unreach() {
 		if (f==null) {
-			f = new Double(1.5);
+			f = 1.5;
 		}
 	}
 	

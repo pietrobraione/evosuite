@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -74,7 +74,7 @@ public class MockJOptionPaneShowInternalInputDialogTest {
 	@Test
 	public void testShowInternalInputDialog() throws Exception {
 		TestSuiteChromosome suite = new TestSuiteChromosome();
-		InstrumentingClassLoader cl = new InstrumentingClassLoader();
+		InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		TestCase t1 = buildTestCase0(cl);
 		suite.addTest(t1);
 

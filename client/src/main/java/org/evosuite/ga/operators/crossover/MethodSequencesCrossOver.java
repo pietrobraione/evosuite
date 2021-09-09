@@ -87,13 +87,13 @@ public class MethodSequencesCrossOver extends SushiCrossOver { /*SUSHI: Crossove
 		
 		
 		@Override
-		public void crossOver(Chromosome other, int position) throws ConstructionFailedException {
+		public void crossOver(TestChromosome other, int position) throws ConstructionFailedException {
 			crossOver(other, position, position);
 		}
 
 
 		@Override
-		public void crossOver(Chromosome other, int position1, int position2)
+		public void crossOver(TestChromosome other, int position1, int position2)
 				throws ConstructionFailedException {
 			logger.debug("Crossover starting");
 			

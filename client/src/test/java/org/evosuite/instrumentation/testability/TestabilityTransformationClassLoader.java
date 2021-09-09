@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
 public class TestabilityTransformationClassLoader extends ClassLoader {
 	private final static Logger logger = LoggerFactory.getLogger(TestabilityTransformationClassLoader.class);
 	private final ClassLoader classLoader;
-	private final Map<String, Class<?>> classes = new HashMap<String, Class<?>>();
+	private final Map<String, Class<?>> classes = new HashMap<>();
 
 	/**
 	 * <p>

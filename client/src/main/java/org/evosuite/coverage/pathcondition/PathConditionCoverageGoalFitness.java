@@ -99,7 +99,7 @@ public class PathConditionCoverageGoalFitness extends TestFitnessFunction { /*SU
 
 		logger.debug("Path condition fitness = " + fitness);
 
-		updateIndividual(this, individual, fitness);
+		updateIndividual(individual, fitness);
 		return fitness;
 	}
 

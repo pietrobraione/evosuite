@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -23,7 +23,7 @@ public class PolyExample {
 	public void testMe(Object o) {
 		if (o instanceof Integer) {
 			Integer i = (Integer) o;
-			if (i.intValue() == 17) {
+			if (i == 17) {
 				System.out.println("test");
 			}
 		}

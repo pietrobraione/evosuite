@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -39,7 +39,7 @@ public class TestCase41 {
 		int int5 = linkedList0.size();
 		ByteArrayOutputStream byteArrayOutputStream2 = (ByteArrayOutputStream) linkedList0
 				.get(int4);
-		Double double0 = new Double((double) integer0);
+		Double double0 = (double) integer0;
 		ByteArrayOutputStream byteArrayOutputStream3 = new ByteArrayOutputStream();
 		linkedList0.unreacheable();
 		linkedList0.add(double0);

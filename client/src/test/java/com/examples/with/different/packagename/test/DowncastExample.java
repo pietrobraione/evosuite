@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,9 +26,9 @@ public class DowncastExample {
 
     public Number getANumber(int x) {
         if(x == 42) {
-            return new Integer(42);
+            return 42;
         } else {
-            return new Double(0.0);
+            return 0.0;
         }
     }
 

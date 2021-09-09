@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -30,8 +30,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
-
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -53,7 +53,7 @@ public class PrivateFieldStatement extends MethodStatement {
 
 	private static Method setVariable;
 
-    private transient Class<?> ownerClass;
+    private GenericClass<?> ownerClass;
 
     private String className;
 
@@ -78,19 +78,19 @@ public class PrivateFieldStatement extends MethodStatement {
                 new GenericMethod(setVariable, PrivateAccess.class),
                 null, //it is static
                 Arrays.asList(  // setVariable(Class<T> klass, T instance, String fieldName, Object value)
-                        new ConstantValue(tc, new GenericClass(Class.class), klass),  // Class<T> klass
+                        new ConstantValue(tc, GenericClassFactory.get(Class.class), klass),  // Class<T> klass
                         //new ClassPrimitiveStatement(tc,klass).getReturnValue(),  // Class<T> klass
                         callee, // T instance
-                        new ConstantValue(tc, new GenericClass(String.class), fieldName),  // String fieldName
+                        new ConstantValue(tc, GenericClassFactory.get(String.class), fieldName),  // String fieldName
                         param // Object value
                 )
         );
-        this.className = klass.getCanonicalName();
+        this.ownerClass = GenericClassFactory.get(klass);
+        this.className = this.ownerClass.getRawClass().getCanonicalName();
         this.fieldName = fieldName;
-        this.ownerClass = klass;
 
-        List<GenericClass> parameterTypes = new ArrayList<>();
-        parameterTypes.add(new GenericClass(klass));
+        List<GenericClass<?>> parameterTypes = new ArrayList<>();
+        parameterTypes.add(this.ownerClass);
         this.method.setTypeParameters(parameterTypes);
         determineIfFieldIsStatic(klass, fieldName);
     }
@@ -121,7 +121,7 @@ public class PrivateFieldStatement extends MethodStatement {
             VariableReference owner = parameters.get(1).copy(newTestCase, offset);
             VariableReference value = parameters.get(3).copy(newTestCase, offset);
 
-            pf = new PrivateFieldStatement(newTestCase, ownerClass, fieldName, owner, value);
+            pf = new PrivateFieldStatement(newTestCase, ownerClass.getRawClass(), fieldName, owner, value);
 
             return pf;
         } catch(NoSuchFieldException | ConstructionFailedException e) {
@@ -135,7 +135,7 @@ public class PrivateFieldStatement extends MethodStatement {
         return false;
         //return super.mutate(test,factory); //tricky, as should do some restrictions
     }
-    
+
 	@Override
 	public boolean isReflectionStatement() {
 		return true;

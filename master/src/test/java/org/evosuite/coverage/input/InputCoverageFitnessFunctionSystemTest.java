@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,7 +20,9 @@
 package org.evosuite.coverage.input;
 
 import com.examples.with.different.packagename.coverage.ClassWithField;
+import com.examples.with.different.packagename.coverage.MethodWithPrimitiveInputArguments;
 import com.examples.with.different.packagename.coverage.MethodWithSeveralInputArguments;
+import com.examples.with.different.packagename.coverage.MethodWithWrapperInputArguments;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
@@ -30,7 +32,6 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -61,7 +62,7 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
     private static final Criterion[] defaultCriterion = Properties.CRITERION;
     
-    private static boolean defaultArchive = Properties.TEST_ARCHIVE;
+    private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
 	@After
 	public void resetProperties() {
@@ -71,7 +72,6 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
 	@Before
 	public void beforeTest() {
-		Properties.SEARCH_BUDGET = 10;
 		Properties.CRITERION = new Properties.Criterion[] {Criterion.INPUT};
 	}
 
@@ -86,10 +86,41 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 		Properties.SEARCH_BUDGET = 20000;
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 		Object result = evosuite.parseCommandLine(command);
-		GeneticAlgorithm<?> ga = getGAFromResult(result);
-		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
+		TestSuiteChromosome best = ga.getBestIndividual();
 		List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
 		Assert.assertEquals(12, goals.size());
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testInputCoverageWithPrimitiveTypes() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = MethodWithPrimitiveInputArguments.class.getCanonicalName();
+		Properties.TARGET_CLASS = targetClass;
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+		Object result = evosuite.parseCommandLine(command);
+		GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
+		TestSuiteChromosome best = ga.getBestIndividual();
+		List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
+		Assert.assertEquals(23, goals.size());
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+
+	@Test
+	public void testInputCoverageWithWrapperTypes() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = MethodWithWrapperInputArguments.class.getCanonicalName();
+		Properties.TARGET_CLASS = targetClass;
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+		Object result = evosuite.parseCommandLine(command);
+		GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
+		TestSuiteChromosome best = ga.getBestIndividual();
+		List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
+		Assert.assertEquals(31, goals.size());
 		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
 	}
 
@@ -105,7 +136,7 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
 		// classWithField0.testFoo(classWithField0.BOOLEAN_FIELD);
 		FieldReference field = new FieldReference(tc, new GenericField(sut.getDeclaredField("BOOLEAN_FIELD"), sut),obj);
-		Method m = sut.getMethod("testFoo", new Class<?>[] { Boolean.TYPE});
+		Method m = sut.getMethod("testFoo", Boolean.TYPE);
 		GenericMethod gm = new GenericMethod(m, sut);
 		tc.addStatement(new MethodStatement(tc, gm, obj, Arrays.asList(new VariableReference[] {field})));
 

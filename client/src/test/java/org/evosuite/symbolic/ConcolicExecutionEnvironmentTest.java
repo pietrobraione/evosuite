@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -29,6 +29,7 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.List;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Runtime;
@@ -41,10 +42,12 @@ import org.evosuite.runtime.testdata.EvoSuiteURL;
 import org.evosuite.runtime.testdata.FileSystemHandling;
 import org.evosuite.runtime.testdata.NetworkHandling;
 import org.evosuite.runtime.vfs.VirtualFileSystem;
+import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.variable.VariableReference;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -71,11 +74,17 @@ public class ConcolicExecutionEnvironmentTest {
 		System.out.println(tc.toCode());
 
 		// ConcolicExecution concolicExecutor = new ConcolicExecution();
-		List<BranchCondition> branch_conditions = ConcolicExecution
-				.executeConcolic(tc);
+		PathCondition pc = new ConcolicExecutorImpl().execute(tc);
+		List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
 		printConstraints(branch_conditions);
 		return branch_conditions;
+	}
+
+	@Before
+	public void before(){
+		final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
+		Assume.assumeTrue(javaVersion < 9);
 	}
 
 	@Test

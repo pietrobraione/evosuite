@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.reflect.MethodUtils;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
@@ -48,16 +49,13 @@ import org.evosuite.testcase.statements.environment.AccessedEnvironment;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.*;
-import org.evosuite.utils.generic.GenericClass;
-import org.evosuite.utils.generic.GenericField;
+import org.evosuite.utils.generic.*;
 import org.evosuite.utils.ListenableList;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.googlecode.gentyref.GenericTypeReflector;
-import org.springframework.util.ClassUtils;
 
 /**
  * A test case is a list of statements
@@ -78,10 +76,10 @@ public class DefaultTestCase implements TestCase, Serializable {
 	protected final ListenableList<Statement> statements;
 
 	/** Coverage goals this test covers */
-	private transient Set<TestFitnessFunction> coveredGoals = new LinkedHashSet<TestFitnessFunction>();
+	private transient Set<TestFitnessFunction> coveredGoals = new LinkedHashSet<>();
 
 	/** Violations revealed by this test */
-	private transient Set<ContractViolation> contractViolations = new LinkedHashSet<ContractViolation>();
+	private transient Set<ContractViolation> contractViolations = new LinkedHashSet<>();
 
 	private boolean isFailing = false;
 
@@ -90,7 +88,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	private int id;
 
 	/**
-	 * Constructor
+	 * Constructs an empty test case, i.e., initially containing no statements.
 	 */
 	public DefaultTestCase() {
 		statements = new ListenableList<>(new ArrayList<>());
@@ -109,11 +107,9 @@ public class DefaultTestCase implements TestCase, Serializable {
 	public void accept(TestVisitor visitor) {
 		visitor.visitTestCase(this);
 
-		Iterator<Statement> iterator = statements.iterator();
-		while (iterator.hasNext()) {
-			Statement statement = iterator.next();
-			logger.trace("Visiting statement " + statement.getCode());
-			visitor.visitStatement(statement);
+		for (Statement s : statements) {
+			logger.trace("Visiting statement " + s.getCode());
+			visitor.visitStatement(s);
 		}
 	}
 
@@ -125,9 +121,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 	public void addAssertions(TestCase other) {
 		for (int i = 0; i < statements.size() && i < other.size(); i++) {
 			for (Assertion a : other.getStatement(i).getAssertions()) {
-				if (!statements.get(i).getAssertions().contains(a))
-					if (a != null)
-						statements.get(i).getAssertions().add(a.clone(this));
+				if (!statements.get(i).getAssertions().contains(a) && a != null)
+					statements.get(i).getAssertions().add(a.clone(this));
 			}
 		}
 	}
@@ -150,6 +145,14 @@ public class DefaultTestCase implements TestCase, Serializable {
 	public void addCoveredGoal(TestFitnessFunction goal) {
 		coveredGoals.add(goal);
 		// TODO: somehow adds the same goal more than once (fitnessfunction.equals()?)
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void removeCoveredGoal(TestFitnessFunction goal) {
+		coveredGoals.remove(goal);
 	}
 
 	@Override
@@ -280,8 +283,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 	
 	@Override
 	public int sliceFor(VariableReference var) {
-		
-		Set<Statement> dependentStatements = new LinkedHashSet<Statement>();
+
+		Set<Statement> dependentStatements = new LinkedHashSet<>();
 		dependentStatements.add(statements.get(var.getStPosition()));
 		
 		int lastPosition = var.getStPosition();
@@ -293,7 +296,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 		}
 
 		for (int i = lastPosition; i >= 0; i--) {
-			Set<Statement> newStatements = new LinkedHashSet<Statement>();
+			Set<Statement> newStatements = new LinkedHashSet<>();
 			for (Statement s : dependentStatements) {
 				if (s.references(statements.get(i).getReturnValue()) ||
 						s.references(statements.get(i).getReturnValue().getAdditionalVariableReference())) {
@@ -303,13 +306,13 @@ public class DefaultTestCase implements TestCase, Serializable {
 			}
 			dependentStatements.addAll(newStatements);
 		}
-		List<Integer> dependentPositions = new ArrayList<Integer>();
-		for(Statement s : dependentStatements) {
+		List<Integer> dependentPositions = new ArrayList<>();
+		for (Statement s : dependentStatements) {
 			dependentPositions.add(s.getPosition());
 		}
-		Collections.sort(dependentPositions, Collections.reverseOrder());
-		for(Integer pos = size(); pos >= 0 ; pos--) {
-			if(!dependentPositions.contains(pos)) {
+		dependentPositions.sort(Collections.reverseOrder());
+		for (int pos = size(); pos >= 0 ; pos--) {
+			if (!dependentPositions.contains(pos)) {
 				remove(pos);
 			}
 		}
@@ -317,12 +320,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	}
 	
 	public boolean contains(Statement statement) {
-		for(Statement s : statements) {
-			if(s.equals(statement)) {
-				return true;
-			}
-		}
-		return false;
+		return statements.contains(statement);
 	}
 
 	/* (non-Javadoc)
@@ -386,8 +384,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 		DefaultTestCase other = (DefaultTestCase) obj;
 
 		if (statements == null) {
-			if (other.statements != null)
-				return false;
+			return other.statements == null;
 		} else {
 			if (statements.size() != other.statements.size())
 				return false;
@@ -407,7 +404,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public Set<Class<?>> getAccessedClasses() {
-		Set<Class<?>> accessedClasses = new LinkedHashSet<Class<?>>();
+		Set<Class<?>> accessedClasses = new LinkedHashSet<>();
 		for (Statement s : statements) {
 			for (VariableReference var : s.getVariableReferences()) {
 				if (var != null && !var.isPrimitive()) {
@@ -448,7 +445,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public List<Assertion> getAssertions() {
-		List<Assertion> assertions = new ArrayList<Assertion>();
+		List<Assertion> assertions = new ArrayList<>();
 		for (Statement s : statements) {
 			assertions.addAll(s.getAssertions());
 		}
@@ -470,7 +467,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public Set<Class<?>> getDeclaredExceptions() {
-		Set<Class<?>> exceptions = new LinkedHashSet<Class<?>>();
+		Set<Class<?>> exceptions = new LinkedHashSet<>();
 		for (Statement statement : statements) {
 			exceptions.addAll(statement.getDeclaredExceptions());
 		}
@@ -488,17 +485,17 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public Set<VariableReference> getDependencies(VariableReference var) {
-		Set<VariableReference> dependencies = new LinkedHashSet<VariableReference>();
+		Set<VariableReference> dependencies = new LinkedHashSet<>();
 
 		if (var == null || var.getStPosition() == -1)
 			return dependencies;
 
-		Set<Statement> dependentStatements = new LinkedHashSet<Statement>();
+		Set<Statement> dependentStatements = new LinkedHashSet<>();
 		if(statements.size() > var.getStPosition())
 			dependentStatements.add(statements.get(var.getStPosition()));
 
 		for (int i = var.getStPosition(); i >= 0; i--) {
-			Set<Statement> newStatements = new LinkedHashSet<Statement>();
+			Set<Statement> newStatements = new LinkedHashSet<>();
 			for (Statement s : dependentStatements) {
 				if (s.references(statements.get(i).getReturnValue())) {
 					newStatements.add(statements.get(i));
@@ -548,7 +545,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public List<VariableReference> getObjects(int position) {
-		List<VariableReference> variables = new LinkedList<VariableReference>();
+		List<VariableReference> variables = new LinkedList<>();
 
 		for (int i = 0; i < position && i < statements.size(); i++) {
 			VariableReference value = statements.get(i).getReturnValue();
@@ -576,13 +573,10 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public List<VariableReference> getObjects(Type type, int position) {
-		List<VariableReference> variables = new LinkedList<VariableReference>();
+		List<VariableReference> variables = new LinkedList<>();
 
-		boolean isPrimitive = false;
-		if(type instanceof Class<?>) {
-			if(((Class<?>)type).isPrimitive())
-				isPrimitive = true;
-		}
+		GenericClass<?> genericClass = GenericClassFactory.get(type);
+		Class<?> rawClass = genericClass.getRawClass();
 		for (int i = 0; i < position && i < size(); i++) {
 			Statement statement = statements.get(i);
 			if(statement instanceof MethodStatement) {
@@ -599,7 +593,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 				// that an array is assignable to its component type
 				// TODO: Fix
 				boolean isClassUtilsBug = false;
-				Class<?> rawClass = GenericTypeReflector.erase(type);
 				if (value.isArray()) {
 					Class<?> arrayClass = value.getVariableClass();
 					isClassUtilsBug = isClassUtilsBug(rawClass, arrayClass);
@@ -608,19 +601,17 @@ public class DefaultTestCase implements TestCase, Serializable {
 					isClassUtilsBug = isClassUtilsBug(value.getVariableClass(), rawClass);
 				}
 
-				if (value.isAssignableTo(type) && !isClassUtilsBug) {
+				if (value.isAssignableTo(type) && !isClassUtilsBug && value.isArray() == rawClass.isArray()) {
 					logger.debug("Array is assignable: " + value.getType() + " to "
 					        + type + ", " + value.isArray() + ", " + rawClass.isArray());
 					variables.add(value);
-				} else if (GenericClass.isAssignable(type, value.getComponentType())) {
+				} else if (GenericClassUtils.isAssignable(type, value.getComponentType())) {
 					Class<?> arrayClass = value.getComponentClass();
 					if (isClassUtilsBug(rawClass, arrayClass)) {
 						continue;
 					}
 
 					for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
-						//logger.info("Adding array index " + index + " to array "
-						//       + value.getSimpleClassName() + " " + value.getName());
 						if (((ArrayReference) value).isInitialized(index, position))
 							variables.add(new ArrayIndex(this, (ArrayReference) value,
 							        index));
@@ -628,7 +619,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 				}
 			} else if (value instanceof ArrayIndex) {
 				// Don't need to add this because array indices are created for array statement
-			} else if (value.isAssignableTo(type) && value.isPrimitive() == isPrimitive) {
+			} else if (value.isAssignableTo(type) && value.isPrimitive() == rawClass.isPrimitive() &&
+					value.isArray() == rawClass.isArray()) {
 				variables.add(value);
 			} else {
 				addFields(variables, value, type);
@@ -657,7 +649,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 				iterator.remove();
 			else if (var.isPrimitive() || var.isWrapperType())
 				iterator.remove();
-			else if(this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement)
+			else if(this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement))
 				iterator.remove();
 		}
 		if (variables.isEmpty())
@@ -677,14 +669,10 @@ public class DefaultTestCase implements TestCase, Serializable {
 		Inputs.checkNull(type);
 
 		List<VariableReference> variables = getObjects(type, position);
-		Iterator<VariableReference> iterator = variables.iterator();
-		while (iterator.hasNext()) {
-			VariableReference ref = iterator.next();
-			if (ref instanceof NullReference ||
-					(this.getStatement(ref.getStPosition()) instanceof FunctionalMockStatement) ) {
-				iterator.remove();
-			}
-		}
+		variables.removeIf(ref -> {
+			final Statement statement = this.getStatement(ref.getStPosition());
+			return ref instanceof NullReference || statement instanceof FunctionalMockStatement;
+		});
 		if (variables.isEmpty())
 			throw new ConstructionFailedException("Found no variables of type " + type
 			        + " at position " + position);
@@ -746,7 +734,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public Set<VariableReference> getReferences(VariableReference var) {
-		Set<VariableReference> references = new LinkedHashSet<VariableReference>();
+		Set<VariableReference> references = new LinkedHashSet<>();
 
 		if (var == null || var.getStPosition() == -1)
 			return references;
@@ -754,7 +742,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 		// references.add(var);
 
 		for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
-			Set<VariableReference> temp = new LinkedHashSet<VariableReference>();
+			Set<VariableReference> temp = new LinkedHashSet<>();
 			if (statements.get(i).references(var))
 				temp.add(statements.get(i).getReturnValue());
 			else if (statements.get(i).references(var.getAdditionalVariableReference()))
@@ -799,7 +787,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public boolean hasStatement(int position) {
-		return (statements.size() > position || position < 0);
+		return statements.size() > position && position >= 0;
 	}
 
 	/* (non-Javadoc)
@@ -808,11 +796,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public boolean hasAssertions() {
-		for (Statement s : statements) {
-			if (s.hasAssertions())
-				return true;
-		}
-		return false;
+		return statements.stream().anyMatch(Statement::hasAssertions);
 	}
 
 	/* (non-Javadoc)
@@ -821,12 +805,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public boolean hasCastableObject(Type type) {
-		for (Statement st : statements) {
-			if (st.getReturnValue().isAssignableFrom(type)) {
-				return true;
-			}
-		}
-		return false;
+		return statements.stream().anyMatch(s -> s.getReturnValue().isAssignableFrom(type));
 	}
 
 	/**
@@ -892,11 +871,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 
 	@Override
 	public boolean isAccessible() {
-		for (Statement statement : statements) {
-			if (!statement.isAccessible())
-				return false;
-		}
-		return true;
+		return statements.stream().allMatch(Statement::isAccessible);
 	}
 
 	/* (non-Javadoc)
@@ -981,9 +956,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 
 	@Override
 	public void removeAssertion(Assertion assertion) {
-		for (Statement s : statements) {
-			s.removeAssertion(assertion);
-		}
+		statements.forEach(s -> s.removeAssertion(assertion));
 	}
 
 	/* (non-Javadoc)
@@ -992,20 +965,19 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public void removeAssertions() {
-		for (Statement s : statements) {
-			s.removeAssertions();
-		}
+		statements.forEach(Statement::removeAssertions);
 	}
 
 	private boolean methodNeedsDownCast(MethodStatement methodStatement, VariableReference var, Class<?> abstractClass) {
 
 		if(!methodStatement.isStatic() && methodStatement.getCallee().equals(var)) {
-			if(!ClassUtils.hasMethod(abstractClass, methodStatement.getMethod().getName(), methodStatement.getMethod().getRawParameterTypes())) {
+
+			if(MethodUtils.getAccessibleMethod(abstractClass, methodStatement.getMethodName(), methodStatement.getMethod().getRawParameterTypes()) == null) {
 				// Need downcast for real
 				return true;
 			} else {
-				Method superClassMethod = ClassUtils.getMethod(abstractClass, methodStatement.getMethod().getName(), methodStatement.getMethod().getRawParameterTypes());
-				if(!methodStatement.getMethod().getRawGeneratedType().equals(superClassMethod.getReturnType())) {
+				Method superClassMethod = MethodUtils.getMatchingMethod(abstractClass, methodStatement.getMethodName(), methodStatement.getMethod().getRawParameterTypes());
+				if(superClassMethod != null && !methodStatement.getMethod().getRawGeneratedType().equals(superClassMethod.getReturnType())) {
 					// Overriding can also change return value, in which case we need to keep the downcast
 					return true;
 				}
@@ -1037,21 +1009,17 @@ public class DefaultTestCase implements TestCase, Serializable {
 	}
 
 	private boolean fieldNeedsDownCast(FieldReference fieldReference, VariableReference var, Class<?> abstractClass) {
-		if(fieldReference.getSource().equals(var)) {
-			if(!fieldReference.getField().getDeclaringClass().isAssignableFrom(abstractClass)) {
-				// Need downcast for real
-				return true;
-			}
+		if(fieldReference.getSource() != null && fieldReference.getSource().equals(var)) {
+			// Need downcast for real
+			return !fieldReference.getField().getDeclaringClass().isAssignableFrom(abstractClass);
 		}
 		return false;
 	}
 
 	private boolean fieldNeedsDownCast(FieldStatement fieldStatement, VariableReference var, Class<?> abstractClass) {
 		if(!fieldStatement.isStatic() && fieldStatement.getSource().equals(var)) {
-			if(!fieldStatement.getField().getDeclaringClass().isAssignableFrom(abstractClass)) {
-				// Need downcast for real
-				return true;
-			}
+			// Need downcast for real
+			return !fieldStatement.getField().getDeclaringClass().isAssignableFrom(abstractClass);
 		}
 		return false;
 	}
@@ -1061,7 +1029,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 			if(assertion instanceof InspectorAssertion && assertion.getSource().equals(var)) {
 				InspectorAssertion inspectorAssertion = (InspectorAssertion)assertion;
 				Method inspectorMethod = inspectorAssertion.getInspector().getMethod();
-				if(!ClassUtils.hasMethod(abstractClass, inspectorMethod.getName(), inspectorMethod.getParameterTypes())) {
+				if(MethodUtils.getAccessibleMethod(abstractClass, inspectorMethod.getName(), inspectorMethod.getParameterTypes()) == null) {
 					return true;
 				}
 			} else if(assertion instanceof PrimitiveFieldAssertion && assertion.getSource().equals(var)) {
@@ -1124,9 +1092,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public void replace(VariableReference var1, VariableReference var2) {
-		for (Statement statement : statements) {
-			statement.replace(var1, var2);
-		}
+		statements.forEach(s -> s.replace(var1, var2));
 	}
 
 
@@ -1135,8 +1101,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 	        IOException {
 		ois.defaultReadObject();
 
-		coveredGoals = new LinkedHashSet<TestFitnessFunction>();
-		contractViolations = new LinkedHashSet<ContractViolation>();
+		coveredGoals = new LinkedHashSet<>();
+		contractViolations = new LinkedHashSet<>();
 	}
 
 	public void setFailing(boolean failing) {

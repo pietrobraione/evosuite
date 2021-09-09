@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -96,7 +96,7 @@ public class HistoryChanges {
 			}
 		} else {
 			// read content of hash_file
-			Map<String, String> hash_file_content = new LinkedHashMap<String, String>();
+			Map<String, String> hash_file_content = new LinkedHashMap<>();
 
 			try (BufferedReader br = new BufferedReader(new FileReader(hash_file))) {
 				String sCurrentLine;

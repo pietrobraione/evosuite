@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,20 +17,16 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * 
- */
+
 package org.evosuite.setup.callgraph;
 
 import java.util.*;
 
 import org.evosuite.Properties;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
-import org.evosuite.instrumentation.ExceptionTransformationClassAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.InheritanceTree;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
@@ -48,7 +44,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CallGraphGenerator {
 	
-	private static Logger logger = LoggerFactory.getLogger(CallGraphGenerator.class);
+	private static final Logger logger = LoggerFactory.getLogger(CallGraphGenerator.class);
 
 	public static CallGraph analyze(String className) {
 		ClassNode targetClass = DependencyAnalysis.getClassNode(className);
@@ -151,19 +147,6 @@ public class CallGraphGenerator {
 	@SuppressWarnings("unchecked")
 	private static void handleMethodNode(CallGraph callGraph, ClassNode cn, MethodNode mn, int depth) {
 		handlePublicMethodNode(callGraph, cn, mn);
-
-		// TODO: Integrate this properly - it is currently an unexpected side-effect
-		if(!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(cn.name))
-			ExceptionTransformationClassAdapter.methodExceptionMap.put(cn.name, new LinkedHashMap<>());
-
-		String methodNameDesc = mn.name + mn.desc;
-		Set<Type> exceptionTypes = new LinkedHashSet<>();
-		if(mn.exceptions != null) {
-			for (String exceptionName : ((List<String>)mn.exceptions)) {
-				exceptionTypes.add(Type.getType(exceptionName));
-			}
-		}
-		ExceptionTransformationClassAdapter.methodExceptionMap.get(cn.name).put(methodNameDesc, exceptionTypes);
 
 		InsnList instructions = mn.instructions;
 		Iterator<AbstractInsnNode> iterator = instructions.iterator();

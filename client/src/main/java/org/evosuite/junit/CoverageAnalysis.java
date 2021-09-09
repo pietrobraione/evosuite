@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,12 +17,11 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * 
- */
+
 package org.evosuite.junit;
 
 import junit.framework.TestCase;
+import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
@@ -50,6 +49,7 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.Test;
@@ -92,7 +92,7 @@ public class CoverageAnalysis {
 
 	private static int totalGoals = 0;
 	private static int totalCoveredGoals = 0;
-	private static Set<String> targetClasses = new LinkedHashSet<String>();
+	private static Set<String> targetClasses = new LinkedHashSet<>();
 
 	/**
 	 * Identify all JUnit tests starting with the given name prefix, instrument
@@ -117,11 +117,11 @@ public class CoverageAnalysis {
                         Arrays.asList(cp.split(File.pathSeparator)));
 			}
 
-			LoggingUtils.getEvoLogger().info("* Finished analyzing classpath");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
 		} catch (Throwable e) {
-			LoggingUtils.getEvoLogger().error("* Error while initializing target class: "
-			                                          + (e.getMessage() != null ? e.getMessage()
-			                                                  : e.toString()));
+			LoggingUtils.getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Error while initializing target class: "
+                    + (e.getMessage() != null ? e.getMessage() : e.toString()));
 			logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
 			return;
 		} finally {
@@ -132,7 +132,8 @@ public class CoverageAnalysis {
 		// TestCluster.getInstance();
 
 		List<Class<?>> testClasses = getTestClasses();
-		LoggingUtils.getEvoLogger().info("* Found " + testClasses.size() + " test class(es)");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Found " + testClasses.size()
+                + " test class(es)");
 		if (testClasses.isEmpty())
 			return;
 
@@ -143,7 +144,7 @@ public class CoverageAnalysis {
 		sortTestClasses(testClasses);
 
 		Class<?>[] tests = testClasses.toArray(new Class<?>[testClasses.size()]);
-		LoggingUtils.getEvoLogger().info("* Executing test(s)");
+		LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Executing test(s)");
 		if (Properties.SELECTED_JUNIT == null) {
 			boolean origUseAgent = EvoRunner.useAgent;
 			boolean origUseClassLoader = EvoRunner.useClassLoader;
@@ -164,12 +165,13 @@ public class CoverageAnalysis {
 
 			int goals = 0;
 			for (Properties.Criterion pc : Properties.CRITERION) {
-				LoggingUtils.getEvoLogger().info("* Coverage analysis for criterion " + pc);
+				LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Coverage analysis for criterion " + pc);
 
-				TestFitnessFactory ffactory = FitnessFunctions.getFitnessFactory(pc);
+				TestFitnessFactory<? extends TestFitnessFunction> ffactory = FitnessFunctions.getFitnessFactory(pc);
 				goals += ffactory.getCoverageGoals().size();
 
-				FitnessFunction ffunction = FitnessFunctions.getFitnessFunction(pc);
+				TestSuiteFitnessFunction ffunction = FitnessFunctions.getFitnessFunction(pc);
 				ffunction.getFitness(testSuite);
 
 				CoverageCriteriaAnalyzer.analyzeCoverage(testSuite, pc);
@@ -201,7 +203,7 @@ public class CoverageAnalysis {
         // Execution result of a dummy Test Case
         ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
 
-		Set<TestFitnessFunction> coveredGoals = new HashSet<TestFitnessFunction>();
+		Set<TestFitnessFunction> coveredGoals = new HashSet<>();
 
 		List<JUnitResult> results = executeTests(testClass);
 		for (JUnitResult testResult : results) {
@@ -209,10 +211,9 @@ public class CoverageAnalysis {
             dummy.setLastExecutionResult(executionResult);
 
             for(TestFitnessFunction goal : allGoals) {
-            	if(coveredGoals.contains(goal))
-            		continue;
-            	else if (goal.isCovered(dummy))
-                    coveredGoals.add(goal);
+            	if (goal.isCovered(dummy)) {
+					coveredGoals.add(goal);
+				}
             }
 		}
 
@@ -220,13 +221,14 @@ public class CoverageAnalysis {
 	}
 
 	private static List<Class<?>> getTestClassesFromClasspath() {
-		List<Class<?>> classes = new ArrayList<Class<?>>();
+		List<Class<?>> classes = new ArrayList<>();
 		for(String prefix : Properties.JUNIT.split(":")) {
 			
 			Set<String> suts = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(
 					ClassPathHandler.getInstance().getTargetProjectClasspath(), prefix, false);
 			
-			LoggingUtils.getEvoLogger().info("* Found " + suts.size() + " classes with prefix '" + prefix + "'");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Found " + suts.size()
+                    + " classes with prefix '" + prefix + "'");
 			if (!suts.isEmpty()) {
 				for (String sut : suts) {
 					if (targetClasses.contains(sut)) {
@@ -253,13 +255,13 @@ public class CoverageAnalysis {
 	}
 
 	private static List<Class<?>> getTestClasses() {
-		List<Class<?>> testClasses = new ArrayList<Class<?>>();
+		List<Class<?>> testClasses = new ArrayList<>();
 		
 		logger.debug("JUNIT: "+Properties.JUNIT);
 		
 		for(String prefix : Properties.JUNIT.split(":")) {
 			
-			LoggingUtils.getEvoLogger().info("* Analyzing entry: "+prefix);
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing entry: "+prefix);
 			
 			// If the target name is a path analyze it
 			File path = new File(prefix);
@@ -295,7 +297,7 @@ public class CoverageAnalysis {
 	 */
 	private static List<Class<?>> getTestClasses(File directory) {
 
-		List<Class<?>> testClasses = new ArrayList<Class<?>>();
+		List<Class<?>> testClasses = new ArrayList<>();
 
 		if (directory.getName().endsWith(".class")) {			
 			LoggingUtils.muteCurrentOutAndErrStream();
@@ -304,15 +306,12 @@ public class CoverageAnalysis {
 				File file = new File(directory.getPath());
 				byte[] array = new byte[(int) file.length()];
 				ByteArrayOutputStream out = new ByteArrayOutputStream(array.length);
-				InputStream in = new FileInputStream(file);
-				try {
+				try (InputStream in = new FileInputStream(file)) {
 					int length = in.read(array);
 					while (length > 0) {
 						out.write(array, 0, length);
 						length = in.read(array);
 					}
-				} finally {
-					in.close();
 				}
 				ClassReader reader = new ClassReader(array);
 				String className = reader.getClassName();
@@ -382,7 +381,7 @@ public class CoverageAnalysis {
 	 */
 	private static List<Class<?>> getTestClassesJar(File file) {
 
-		List<Class<?>> testClasses = new ArrayList<Class<?>>();
+		List<Class<?>> testClasses = new ArrayList<>();
 
 		ZipFile zf;
 		try {
@@ -468,7 +467,7 @@ public class CoverageAnalysis {
 
 		if (criterion == Criterion.MUTATION
 				|| criterion == Criterion.STRONGMUTATION) {
-			goals = MutationPool.getMutants();
+			goals = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants();
 		} else {
 			goals = factory.getCoverageGoals();
 		}
@@ -498,7 +497,7 @@ public class CoverageAnalysis {
             if (criterion == Criterion.MUTATION
             		|| criterion ==  Criterion.STRONGMUTATION) {
             	for (Integer mutationID : trace.getTouchedMutants()) {
-            		Mutation mutation = MutationPool.getMutant(mutationID);
+					Mutation mutation = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutant(mutationID);
 
             		if (goals.contains(mutation)) {
             			MutationObserver.activateMutation(mutationID);
@@ -509,13 +508,18 @@ public class CoverageAnalysis {
             				if (mR.getFailureCount() != tR.getFailureCount()) {
             					logger.info("Mutation killed: " + mutationID);
             					covered.set(mutation.getId());
-                                coverage_matrix[index_test][mutationID.intValue()] = true;
+                                coverage_matrix[index_test][mutationID] = true;
                                 break;
             				}
             			}
             		}
             	}
             } else {
+            	
+            	if (criterion==Criterion.EXCEPTION) {
+            		// TODO collect exception goals from execution results
+            	}
+            	
 	            for (int index_component = 0; index_component < goals.size(); index_component++) {
 	            	TestFitnessFunction goal = (TestFitnessFunction) goals.get(index_component);
 
@@ -545,7 +549,8 @@ public class CoverageAnalysis {
 
         RuntimeVariable bitStringVariable = CoverageCriteriaAnalyzer.getBitStringVariable(criterion);
         if (goals.isEmpty()) {
-			LoggingUtils.getEvoLogger().info("* Coverage of criterion " + criterion + ": 100% (no goals)");
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Coverage of criterion "
+                    + criterion + ": 100% (no goals)");
 			ClientServices.getInstance().getClientNode().trackOutputVariable(CoverageCriteriaAnalyzer.getCoverageVariable(criterion), 1.0);
 			if (bitStringVariable != null) {
 				ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, "1");
@@ -553,8 +558,10 @@ public class CoverageAnalysis {
 		} 
         else {
         	double coverage = ((double) covered.cardinality()) / ((double) goals.size());
-        	LoggingUtils.getEvoLogger().info("* Coverage of criterion " + criterion + ": " + NumberFormat.getPercentInstance().format(coverage));
-			LoggingUtils.getEvoLogger().info("* Number of covered goals: " + covered.cardinality() + " / " + goals.size());
+        	LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Coverage of criterion " + criterion
+                    + ": " + NumberFormat.getPercentInstance().format(coverage));
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Number of covered goals: "
+                    + covered.cardinality() + " / " + goals.size());
 
 			ClientServices.getInstance().getClientNode().trackOutputVariable(CoverageCriteriaAnalyzer.getCoverageVariable(criterion), coverage);
 			if (bitStringVariable != null) {
@@ -576,12 +583,12 @@ public class CoverageAnalysis {
 			totalCoveredGoals = 0;
 
 			Properties.TARGET_CLASS = targetClass;
-			LoggingUtils.getEvoLogger().info("* Target class " + Properties.TARGET_CLASS);
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Target class "
+                    + Properties.TARGET_CLASS);
 			ClientServices.getInstance().getClientNode().updateProperty("TARGET_CLASS", Properties.TARGET_CLASS);
 
-			for (int criterion_index = 0; criterion_index < criterion.length; criterion_index++) {
-				Properties.Criterion c = criterion[criterion_index];
-				Properties.CRITERION = new Criterion[] { c };
+			for (Criterion c : criterion) {
+				Properties.CRITERION = new Criterion[]{c};
 
 				analyzeCoverageCriterion(results, c);
 			}
@@ -589,12 +596,14 @@ public class CoverageAnalysis {
 			// restore
 			Properties.CRITERION = criterion;
 
-			LoggingUtils.getEvoLogger().info("* Total number of covered goals: " + totalCoveredGoals + " / " + totalGoals);
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Total number of covered goals: "
+                    + totalCoveredGoals + " / " + "" + totalGoals);
 			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, totalGoals);
 			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Covered_Goals, totalCoveredGoals);
 
 			double coverage = totalGoals == 0 ? 1.0 : ((double) totalCoveredGoals) / ((double) totalGoals);
-			LoggingUtils.getEvoLogger().info("* Total coverage: " + NumberFormat.getPercentInstance().format(coverage));
+			LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Total coverage: "
+                    + NumberFormat.getPercentInstance().format(coverage));
 			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Coverage, coverage);
 
 			// need to give some time for transmission before client is killed
@@ -617,7 +626,7 @@ public class CoverageAnalysis {
 		ExecutionTracer.setCheckCallerThread(false);
 		ExecutionTracer.getExecutionTracer().clear();
 
-		List<JUnitResult> results = new ArrayList<JUnitResult>();
+		List<JUnitResult> results = new ArrayList<>();
         for (Class<?> testClass : testClasses) {
         	LoggingUtils.getEvoLogger().info("  Executing " + testClass.getSimpleName());
         	// Set the context classloader in case the SUT requests it
@@ -629,7 +638,8 @@ public class CoverageAnalysis {
 
 		ExecutionTracer.disable();
 
-        LoggingUtils.getEvoLogger().info("* Executed " + results.size() + " unit test(s)");
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Executed " + results.size() + " unit "
+                + "test(s)");
 		ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed, results.size());
 
         return results;
@@ -663,7 +673,7 @@ public class CoverageAnalysis {
 			methods.addAll(tc.getAnnotatedMethods(Test.class));
 			methods.addAll(tc.getAnnotatedMethods(EvoSuiteTest.class));
 			for (FrameworkMethod method : methods) {
-				List<Throwable> errors = new ArrayList<Throwable>();
+				List<Throwable> errors = new ArrayList<>();
 				method.validatePublicVoidNoArg(false, errors);
 				if (errors.isEmpty()) {
 					return true;
@@ -695,12 +705,7 @@ public class CoverageAnalysis {
      * @param tests
      */
     private static void sortTestClasses(List<Class<?>> tests) {
-        Collections.sort(tests, new Comparator<Class<?>>() {
-            @Override
-            public int compare(Class<?> t0, Class<?> t1) {
-                return Integer.compare(t1.getName().length(), t0.getName().length());
-            }
-        });
+        tests.sort((t0, t1) -> Integer.compare(t1.getName().length(), t0.getName().length()));
     }
 
 	/**

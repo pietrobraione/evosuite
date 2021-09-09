@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -36,7 +36,7 @@ public class FileUtils {
 	 * @return
 	 */
 	public static List<File> scan(List<String> roots, String[] includes, String[] excludes) {
-		List<File> files = new ArrayList<File>();
+		List<File> files = new ArrayList<>();
 		for (String root : roots) {
 			files.addAll(FileUtils.scan(new File(root), includes, excludes));
 		}
@@ -52,7 +52,7 @@ public class FileUtils {
 	 * @return
 	 */
 	public static List<File> scan(File root, String[] includes, String[] excludes) {
-		List<File> files = new ArrayList<File>();
+		List<File> files = new ArrayList<>();
 		if (!root.exists()) {
 			return files;
 		}

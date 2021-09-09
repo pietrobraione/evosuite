@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,7 +26,7 @@ public class GenericObjectWrapperTwoParameterTest {
 
 	@Test
 	public void test01() {
-		GenericObjectWrapperTwoParameter<String, String> wrapper = new GenericObjectWrapperTwoParameter<String, String>();
+		GenericObjectWrapperTwoParameter<String, String> wrapper = new GenericObjectWrapperTwoParameter<>();
 		Assert.assertNull(wrapper.getValue());
 
 		wrapper.setValue("Test");

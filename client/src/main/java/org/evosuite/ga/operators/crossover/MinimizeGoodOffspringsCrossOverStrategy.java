@@ -36,7 +36,7 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 	}
 
 	@Override
-	public void searchStarted(GeneticAlgorithm<?> algorithm) { 
+	public void searchStarted(GeneticAlgorithm algorithm) { 
 		if (!Properties.USE_MINIMIZER_DURING_CROSSOVER) return;
 		
 		this.algorithm = algorithm;
@@ -63,11 +63,11 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 		//1. compute the subset of goals with respect to which we want to minimize
 		Map<TestFitnessFunction, Double> goalsInIndividual = new HashMap<>();
 
-		Set<FitnessFunction<TestChromosome>> coveredGoals = ((DynaMOSA<TestChromosome>) algorithm).getCoveredGoals();
+		Set<TestFitnessFunction> coveredGoals = ((DynaMOSA) algorithm).getCoveredGoals();
 		goals.removeAll(coveredGoals);
 		
-		for (TestFitnessFunction g :	 goals) {
-			Double individualFitness = individual.getFitnessValues().get(g);
+		for (TestFitnessFunction g: goals) {
+			Double individualFitness = ((TestChromosome) individual).getFitnessValues().get(g);
 			if (individualFitness == null) {
 				continue; // NB: some goals may still be beyond the current frontier of DynaMosa
 			}
@@ -145,7 +145,7 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 	
 
 	@Override
-	public void iteration(GeneticAlgorithm<?> algorithm) { /*nothing to do */ 
+	public void iteration(GeneticAlgorithm algorithm) { /*nothing to do */ 
 		//LoggingUtils.getEvoLogger().info("* {} called {} times", "" + this.identifier, this.minimizationCount);
 	}
 
@@ -156,7 +156,7 @@ public class MinimizeGoodOffspringsCrossOverStrategy implements CrossOverListene
 	public void modification(Chromosome individual) { /*nothing to do*/ }
 
 	@Override
-	public void searchFinished(GeneticAlgorithm<?> algorithm) { /*nothing to do*/ }
+	public void searchFinished(GeneticAlgorithm algorithm) { /*nothing to do*/ }
 
 	@Override
 	public void crossOverBegin(Chromosome parent1, Chromosome parent2) { /*nothing to do */ }

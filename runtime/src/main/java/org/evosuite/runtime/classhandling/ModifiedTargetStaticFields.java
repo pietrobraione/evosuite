@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ModifiedTargetStaticFields {
 
-	private static Logger logger = LoggerFactory.getLogger(ModifiedTargetStaticFields.class);
+	private static final Logger logger = LoggerFactory.getLogger(ModifiedTargetStaticFields.class);
 
 	/**
 	 * gets the current set of modified target static fields

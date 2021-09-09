@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -43,7 +43,7 @@ public class GenericObjectWrapperWithListTest {
 		Foo foo = new Foo();
 		foo.setX(x);
 
-		GenericObjectWrapperWithList<Foo> wrapper = new GenericObjectWrapperWithList<Foo>();
+		GenericObjectWrapperWithList<Foo> wrapper = new GenericObjectWrapperWithList<>();
 		wrapper.add(foo);
 		List<Foo> list = wrapper.getList();
 		// list.clear();

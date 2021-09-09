@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -28,7 +28,7 @@ import org.evosuite.ga.FitnessFunction;
  * 
  * @author José Campos
  */
-public interface Problem<T extends Chromosome>
+public interface Problem<T extends Chromosome<T>>
 {
-	public List<FitnessFunction<T>> getFitnessFunctions();
+	List<FitnessFunction<T>> getFitnessFunctions();
 }

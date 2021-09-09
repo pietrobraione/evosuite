@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -38,9 +38,7 @@ import org.evosuite.runtime.util.JOptionPaneInputs.GUIAction;
  */
 public abstract class MockJOptionPane extends JOptionPane implements OverrideMock {
 
-	/**
-	 * 
-	 */
+
 	private static final long serialVersionUID = 1531475063681545845L;
 
 	/**

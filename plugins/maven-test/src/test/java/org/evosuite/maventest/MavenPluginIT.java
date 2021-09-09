@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,7 +25,6 @@ import org.apache.maven.it.Verifier;
 import org.evosuite.runtime.InitializingListener;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.file.Files;
@@ -439,7 +438,7 @@ public class MavenPluginIT {
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
         Properties props = new Properties(System.getProperties());
         //update version if run from IDE instead of Maven
-        props.put("evosuiteVersion", System.getProperty("evosuiteVersion","1.0.5-SNAPSHOT"));
+        props.put("evosuiteVersion", System.getProperty("evosuiteVersion","1.0.6-SNAPSHOT"));
         verifier.setSystemProperties(props);
         return verifier;
     }

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -34,7 +34,7 @@ public class MethodReturnsPrimitive {
 	}
 	
 	public long testLong(long x, long y) {
-		return (long) (x - y);
+		return x - y;
 	}
 	
 	public char testChar(int x, int y) {

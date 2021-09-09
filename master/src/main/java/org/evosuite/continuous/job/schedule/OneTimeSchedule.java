@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -67,10 +67,9 @@ public abstract class OneTimeSchedule extends ScheduleType{
 			int totalLeftOver, int maximumBudgetPerCore) {
 		
 		int counter = 0;
-		for(int i=0; i<jobs.size(); i++){
-			JobDefinition job = jobs.get(i);
+		for (JobDefinition job : jobs) {
 			assert job.seconds <= maximumBudgetPerCore;
-			if(job.seconds < maximumBudgetPerCore){
+			if (job.seconds < maximumBudgetPerCore) {
 				counter++;
 			}
 		}

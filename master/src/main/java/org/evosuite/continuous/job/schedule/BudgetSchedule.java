@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,7 +20,6 @@
 package org.evosuite.continuous.job.schedule;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -119,7 +118,7 @@ public class BudgetSchedule extends OneTimeSchedule{
 		 * as soon as possible
 		 */
 		
-		Collections.sort(jobs, (a, b) -> {
+		jobs.sort((a, b) -> {
             /*
              * the job with takes most time will be "lower".
              * recall that sorting is in ascending order

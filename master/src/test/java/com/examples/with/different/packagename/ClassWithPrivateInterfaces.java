@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -35,10 +35,10 @@ public class ClassWithPrivateInterfaces {
             return null;
         }
 
-        final LinkedHashSet<Class<?>> interfacesFound = new LinkedHashSet<Class<?>>();
+        final LinkedHashSet<Class<?>> interfacesFound = new LinkedHashSet<>();
         getAllInterfaces(cls, interfacesFound);
 
-        return new ArrayList<Class<?>>(interfacesFound);
+        return new ArrayList<>(interfacesFound);
     }
 
     private static void getAllInterfaces(Class<?> cls, final HashSet<Class<?>> interfacesFound) {

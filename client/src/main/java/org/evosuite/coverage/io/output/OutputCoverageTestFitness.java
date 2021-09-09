@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -19,6 +19,8 @@
  */
 package org.evosuite.coverage.io.output;
 
+import org.evosuite.Properties;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionObserver;
@@ -27,7 +29,9 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import static org.evosuite.coverage.io.IOCoverageConstants.NUM_NEGATIVE;
+import static org.evosuite.coverage.io.IOCoverageConstants.NUM_POSITIVE;
+import static org.evosuite.coverage.io.IOCoverageConstants.NUM_ZERO;
 import java.util.*;
 
 /**
@@ -48,13 +52,9 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 	 * Constructor - fitness is specific to a method
 	 *
 	 * @param goal the coverage goal
-	 * @throws IllegalArgumentException
 	 */
-	public OutputCoverageTestFitness(OutputCoverageGoal goal) throws IllegalArgumentException {
-		if (goal == null) {
-			throw new IllegalArgumentException("goal cannot be null");
-		}
-		this.goal = goal;
+	public OutputCoverageTestFitness(OutputCoverageGoal goal) {
+		this.goal = Objects.requireNonNull(goal, "goal cannot be null");
 		// add the observer to TestCaseExecutor if it is not included yet
 		boolean hasObserver = false;
 		TestCaseExecutor executor = TestCaseExecutor.getInstance();
@@ -106,7 +106,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 
 	/**
 	 * <p>
-	 * getValue
+	 * getValueDescriptor
 	 * </p>
 	 *
 	 * @return a {@link java.lang.String} object.
@@ -129,13 +129,85 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 		double fitness = 1.0;
 
 		for(Set<OutputCoverageGoal> coveredGoals : result.getOutputGoals().values()) {
-			if(coveredGoals.contains(goal)) {
-				fitness = 0.0;
-				break;
+			if (!coveredGoals.contains(this.goal)) {
+				continue;
+			}
+
+			for (OutputCoverageGoal coveredGoal : coveredGoals) {
+				if (coveredGoal.equals(this.goal)) {
+					double distance = this.calculateDistance(coveredGoal);
+					if (!(distance < 0.0)) {
+						fitness = distance;
+						break;
+					}
+				}
 			}
 		}
-		updateIndividual(this, individual, fitness);
+
+		assert fitness >= 0.0;
+		updateIndividual(individual, fitness);
+
+		if (fitness == 0.0) {
+			individual.getTestCase().addCoveredGoal(this);
+		}
+
+		if (Properties.TEST_ARCHIVE) {
+			Archive.getArchiveInstance().updateArchive(this, individual, fitness);
+		}
+
 		return fitness;
+	}
+
+	private double calculateDistance(OutputCoverageGoal coveredGoal) {
+		switch (coveredGoal.getType().getSort()) {
+			case Type.BYTE:
+			case Type.SHORT:
+			case Type.INT:
+			case Type.FLOAT:
+			case Type.LONG:
+			case Type.DOUBLE:
+				Number returnValue = coveredGoal.getNumericValue();
+				assert (returnValue != null);
+				assert (returnValue instanceof Number);
+				// TODO: ideally we should be able to tell between Number as an object, and primitive numeric types
+				double value = returnValue.doubleValue();
+				if (Double.isNaN(value)) { // EvoSuite generates Double.NaN
+					return -1.0;
+				}
+
+				double distanceToNegative = 0.0;
+				double distanceToZero = 0.0;
+				double distanceToPositive = 0.0;
+
+				if (value < 0.0) {
+					distanceToNegative = 0;
+					distanceToZero = Math.abs(value);
+					distanceToPositive = Math.abs(value) + 1;
+				} else if (value == 0.0) {
+					distanceToNegative = 1;
+					distanceToZero = 0;
+					distanceToPositive = 1;
+				} else {
+					distanceToNegative = value + 1;
+					distanceToZero = value;
+					distanceToPositive = 0;
+				}
+
+				switch (coveredGoal.getValueDescriptor()) {
+					case NUM_NEGATIVE:
+						return distanceToNegative;
+					case NUM_ZERO:
+						return distanceToZero;
+					case NUM_POSITIVE:
+						return distanceToPositive;
+				}
+
+				break;
+			default:
+				return 0.0;
+		}
+
+		return 0.0;
 	}
 
 	/**
@@ -201,47 +273,37 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 	/*
 	 * TODO: Move somewhere else into a utility class
 	 */
-	private static final Class<?> getClassForName(String type)
+	private static Class<?> getClassForName(String type)
 	{
 		try
 		{
-			if( type.equals("boolean"))
-			{
-				return Boolean.TYPE;
-			}
-			else if(type.equals("byte"))
-			{
-				return Byte.TYPE;
-			}
-			else if( type.equals("char"))
-			{
-				return Character.TYPE;
-			}
-			else if( type.equals("double"))
-			{
-				return Double.TYPE;
-			}
-			else if(type.equals("float"))
-			{
-				return Float.TYPE;
-			}
-			else if(type.equals("int"))
-			{
-				return Integer.TYPE;
-			}
-			else if( type.equals("long"))
-			{
-				return Long.TYPE;
-			}
-			else if(type.equals("short"))
-			{
-				return Short.TYPE;
-			}
-			else if(type.equals("String") ||type.equals("Boolean") || type.equals("Short") ||type.equals("Long") ||
-					type.equals("Integer") || type.equals("Float") || type.equals("Double") ||type.equals("Byte") ||
-					type.equals("Character") )
-			{
-				return Class.forName("java.lang." + type);
+			switch (type) {
+				case "boolean":
+					return Boolean.TYPE;
+				case "byte":
+					return Byte.TYPE;
+				case "char":
+					return Character.TYPE;
+				case "double":
+					return Double.TYPE;
+				case "float":
+					return Float.TYPE;
+				case "int":
+					return Integer.TYPE;
+				case "long":
+					return Long.TYPE;
+				case "short":
+					return Short.TYPE;
+				case "String":
+				case "Boolean":
+				case "Short":
+				case "Long":
+				case "Integer":
+				case "Float":
+				case "Double":
+				case "Byte":
+				case "Character":
+					return Class.forName("java.lang." + type);
 			}
 
 			//			if(type.endsWith(";") && ! type.startsWith("["))

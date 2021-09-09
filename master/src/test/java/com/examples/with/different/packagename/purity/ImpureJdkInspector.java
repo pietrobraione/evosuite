@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -29,7 +29,7 @@ public class ImpureJdkInspector {
 		if (size < 0)
 			throw new IllegalArgumentException();
 
-		this.myVector = new Vector<String>(size);
+		this.myVector = new Vector<>(size);
 	}
 
 	public int getPureSize() {

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -19,8 +19,6 @@
  */
 package com.examples.with.different.packagename;
 
-import java.io.IOException;
-import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -104,6 +102,8 @@ public class XMLElement2 {
 	}
 
 	public static class XMLParseException extends RuntimeException {
+
+		private static final long serialVersionUID = -309385366770535305L;
 
 		public XMLParseException(String msg, int line, String ex) {
 		}

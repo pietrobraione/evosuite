@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,21 +17,22 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * 
- */
+
 package org.evosuite;
 
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 import org.evosuite.assertion.InspectorManager;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
-import org.evosuite.coverage.archive.TestsArchive;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.graphs.GraphPool;
@@ -43,8 +44,6 @@ import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
-import org.evosuite.runtime.javaee.db.DBManager;
-import org.evosuite.runtime.javaee.injection.Injector;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
 import org.evosuite.seeding.CastClassManager;
@@ -54,7 +53,7 @@ import org.evosuite.setup.ConcreteClassAnalyzer;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
-import org.evosuite.symbolic.DSEStats;
+import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -80,14 +79,14 @@ public class TestGenerationContext {
 	private InstrumentingClassLoader classLoader;
 
 	/**
-	 * The regression class loader
-	 */
-	private InstrumentingClassLoader regressionClassLoader;
-
-	/**
 	 * The classloader used to load this class
 	 */
 	private ClassLoader originalClassLoader;
+
+	/**
+	 * To avoid duplicate analyses we cache the cluster generator
+	 */
+	private TestClusterGenerator testClusterGenerator;
 
 	/**
 	 * Private singleton constructor
@@ -95,9 +94,6 @@ public class TestGenerationContext {
 	private TestGenerationContext() {
 		originalClassLoader = this.getClass().getClassLoader();
 		classLoader = new InstrumentingClassLoader();
-		regressionClassLoader = new InstrumentingClassLoader(true);
-
-		DBManager.getInstance().setSutClassLoader(classLoader);
 	}
 
 	public static TestGenerationContext getInstance() {
@@ -130,13 +126,17 @@ public class TestGenerationContext {
 		return classLoader;
 	}
 
-	public InstrumentingClassLoader getRegressionClassLoaderForSUT() {
-		return regressionClassLoader;
+	public TestClusterGenerator getTestClusterGenerator() {
+		return testClusterGenerator;
 	}
+
+	public void setTestClusterGenerator(TestClusterGenerator generator) {
+	    testClusterGenerator = generator;
+    }
 
 	/**
 	 * @deprecated use {@code getInstance().getClassLoaderForSUT()}
-	 * 
+	 *
 	 * @return
 	 */
 	public static ClassLoader getClassLoader() {
@@ -150,10 +150,6 @@ public class TestGenerationContext {
 		// re-instrument classes
 		classLoader = new InstrumentingClassLoader();
 
-		if (!DBManager.getInstance().isWasAccessed()) {
-			DBManager.getInstance().setSutClassLoader(classLoader);
-		}
-
 		TestCaseExecutor.pullDown();
 
 		ExecutionTracer.getExecutionTracer().clear();
@@ -162,7 +158,7 @@ public class TestGenerationContext {
 		BranchPool.getInstance(classLoader).reset();
 		RemoveFinalClassAdapter.reset();
 		LinePool.reset();
-		MutationPool.clear();
+		MutationPool.getInstance(classLoader).clear();
 
 		// TODO: Clear only pool of current classloader?
 		GraphPool.clearAll();
@@ -192,7 +188,7 @@ public class TestGenerationContext {
 
 		TestCaseExecutor.initExecutor();
 
-		TestsArchive.instance.reset();
+		Archive.getArchiveInstance().reset();
 
 		// Constant pool
 		ConstantPoolManager.getInstance().reset();
@@ -205,9 +201,13 @@ public class TestGenerationContext {
 			// || ArrayUtil.contains(Properties.CRITERION,
 			// Properties.Criterion.CBRANCH)) {
 			try {
-				TestClusterGenerator clusterGenerator = new TestClusterGenerator(
+				// 1. Initialize the callGraph before using
+				String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+				DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
+				testClusterGenerator = new TestClusterGenerator(
 						DependencyAnalysis.getInheritanceTree());
-				clusterGenerator.generateCluster(DependencyAnalysis.getCallGraph());
+				// 2. Use the callGraph
+				testClusterGenerator.generateCluster(DependencyAnalysis.getCallGraph());
 			} catch (RuntimeException e) {
 				logger.error(e.getMessage(), e);
 			} catch (ClassNotFoundException e) {
@@ -225,9 +225,7 @@ public class TestGenerationContext {
 		Runtime.resetSingleton();
 		MethodCallReplacementCache.resetSingleton();
 
-		Injector.reset();
-
-		DSEStats.clear();
+		DSEStatistics.clear();
 
 		// keep the list of initialized classes (clear them when needed in
 		// the system test cases)

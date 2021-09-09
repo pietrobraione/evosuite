@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -57,8 +57,8 @@ public class TestCase61 {
 		
 		checkEquals(2,catchCount);
 		
-		int int0 = string0.indexOf((int)'a');
-		int int1 = string0.indexOf((int)'a',5);
+		int int0 = string0.indexOf('a');
+		int int1 = string0.indexOf('a',5);
 		int int2 = string0.indexOf("a");
 		int int3 = string0.indexOf("a",5);
 		int int4 = string1.indexOf("a");

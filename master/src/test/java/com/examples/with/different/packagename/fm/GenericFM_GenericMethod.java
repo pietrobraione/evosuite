@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -23,7 +23,7 @@ package com.examples.with.different.packagename.fm;
  * Created by gordon on 19/04/2017.
  */
 public class GenericFM_GenericMethod {
-    public static interface Foo {
+    public interface Foo {
         <T> T foo(T obj);
     }
 

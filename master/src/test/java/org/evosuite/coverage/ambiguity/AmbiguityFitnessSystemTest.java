@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -44,7 +44,7 @@ import org.junit.Test;
 import com.examples.with.different.packagename.Compositional;
 import com.examples.with.different.packagename.coverage.IndirectlyCoverableBranches;
 
-@SuppressWarnings("unchecked")
+
 public class AmbiguityFitnessSystemTest extends SystemTestBase {
 
 	private static String MATRIX_CONTENT =

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -119,7 +119,7 @@ public class JUnitAnalyzerTest {
 		//Now that we have a test case, we check its execution after
 		//recompiling it to JUnit, and see if sandbox kicks in
 		
-		List<TestCase> list = new ArrayList<TestCase>();
+		List<TestCase> list = new ArrayList<>();
 		list.add(test);
 		
 		Assert.assertFalse(file.exists());

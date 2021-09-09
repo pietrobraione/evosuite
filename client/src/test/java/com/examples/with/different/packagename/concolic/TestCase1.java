@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -27,7 +27,7 @@ public class TestCase1 {
 		MyLinkedList linkedList0 = new MyLinkedList();
 		Object object0 = linkedList0.get(int0);
 		linkedList0.unreacheable();
-		Integer integer0 = new Integer(int0);
+		Integer integer0 = int0;
 		linkedList0.add(integer0);
 	}
 }

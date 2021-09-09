@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,9 +26,9 @@ public class GenericTripleParameter<X, Y, Z> {
 	
 	public Map<X, Y> foo(Z param) {
 		if(param == null)
-			return new HashMap<X, Y>();
+			return new HashMap<>();
 		else
-			return new HashMap<X, Y>();
+			return new HashMap<>();
 	}
 
 }

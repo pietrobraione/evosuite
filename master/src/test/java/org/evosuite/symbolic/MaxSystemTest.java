@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -38,7 +38,7 @@ public class MaxSystemTest extends SystemTestBase {
 		Properties.RESET_STATIC_FIELDS = true;
 		Properties.RESET_STATIC_FIELD_GETS = true;
 		Properties.SANDBOX = true;
-		Properties.JUNIT_CHECK = true;
+		Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
 		Properties.JUNIT_TESTS = true;
 		Properties.PURE_INSPECTORS = true;
 		Properties.CLIENT_ON_THREAD = true;

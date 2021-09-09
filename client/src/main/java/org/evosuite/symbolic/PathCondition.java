@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,10 +25,9 @@ import java.util.List;
 import org.evosuite.symbolic.expr.Constraint;
 
 /**
- * Represents a sequence of branch conditions
+ * Represents a sequence of branch conditions.
  * 
  * @author galeotti
- *
  */
 public class PathCondition {
 
@@ -40,7 +39,7 @@ public class PathCondition {
 	 * @param branchConditions
 	 */
 	public PathCondition(List<BranchCondition> branchConditions) {
-		this.pathCondition = new LinkedList<BranchCondition>(branchConditions);
+		this.pathCondition = new LinkedList<>(branchConditions);
 	}
 
 	/**
@@ -49,7 +48,7 @@ public class PathCondition {
 	 * @return
 	 */
 	public List<Constraint<?>> getConstraints() {
-		List<Constraint<?>> constraints = new LinkedList<Constraint<?>>();
+		List<Constraint<?>> constraints = new LinkedList<>();
 		for (BranchCondition b : this.pathCondition) {
 			constraints.addAll(b.getSupportingConstraints());
 			constraints.add(b.getConstraint());
@@ -58,38 +57,11 @@ public class PathCondition {
 	}
 
 	/**
-	 * Creates a new path condition by negating the branch condition at index
-	 * <code>branchConditionIndex</code>
-	 * 
-	 * @param branchConditionIndex
-	 * @return
-	 */
-	public PathCondition negate(int branchConditionIndex) {
-		if (branchConditionIndex < 0 || branchConditionIndex >= this.pathCondition.size()) {
-			throw new IndexOutOfBoundsException("The position " + branchConditionIndex + " does not exists");
-		}
-
-		List<BranchCondition> newPathCondition = new LinkedList<BranchCondition>();
-		for (int i = 0; i < branchConditionIndex; i++) {
-			BranchCondition b = pathCondition.get(i);
-			newPathCondition.add(b);
-		}
-		BranchCondition targetBranch = this.pathCondition.get(branchConditionIndex);
-		Constraint<?> negation = targetBranch.getConstraint().negate();
-		BranchCondition negatedBranch = new BranchCondition(targetBranch.getClassName(), targetBranch.getMethodName(),
-				targetBranch.getBranchIndex(), negation, targetBranch.getSupportingConstraints());
-		newPathCondition.add(negatedBranch);
-
-		return new PathCondition(newPathCondition);
-
-	}
-
-	/**
 	 * Returns the list of branch conditions on this path condition
 	 * 
 	 * @return
 	 */
-	public List<BranchCondition> getBranchConditions() {
+	public List<BranchCondition> getBranchConditions () {
 		return this.pathCondition;
 	}
 
@@ -119,5 +91,9 @@ public class PathCondition {
 	 */
 	public BranchCondition get(int index) {
 		return this.pathCondition.get(index);
+	}
+	
+	public String toString() {
+	  return pathCondition.toString();
 	}
 }

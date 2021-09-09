@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -20,6 +20,7 @@
 package org.evosuite.runtime.classhandling;
 
 import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +45,8 @@ public class ClassStateSupport {
 
 	private static final Logger logger = LoggerFactory.getLogger(ClassStateSupport.class);
 
+	private static final String[] externalInitMethods = new String[] {"$jacocoInit", "$gzoltarInit"};
+
     /**
      * Load all the classes with given name with the provided input classloader.
      * Those classes are all supposed to be instrumented.
@@ -63,6 +66,8 @@ public class ClassStateSupport {
 		if(classes.size() != classNames.length) {
 			problem = true;
 		}
+
+		initialiseExternalTools(classLoader, classes);
 
 		if(RuntimeSettings.isUsingAnyMocking()) {
 
@@ -93,6 +98,32 @@ public class ClassStateSupport {
 		//retransformIfNeeded(classes); // cannot do it, as retransformation does not really work :(
 	}
 
+	/*
+	 * If a class is instrumented by Jacoco, GZoltar, or any other similar coverage-based
+	 * tool, we need to make sure it is initialised so that the shutdownhook is added before
+	 * the first test is executed.
+	 */
+	private static void initialiseExternalTools(ClassLoader classLoader, List<Class<?>> classes) {
+
+		for (String externalInitMethod : externalInitMethods) {
+			for(Class<?> clazz : classes) {
+				try {
+					Method initMethod = clazz.getDeclaredMethod(externalInitMethod);
+					logger.error("Found {} in class {}", externalInitMethod, clazz.getName());
+					initMethod.setAccessible(true);
+					initMethod.invoke(null);
+					// Once it has been invoked the agent should be loaded and we're done
+					break;
+				} catch (NoSuchMethodException e) {
+					// No instrumentation, no need to do anything
+				} catch (Throwable e) {
+					logger.info("Error while checking for {} in class {}: {}", externalInitMethod, clazz.getName(), e.getMessage());
+
+				}
+			}
+		}
+	}
+
 	/**
 	 * Reset the static state of all the given classes.
 	 *
@@ -103,9 +134,8 @@ public class ClassStateSupport {
 	 * @param classNames
 	 */
 	public static void resetClasses(String... classNames) {
-		for (int i=0; i< classNames.length;i++) {
-			String classNameToReset = classNames[i];
-			ClassResetter.getInstance().reset(classNameToReset); 
+		for (String classNameToReset : classNames) {
+			ClassResetter.getInstance().reset(classNameToReset);
 		}
 	}
 
@@ -119,27 +149,25 @@ public class ClassStateSupport {
 
 		//assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode();
 
-		for (int i=0; i< classNames.length;i++) {
+		for (final String className : classNames) {
 
 			org.evosuite.runtime.Runtime.getInstance().resetRuntime();
-
-			String classNameToLoad = classNames[i];
 
 			Sandbox.goingToExecuteSUTCode();
 			boolean wasLoopCheckOn = LoopCounter.getInstance().isActivated();
 
 			try {
-				if(!safe){
+				if (!safe) {
 					Sandbox.goingToExecuteUnsafeCodeOnSameThread();
 				}
 				LoopCounter.getInstance().setActive(false);
-				Class<?> aClass = Class.forName(classNameToLoad, true, classLoader);
+				Class<?> aClass = Class.forName(className, true, classLoader);
 				classes.add(aClass);
 
 			} catch (Exception | Error ex) {
-				AtMostOnceLogger.error(logger,"Could not initialize " + classNameToLoad + ": " + ex.getMessage());
+				AtMostOnceLogger.error(logger, "Could not initialize " + className + ": " + ex.getMessage());
 			} finally {
-				if(!safe){
+				if (!safe) {
 					Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
 				}
 				Sandbox.doneWithExecutingSUTCode();

@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -19,10 +19,10 @@
  */
 package org.evosuite.symbolic.solver.cvc4;
 
-import org.evosuite.symbolic.expr.ConstraintVisitor;
-import org.evosuite.symbolic.expr.IntegerConstraint;
-import org.evosuite.symbolic.expr.RealConstraint;
-import org.evosuite.symbolic.expr.StringConstraint;
+import org.evosuite.symbolic.expr.constraint.ConstraintVisitor;
+import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
+import org.evosuite.symbolic.expr.constraint.RealConstraint;
+import org.evosuite.symbolic.expr.constraint.StringConstraint;
 
 final class NonLinearConstraintVisitor implements ConstraintVisitor<Boolean, Void> {
 

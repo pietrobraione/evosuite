@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -24,7 +24,7 @@ package com.examples.with.different.packagename.fm;
  */
 public class SimpleFM_String {
 
-    public static interface Foo{
+    public interface Foo{
         String foo();
     }
 

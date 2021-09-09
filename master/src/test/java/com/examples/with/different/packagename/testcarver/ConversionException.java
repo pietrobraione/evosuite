@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -30,6 +30,7 @@ package com.examples.with.different.packagename.testcarver;
  */
 
 public class ConversionException extends RuntimeException {
+    private static final long serialVersionUID = -3264207363344909775L;
 
 
     // ----------------------------------------------------------- Constructors

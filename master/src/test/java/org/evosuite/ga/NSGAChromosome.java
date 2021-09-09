@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -21,6 +21,7 @@ package org.evosuite.ga;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ConstructionFailedException;
@@ -33,22 +34,21 @@ import org.evosuite.utils.Randomness;
  * 
  * @author José Campos
  */
-public class NSGAChromosome extends Chromosome
+public class NSGAChromosome extends Chromosome<NSGAChromosome>
 {
 	private static final long serialVersionUID = -2056801838518269049L;
 
 	/**  */
-	private List<Variable> variables = new ArrayList<Variable>();
+	private final List<Variable> variables = new ArrayList<>();
 
 	public NSGAChromosome() {
 		// empty
 	}
 
 	public NSGAChromosome(double lowerBound, double upperBound, double ... values) {
-	    for (int i = 0; i < values.length; i++) {
-	        Variable v = new DoubleVariable(values[i], lowerBound, upperBound);
-	        this.addVariable(v);
-	    }
+		Arrays.stream(values)
+				.mapToObj(v -> new DoubleVariable(v, lowerBound, upperBound))
+				.forEachOrdered(this::addVariable);
     }
 
 	public NSGAChromosome(boolean ZDT4,
@@ -88,7 +88,7 @@ public class NSGAChromosome extends Chromosome
 	}
 
 	@Override
-	public Chromosome clone() {
+	public NSGAChromosome clone() {
 		NSGAChromosome c = new NSGAChromosome();
 		c.setFitnessValues(this.getFitnessValues());
 		c.setPreviousFitnessValues(this.getPreviousFitnessValues());
@@ -101,15 +101,15 @@ public class NSGAChromosome extends Chromosome
 		c.updateAge(this.getAge());
 		c.setRank(this.getRank());
 		c.setDistance(this.getDistance());
+		c.setNumberOfMutations(this.getNumberOfMutations());
+		c.setNumberOfEvaluations(this.getNumberOfEvaluations());
 
 		return c;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this.hashCode() == obj.hashCode())
-			return true;
-		return false;
+		return this.hashCode() == obj.hashCode();
 	}
 
 	@Override
@@ -124,7 +124,7 @@ public class NSGAChromosome extends Chromosome
 	}
 
 	@Override
-	public int compareSecondaryObjective(Chromosome o) {
+	public int compareSecondaryObjective(NSGAChromosome o) {
 		// empty
 		return 0;
 	}
@@ -134,6 +134,7 @@ public class NSGAChromosome extends Chromosome
 	 */
 	@Override
 	public void mutate() {
+		this.increaseNumberOfMutations();
 		for (int i = 0; i < this.getNumberOfVariables(); i++) {
 			Variable v = this.getVariable(i);
 
@@ -177,14 +178,13 @@ public class NSGAChromosome extends Chromosome
 	}
 
 	@Override
-	public void crossOver(Chromosome other, int position1, int position2)
+	public void crossOver(NSGAChromosome other, int position1, int position2)
 	                throws ConstructionFailedException {
 		// empty
 	}
 
 	@Override
-	public boolean localSearch(
-			LocalSearchObjective<? extends Chromosome> objective) {
+	public boolean localSearch(LocalSearchObjective<NSGAChromosome> objective) {
 		// empty
 		return false;
 	}
@@ -193,5 +193,10 @@ public class NSGAChromosome extends Chromosome
 	public int size() {
 		// empty
 		return 0;
+	}
+
+	@Override
+	public NSGAChromosome self() {
+		return this;
 	}
 }

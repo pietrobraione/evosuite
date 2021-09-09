@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -41,11 +41,11 @@ public class MathLong {
 		return a-b;
 	}
 	
-	private Long f = new Long(3215155154115L);
+	private Long f = 3215155154115L;
 	
 	public void unreach() {
 		if (f==null) {
-			f = new Long(3215155154115L);
+			f = 3215155154115L;
 		}
 	}
 	
@@ -54,7 +54,7 @@ public class MathLong {
 	}
 	
 	public long castToLong(long f) {
-		return (long)f;
+		return f;
 	}
 	
 	public char castToChar(long f) {

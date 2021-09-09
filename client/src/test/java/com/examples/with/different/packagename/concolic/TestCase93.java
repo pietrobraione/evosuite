@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,7 +25,7 @@ public class TestCase93 {
 	public static void test(String string0, int catchCount, boolean boolean0) {
 
 		try {
-			new StringBuffer((String) null);
+			new StringBuffer(null);
 		} catch (NullPointerException ex) {
 			catchCount++;
 		}

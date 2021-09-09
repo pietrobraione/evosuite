@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2010-2017 Gordon Fraser, Andrea Arcuri and EvoSuite
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -245,7 +245,7 @@ public class DateConverterTest8 {
         validConversion(converter, defaultValue, "2006-10-2X");
         validConversion(converter, defaultValue, "2006/10/01");
         validConversion(converter, defaultValue, "02/10/06");
-        validConversion(converter, defaultValue, new Integer(2));
+        validConversion(converter, defaultValue, 2);
 
     }
 

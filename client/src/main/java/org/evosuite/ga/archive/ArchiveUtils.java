@@ -38,7 +38,9 @@ import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.mutation.OnlyMutationTestFitness;
 import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.coverage.mutation.WeakMutationTestFitness;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.coverage.rho.RhoCoverageTestFitness;
+import org.evosuite.coverage.seepep.SeepepCoverageGoalFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -174,6 +176,21 @@ public final class ArchiveUtils {
             return true;
           }
           break;
+        case PATHCONDITION:  /*SUSHI: Path condition fitness*/
+            if (goal instanceof BranchCoverageTestFitness || goal instanceof PathConditionCoverageGoalFitness) {
+              return true;
+            }
+            break;
+        case BRANCH_WITH_AIDING_PATH_CONDITIONS: /*SUSHI: Path condition fitness*/
+            if (goal instanceof BranchCoverageTestFitness || goal instanceof PathConditionCoverageGoalFitness) {
+              return true;
+            }
+            break;
+        case SEEPEP: /*SEEPEP: DAG coverage*/
+            if (goal instanceof SeepepCoverageGoalFitness) {
+              return true;
+            }
+            break;
         default:
           AtMostOnceLogger.warn(logger, "Unknown criterion '" + criterion.name() + "'");
           break;

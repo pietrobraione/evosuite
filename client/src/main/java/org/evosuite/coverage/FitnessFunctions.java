@@ -76,10 +76,12 @@ import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageTestFitness;
 import org.evosuite.coverage.readability.ReadabilitySuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageFactory;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.coverage.seepep.SeepepCoverageFactory;
+import org.evosuite.coverage.seepep.SeepepCoverageTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
@@ -291,6 +293,12 @@ public class FitnessFunctions {
 				return InputCoverageTestFitness.class;
 		case TRYCATCH:
 				return TryCatchCoverageTestFitness.class;
+		case PATHCONDITION:
+			return PathConditionCoverageTestFitness.class;  /*SUSHI: Path condition fitness*/
+		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
+			return BranchCoverageTestFitness.class; /*SUSHI: Aiding path conditions*/
+		case SEEPEP:
+			return SeepepCoverageTestFitness.class; /*SEEPEP: DAG coverage*/
 		default:
 				throw new RuntimeException("No criterion defined for " + criterion.name());
 		}

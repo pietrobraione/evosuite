@@ -44,6 +44,13 @@ public class PathConditionManager extends MultiCriteriaManager {
 	public PathConditionManager(List<TestFitnessFunction> targets){
 		super(targets);
 		
+		if (Properties.CRITERION.length == 1) { //PATHCONDITION is the only Criterion, then remove the branch targets initialized by the super class
+			this.currentGoals.clear();
+			this.branchCoverageFalseMap.clear();
+			this.branchCoverageTrueMap.clear();
+			this.branchlessMethodCoverageMap.clear();
+		}
+		
 		//add all path condition goals as current goals
 		for (TestFitnessFunction goal : targets) {
 			if (goal instanceof PathConditionCoverageGoalFitness) {
@@ -51,7 +58,7 @@ public class PathConditionManager extends MultiCriteriaManager {
 			}
 		}
 			
-		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO == null) {
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO != null) {
 			addDependenciesBetweenPathConditionsAndRelevantBranches();
 		}
 	}
@@ -95,7 +102,7 @@ public class PathConditionManager extends MultiCriteriaManager {
 			if (!(goal instanceof PathConditionCoverageGoalFitness) || this.getCurrentGoals().contains(goal)) {
 				continue; // goal is not a path condition or is not yet completed
 			}
-			//for each completed path condition:
+			//for each covered path condition:
 			if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
 				emitTestCase((PathConditionCoverageGoalFitness) goal, (TestChromosome) c);
 			}

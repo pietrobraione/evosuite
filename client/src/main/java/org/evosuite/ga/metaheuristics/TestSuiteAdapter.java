@@ -402,6 +402,10 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
                 algorithm.setCrossOverFunction(new SinglePointFixedCrossOver<>());
             } else if (crossover instanceof SinglePointCrossOver) {
                 algorithm.setCrossOverFunction(new SinglePointCrossOver<>());
+            } else if (crossover instanceof MethodSequencesCrossOver ||  /*SUSHI: Crossover*/
+            		crossover instanceof CrosscontaminationCrossOver ||
+            		crossover instanceof MultiOperatorAlternatingCrossOver) {
+                algorithm.setCrossOverFunction((SushiCrossOver) crossover);
             } else {
                 throw new IllegalArgumentException("cannot adapt crossover " + crossover);
             }
@@ -431,6 +435,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
                 super.addListener(listener);
             } else if (listener instanceof ZeroFitnessStoppingCondition) {
                 super.addListener(listener);
+            } else if (listener instanceof SushiCrossOver) { /*SUSHI: Crossover*/
+                super.addListener(listener);            	
             } else {
                 throw new IllegalArgumentException("cannot adapt listener " + listener);
             }

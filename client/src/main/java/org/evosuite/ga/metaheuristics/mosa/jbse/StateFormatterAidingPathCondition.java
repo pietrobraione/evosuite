@@ -42,6 +42,11 @@ import jbse.val.Primitive;
 import jbse.val.PrimitiveSymbolic;
 import jbse.val.PrimitiveSymbolicApply;
 import jbse.val.PrimitiveSymbolicAtomic;
+import jbse.val.PrimitiveSymbolicHashCode;
+import jbse.val.PrimitiveSymbolicLocalVariable;
+import jbse.val.PrimitiveSymbolicMemberArray;
+import jbse.val.PrimitiveSymbolicMemberArrayLength;
+import jbse.val.PrimitiveSymbolicMemberField;
 import jbse.val.PrimitiveVisitor;
 import jbse.val.ReferenceSymbolic;
 import jbse.val.ReferenceSymbolicApply;
@@ -190,9 +195,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			public void visitSimplex(Simplex x) throws Exception { }
 
 			@Override
-			public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {	}
-
-			@Override
 			public void visitNarrowingConversion(NarrowingConversion x) throws Exception { }
 
 			@Override
@@ -230,6 +232,36 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 			@Override
 			public void visitAny(Any x) { }
+
+			@Override
+			public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
 		};
 
 		try {
@@ -818,14 +850,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			public void visitSimplex(Simplex x) throws Exception { }
 
 			@Override
-			public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {
-				if (symbols.contains(s)) {
-					return;
-				}
-				symbols.add(s);
-			}
-
-			@Override
 			public void visitNarrowingConversion(NarrowingConversion x) throws Exception {
 				x.getArg().accept(this);
 			}
@@ -850,6 +874,46 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 			@Override
 			public void visitAny(Any x) { }
+
+			@Override
+			public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
+				if (symbols.contains(x)) {
+					return;
+				}
+				symbols.add(x);
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
+				if (symbols.contains(x)) {
+					return;
+				}
+				symbols.add(x);
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
+				if (symbols.contains(x)) {
+					return;
+				}
+				symbols.add(x);
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x) throws Exception {
+				if (symbols.contains(x)) {
+					return;
+				}
+				symbols.add(x);
+			}
+
+			@Override
+			public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
+				if (symbols.contains(x)) {
+					return;
+				}
+				symbols.add(x);
+			}
 		};
 
 		try {
@@ -871,8 +935,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			@Override
 			public void visitSimplex(Simplex x) throws Exception { }
 			@Override
-			public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {	}
-			@Override
 			public void visitNarrowingConversion(NarrowingConversion x) throws Exception { }
 			@Override
 			public void visitPrimitiveSymbolicApply(PrimitiveSymbolicApply x) throws Exception { }
@@ -890,6 +952,31 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			}
 			@Override
 			public void visitAny(Any x) { }
+			@Override
+			public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+			@Override
+			public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+			@Override
+			public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+			@Override
+			public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+			@Override
+			public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
 		};
 
 		try {
@@ -1372,11 +1459,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				}
 
 				@Override
-				public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) throws Exception {
-					assumptionWithNoNegation.add(s);
-				}
-
-				@Override
 				public void visitSimplex(Simplex x) throws Exception {
 					assumptionWithNoNegation.add(x);
 				}
@@ -1393,6 +1475,32 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 				@Override
 				public void visitWideningConversion(WideningConversion x) throws Exception {
+					assumptionWithNoNegation.add(x);
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
+					assumptionWithNoNegation.add(x);
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
+					assumptionWithNoNegation.add(x);
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
+					assumptionWithNoNegation.add(x);
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x)
+						throws Exception {
+					assumptionWithNoNegation.add(x);
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
 					assumptionWithNoNegation.add(x);
 				}
 
@@ -1428,12 +1536,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				@Override
 				public void visitSimplex(Simplex x) {
 					translation.add(x.getActualValue().toString());
-				}
-
-				@Override
-				public void visitPrimitiveSymbolicAtomic(PrimitiveSymbolicAtomic s) {
-					makeVariableFor(s);
-					translation.add(getVariableFor(s));
 				}
 
 				@Override
@@ -1527,6 +1629,37 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				@Override
 				public void visitAny(Any x) throws Exception {
 					throw new Exception();
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
+					makeVariableFor(x);
+					translation.add(getVariableFor(x));
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
+					makeVariableFor(x);
+					translation.add(getVariableFor(x));
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
+					makeVariableFor(x);
+					translation.add(getVariableFor(x));
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x)
+						throws Exception {
+					makeVariableFor(x);
+					translation.add(getVariableFor(x));
+				}
+
+				@Override
+				public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
+					makeVariableFor(x);
+					translation.add(getVariableFor(x));
 				}
 			};
 			try {

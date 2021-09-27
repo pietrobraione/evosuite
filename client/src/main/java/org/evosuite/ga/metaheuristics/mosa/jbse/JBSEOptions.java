@@ -227,7 +227,7 @@ public final class JBSEOptions implements Cloneable {
 		final ArrayList<Path> userClasspath = new ArrayList<>();
 		userClasspath.add(getJBSELibraryPath());
 		userClasspath.addAll(getClassesPath());
-		return new Classpath(Paths.get(System.getProperty("java.home")), Collections.emptyList(), userClasspath);
+		return new Classpath(this.jbsePath, Paths.get(System.getProperty("java.home")), Collections.emptyList(), userClasspath);
 
 	}
 	

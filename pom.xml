@@ -37,8 +37,6 @@
         <module>plugins</module>
         <module>standalone_runtime</module>
         <module>shaded</module>
-        <module>sushi-lib</module>
-        <module>../jbse</module>
     </modules>
 
     <prerequisites>

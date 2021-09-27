@@ -148,6 +148,13 @@
             <artifactId>junit-platform-runner</artifactId>
             <version>1.8.0-M1</version>
         </dependency>
+        <dependency>
+		    <groupId>jbse</groupId>
+   			<artifactId>jbse</artifactId>
+   			<version>0.10.0</version>
+   			<scope>system</scope>
+   			<systemPath>${project.basedir}/../jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
+		</dependency>
     </dependencies>
 
     <build>

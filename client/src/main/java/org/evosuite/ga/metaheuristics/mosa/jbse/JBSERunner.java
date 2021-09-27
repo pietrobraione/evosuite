@@ -60,7 +60,7 @@ import jbse.mem.exc.FrozenStateException;
 import jbse.mem.exc.InvalidNumberOfOperandsException;
 import jbse.mem.exc.ThreadStackEmptyException;
 import jbse.rewr.CalculatorRewriting;
-import jbse.rewr.RewriterOperationOnSimplex;
+import jbse.rewr.RewriterExpressionOrConversionOnSimplex;
 import jbse.rules.ClassInitRulesRepo;
 import jbse.tree.StateTree.BranchPoint;
 import jbse.val.Reference;
@@ -185,7 +185,7 @@ public class JBSERunner {
 			
 
 		final CalculatorRewriting calc = new CalculatorRewriting();
-		calc.addRewriter(new RewriterOperationOnSimplex());
+		calc.addRewriter(new RewriterExpressionOrConversionOnSimplex());
 
 		JBSERunner runner = new JBSERunner(); 
 		runner.runProgram(calc);	
@@ -472,12 +472,12 @@ public class JBSERunner {
 
             if (this.postInitial && this.atJump) {
 				this.finalState = currentState.clone();				
-				getEngine().stopCurrentTrace();
+				getEngine().stopCurrentPath();
 				return true;
 			} else if (!currentState.isStuck()) {
 				try {
 					//System.out.println(currentState.getSequenceNumber());
-					this.guid.step(currentState);
+					this.guid.postStep(currentState);
 				} catch (GuidanceException e) {
 					throw new RuntimeException(e); //TODO better exception!
 				}
@@ -508,7 +508,7 @@ public class JBSERunner {
 		}
 		
 		@Override
-		public boolean atTraceEnd() {
+		public boolean atPathEnd() {
 			if (!this.atJump) {
 				System.out.println("WARNING: JBSE GOT TO END-OF-TRACE WITHOUT TRAVERSING THE TARGET BRANCH: POSSIBLE CAUSE IS THAT "
 						+ "JDI GUIDANCE IS INCOMPLETE ON ARRAY-RANGE BRANCHES. THERE ARE " + (atBranchCount - 1) + " SPURIOUS BRANCHES IN THIS TRACE");

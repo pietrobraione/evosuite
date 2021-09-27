@@ -1,3 +1,6 @@
 [submodule "jbse"]
 	path = jbse
 	url = https://github.com/pietrobraione/jbse.git
+[submodule "sushi-lib"]
+	path = sushi-lib
+	url = https://github.com/pietrobraione/sushi-lib.git

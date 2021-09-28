@@ -10,3 +10,6 @@
 - import evosuite as "existing maven project" in Eclipse	
 - [if needed] import sushi-runtime as "existing Gradle project" in Eclipse
 	
+
+- build the shaded jar by executing Maven Build directly in Eclipse with goals: 
+	package -DskipTests

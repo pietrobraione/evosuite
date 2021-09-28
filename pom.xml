@@ -426,6 +426,20 @@
                 <artifactId>oro</artifactId>
                 <version>2.0.8</version>
             </dependency>
+       		<dependency>
+		    	<groupId>jbse</groupId>
+   				<artifactId>jbse</artifactId>
+   				<version>0.10.0</version>
+   				<scope>system</scope>
+   				<systemPath>${project.basedir}/sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
+			</dependency>
+        	<dependency>
+		    	<groupId>sushi-lib</groupId>
+   				<artifactId>sushi-lib</artifactId>
+   				<version>0.2.0</version>
+   				<scope>system</scope>
+   				<systemPath>${project.basedir}/sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
+			</dependency>
 
             <dependency>
                 <!-- Apache 2 -->

@@ -322,7 +322,7 @@ public class CastClassManager {
         return classes.stream() //
                 .filter(TestUsageChecker::canUse) //
                 .filter(filter) //
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /**

@@ -85,7 +85,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		InsnList instrumentation = getInstrumentation(mn, className, methodName, access);
 		if (instrumentation == null)
 			throw new IllegalStateException("error instrumenting method " + className + "::" + methodName);
-		
+
 		// in this case we activate the instrumentation for checking post conditions at the exit of the method
 		if (Properties.POST_CONDITION_CHECK) {
 			instrumentExitPointsForPostconditions(instrumentation, mn, completeCFG); 
@@ -100,14 +100,22 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			}
 			//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
 		} else {
-			AbstractInsnNode firstInstr = mn.instructions.getFirst();
+			final boolean isConstructor = methodName.startsWith("<init>");
 			for (BytecodeInstruction v : completeCFG.vertexSet()) {
-				if (firstInstr.equals(v.getASMNode())) {
-					mn.instructions.insertBefore(v.getASMNode(), instrumentation); /* this should be the default behavior */					
-					mn.maxStack += 7;
+				final AbstractInsnNode node = v.getASMNode();
+				if (isConstructor) {
+					if ( node instanceof MethodInsnNode &&
+						((MethodInsnNode) node).name.equals("<init>") &&
+						((MethodInsnNode) node).owner.equals("java/lang/Object")) {
+						mn.instructions.insertBefore(node.getNext(), instrumentation);				
+						break;
+					}
+				} else if (mn.instructions.getFirst().equals(node)) {
+					mn.instructions.insertBefore(node, instrumentation); /* this should be the default behavior */					
 					break;
 				}
 			}
+			mn.maxStack += 7;
 		}
 	}
 	
@@ -197,7 +205,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}*/
 		
 		try {
-			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0, methodName.startsWith("<init>"));
+			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0);
 		} catch(IllegalStateException e) {
 			throw new IllegalStateException("Method " + className + "." + mn.name + ":" + e.getMessage());
 		}
@@ -239,7 +247,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 	}*/
 
-	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic, boolean isConstructor) {
+	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic) {
 
 		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: either L or [ to refer to non primitive objects or arrays, respectively.
 		int nextParamInDescriptor = 1;
@@ -269,9 +277,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
 			instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
 
-			if (isConstructor && paramIndex == 0) {
-				instrumentation.add(new InsnNode(Opcodes.ACONST_NULL));
-			} else if (paramType == 'Z') {
+			if (paramType == 'Z') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 			} else if (paramType == 'B') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));

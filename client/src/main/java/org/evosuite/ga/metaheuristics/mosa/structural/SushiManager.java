@@ -13,6 +13,7 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.AidingPathConditionGoalFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.mosa.DynaMOSA;
 import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEManager;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -27,8 +28,8 @@ public class SushiManager extends PathConditionManager {
 	private Map<BranchCoverageTestFitness, AidingPathConditionInfoManager> aidingPathConditions = new HashMap<>();	
 	private List<BranchCoverageTestFitness> alreadyAidedGoals = new ArrayList<>();
 	
-	public SushiManager(List<TestFitnessFunction> targets) {
-		super(targets);
+	public SushiManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo) {
+		super(targets, algo);
 	}
 
 	@Override
@@ -391,6 +392,12 @@ public class SushiManager extends PathConditionManager {
 			return aidingPathConditionGoals;
 		}
 
+	}
+
+	@Override
+	public void iteration(GeneticAlgorithm<TestChromosome> algorithm) {
+		super.iteration(algorithm);
+		manageAidingPathConditions(algorithm.getRankingFunction().getSubfront(0), algorithm.getAge());
 	}
 
 }

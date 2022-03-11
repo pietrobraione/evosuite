@@ -316,15 +316,6 @@ public class PropertiesTestGAFactory
 
 		// ga.addListener(new ResourceController<TestChromosome>());
 
-		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) {/*SUSHI: Path condition fitness*/
-			PathConditionCoverageFactory pathConditionFactory = PathConditionCoverageFactory._I();
-			List<PathConditionCoverageGoalFitness> goals = pathConditionFactory.getCoverageGoals();
-			
-			for (PathConditionCoverageGoalFitness g : goals) {
-				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
-			}
-			ExecutionTracer.logEvaluatorsForPathConditions();
-		}
 		return ga;
 	}
 

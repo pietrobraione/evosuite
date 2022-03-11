@@ -34,7 +34,7 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	private final String methodName;
 	private final String evaluatorName;
 	private final int pathConditionId;
-	
+	private String customDescription = null; //set when the evaluator object is created
 
 	/**
 	 * @param className
@@ -81,6 +81,10 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	public String getEvaluatorName() {
 		return evaluatorName;
 	}
+	
+	public void setCustomDescription(String customDescription) {
+		this.customDescription = customDescription;
+	}
 
 	/**
 	 * <p>
@@ -109,7 +113,9 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	 */
 	@Override
 	public String toString() {
-		String name = className + "." + methodName + ": path condition " + evaluatorName + " (id = " + pathConditionId + ")";
+		String name = className + "." + methodName + 
+				(customDescription != null ? ": " + customDescription : "") + 
+				" -- path condition " + evaluatorName + " (id = " + pathConditionId + ")";
 		return name;
 	}
 

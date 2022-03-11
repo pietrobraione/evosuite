@@ -1918,7 +1918,46 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	@Override
 	public void passedPathCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info("--computed d: " + distance + ", pc = " + pathConditionID);
+		//LoggingUtils.getEvoLogger().info("--path condition distance is d: " + distance + ", pc = " + pathConditionID);
+		if (Properties.POST_CONDITION_CHECK) {
+			tempDistances.put(pathConditionID, distance);
+			return;
+		}
+		synchronized (pathConditionDistances) {
+			Double currentDistance = pathConditionDistances.get(pathConditionID);
+			if (currentDistance == null) {
+				pathConditionDistances.put(pathConditionID, distance);
+			} else if (Properties.PATH_CONDITION_TARGET != PathConditionTarget.FIRST_ONLY) {				
+				if (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST) {
+					distance = Math.min(currentDistance, distance);
+				} /* else PathConditionTarget.LAST_ONLY, meaning that the new value must replace the old one*/
+				
+				pathConditionDistances.put(pathConditionID, distance);			
+			} /* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
+		}
+	}
+
+	public Map<Integer, Double> tempDistances = Collections.synchronizedMap(new HashMap<Integer, Double>());/*SUSHI: Path condition fitness*/
+
+	@Override
+	public void passedPostCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info("--post condition distance is d: " + distance + ", pc = " + pathConditionID);
+		Double tempDistance = tempDistances.remove(pathConditionID);
+		if (tempDistance == null) {
+			throw new EvosuiteError("Unexpected sequence when evaluating post-condition, "
+					+ "since there is no temporarily stored distance for the precodition that "
+					+ "relates to path condition with id = " + pathConditionID);
+		} else if (tempDistance < 0) {
+			throw new EvosuiteError("Unexpected negative distance (" + tempDistance + ") "
+					+ "when evaluating the post-condition that "
+					+ "relates to path condition with id = " + pathConditionID);
+			
+		} else if (tempDistance > 0) {
+			distance = tempDistance + 1d; //the precondition did not converge yet, thus we add the maximum 1 as post-condition distance
+		} else { //tempDistance == 0
+			distance = distance / (1 + distance); //the precondition converged already, thus the distance corresponds to the post-condition distance normalized in interval (0, 1)
+		}
+		
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
 			if (currentDistance == null) {

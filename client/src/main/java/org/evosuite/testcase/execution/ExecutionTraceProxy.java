@@ -741,6 +741,12 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
+	public void passedPostCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+		copyOnWrite();
+		trace.passedPostCondition(pathConditionID, distance);		
+	}
+
+	@Override
 	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
 		return trace.getPathConditionDistances();
 	}

@@ -630,6 +630,7 @@ public interface ExecutionTrace {
 	 *            the distance of the current trace from satisfying the path condition.
 	 */
 	public void passedPathCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
+	public void passedPostCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
 	
 	/**
 	 * Retrieve map of all minimal path condition distances

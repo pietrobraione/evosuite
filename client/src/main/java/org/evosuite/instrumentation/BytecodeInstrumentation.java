@@ -30,6 +30,7 @@ import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEBytecodeRelocationRegistry;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
+import org.evosuite.instrumentation.coverage.MonitorAnyExceptionTansformationClassAdapter;
 import org.evosuite.instrumentation.error.ErrorConditionClassAdapter;
 import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation;
 import org.evosuite.instrumentation.testability.ComparisonTransformation;
@@ -234,6 +235,10 @@ public class BytecodeInstrumentation {
 			cv = new ExecutionPathClassAdapter(cv, className);
 
 			cv = new CFGClassAdapter(classLoader, cv, className);
+
+			if (Properties.POST_CONDITION_CHECK) { /*SUSHI: Path condition fitness*/
+				cv = new MonitorAnyExceptionTansformationClassAdapter(cv, className);
+			}
 
 			if (Properties.EXCEPTION_BRANCHES) {
 				cv = new ExceptionTransformationClassAdapter(cv, className);

@@ -284,8 +284,8 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double REFLECTION_START_PERCENT = 0.8;
 
-	@Parameter(key = "p_functional_mocking", group = "Test Creation", description = "Probability [0,1] of using functional mocking (eg Mockito) when creating object instances")
-	@DoubleValue(min = 0.0, max = 1.0)
+    @Parameter(key = "p_functional_mocking", group = "Test Creation", description = "Probability [0,1] of using functional mocking (eg Mockito) when creating object instances")
+    @DoubleValue(min = 0.0, max = 1.0)
 	public static double P_FUNCTIONAL_MOCKING = 0.0; // Optimal value: 0.8
 
 	@Parameter(key = "mock_if_no_generator", group = "Test Creation", description = "Allow mock objects if there are no generators")
@@ -1551,6 +1551,14 @@ public class Properties {
 	@Parameter(key = "path_condition_check_at_method_exit", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured after the corresponding method terminates, as opposite of the default behavior that checks the path condition against the method parameters at the invocation of the method")
 	public static boolean PATH_CONDITION_CHECK_AT_METHOD_EXIT = false;/*SUSHI: Path condition fitness*/
 
+	/** Constant <code>POST_CONDITION_CHECK=""</code> */
+	@Parameter(key = "post_condition_check", group = "SUSHI", description = "When using path condition fitness, the fitness of a test case is measured with reference to both the provided path condition (test0 in the evaluator) and the provided post condition (test1 in the evaluator). The path condition is evaluated at the entry of the method, and the post condition is evaluated after the corresponding method terminates.")
+	public static boolean POST_CONDITION_CHECK = false; /*SUSHI: Path condition fitness*/
+	
+	/** Constant <code>CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS=""</code> */
+	@Parameter(key = "check_path_conditions_only_for_direct_calls", group = "SUSHI", description = "When using path condition fitness, the path condititions are checked also for indirect calls, otherwise they are checked only for target methods called directly from test cases")
+	public static boolean CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS = false; /*SUSHI: Path condition fitness*/
+	
 	/** Constant <code>SUSHI_STATISTICS=""</code> */
 	@Parameter(key = "sushi_statistics", group = "SUSHI", description = "Print sushi statistics upon termination")
 	public static boolean SUSHI_STATISTICS = false; /*SUSHI: Statistics*/

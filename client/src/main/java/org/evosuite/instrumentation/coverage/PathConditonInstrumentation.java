@@ -22,6 +22,7 @@
  */
 package org.evosuite.instrumentation.coverage;
 
+import java.util.ListIterator;
 import java.util.Set;
 
 import org.evosuite.Properties;
@@ -69,7 +70,6 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 	 * java.lang.String, int)
 	 */
 	/** {@inheritDoc} */
-	@SuppressWarnings("unchecked")
 	@Override
 	public void analyze(ClassLoader classLoader, MethodNode mn, String className,
 			String methodName, int access) {
@@ -82,30 +82,83 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 		LoggingUtils.getEvoLogger().info("Instrumenting {}::{}", className, methodName);
 		
-		AbstractInsnNode firstInstr = mn.instructions.getFirst();
-		for (BytecodeInstruction v : completeCFG.vertexSet()) {
-			if (firstInstr.equals(v.getASMNode())) {
-				InsnList instrumentation = getInstrumentation(v, mn, className, methodName, access);
-
-				if (instrumentation == null)
-					throw new IllegalStateException("error instrumenting node "
-							+ v.toString());
-				if (Properties.PATH_CONDITION_CHECK_AT_METHOD_EXIT) {
-					//THE FOLLOWING IS WRONG, IT MEANS INSERT AFTER THE FIRST INSTRUCTION
-					//	mn.instructions.insert(v.getASMNode(), instrumentation);
-					//FIXED AS FOLLOWS:
-					Set<BytecodeInstruction> exitPoints = completeCFG.determineExitPoints();
-					for (BytecodeInstruction exitP: exitPoints) {
-						mn.instructions.insertBefore(exitP.getASMNode(), instrumentation);					
-					}
-					//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
-				} else {
+		InsnList instrumentation = getInstrumentation(mn, className, methodName, access);
+		if (instrumentation == null)
+			throw new IllegalStateException("error instrumenting method " + className + "::" + methodName);
+		
+		// in this case we activate the instrumentation for checking post conditions at the exit of the method
+		if (Properties.POST_CONDITION_CHECK) {
+			instrumentExitPointsForPostconditions(instrumentation, mn, completeCFG); 
+		}
+		
+		if (Properties.PATH_CONDITION_CHECK_AT_METHOD_EXIT) {
+			/* TODO: PATH_CONDITION_CHECK_AT_METHOD_EXIT is now deprecated: we should use POST_CONDITION_CHECK 
+			 * when this is needed. For now, we keep it for backward compatibility with SEEPEP */
+			Set<BytecodeInstruction> exitPoints = completeCFG.determineExitPoints();
+			for (BytecodeInstruction exitP: exitPoints) {
+				mn.instructions.insertBefore(exitP.getASMNode(), cloneInstrumentation(instrumentation));					
+			}
+			//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
+		} else {
+			AbstractInsnNode firstInstr = mn.instructions.getFirst();
+			for (BytecodeInstruction v : completeCFG.vertexSet()) {
+				if (firstInstr.equals(v.getASMNode())) {
 					mn.instructions.insertBefore(v.getASMNode(), instrumentation); /* this should be the default behavior */					
+					mn.maxStack += 7;
+					break;
 				}
-				mn.maxStack += 7;
-				break;
 			}
 		}
+	}
+	
+	private void instrumentExitPointsForPostconditions(InsnList instrumentation, MethodNode mn, RawControlFlowGraph completeCFG) {
+		char retType = mn.desc.charAt(mn.desc.indexOf(')') + 1);
+		BytecodeInstruction instrumentedAllExitingExceptionThrow = null;
+		for (BytecodeInstruction exitP : completeCFG.vertexSet()) {
+			if (exitP.canBeExitPoint()) {
+				InsnList instrumentationPostCond = cloneInstrumentation(instrumentation, instrumentation.size() - 1);
+				InsnList instr = new InsnList();
+				if (exitP.isThrow()) {
+					instrumentedAllExitingExceptionThrow = exitP; // postpone instrumentation (see below)
+					continue;
+				} else if (retType == 'V') {
+					instr.add(new InsnNode(Opcodes.ACONST_NULL)); // instrument with null return value
+				} else {
+					if (retType == 'J' || retType == 'D') {
+						instr.insert(new InsnNode(Opcodes.DUP2));						
+					} else {
+						instr.insert(new InsnNode(Opcodes.DUP));
+					}
+					addBoxingForPrimitiveValueIfNeeded(instr, retType); // instrument with (possibly boxed) return value
+				}
+				instrumentationPostCond.insert(instr);
+				instrumentationPostCond.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+						EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", false));
+				mn.instructions.insertBefore(exitP.getASMNode(), instrumentationPostCond);					
+			}
+		}
+		if (instrumentedAllExitingExceptionThrow != null) { 
+			InsnList instrumentationPostCond = cloneInstrumentation(instrumentation, instrumentation.size() - 1);
+			InsnList instr = new InsnList();
+			instr.insert(new InsnNode(Opcodes.DUP)); //instrument with the exception as return value					
+			instrumentationPostCond.insert(instr);
+			instrumentationPostCond.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+					EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", false));
+			mn.instructions.insertBefore(instrumentedAllExitingExceptionThrow.getASMNode(), instrumentationPostCond);					
+		}
+	}
+
+	private InsnList cloneInstrumentation(InsnList instrumentation) {
+		return cloneInstrumentation(instrumentation, instrumentation.size());
+	}
+
+	private InsnList cloneInstrumentation(InsnList instrumentation, int lengthToCopy) {
+		InsnList clone = new InsnList();
+		ListIterator<AbstractInsnNode> it = instrumentation.iterator();
+		for (int i = 0; i < lengthToCopy && it.hasNext(); i++) {
+			clone.add(it.next().clone(null)); //passing null as clonedLabels should be fine for the type of nodes in our instrumentation
+		}
+		return clone;
 	}
 
 	/**
@@ -117,10 +170,8 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 	 *            a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 * @return a {@link org.objectweb.asm.tree.InsnList} object.
 	 */
-	protected InsnList getInstrumentation(BytecodeInstruction instruction, MethodNode mn, String className,
+	protected InsnList getInstrumentation(MethodNode mn, String className,
 	        String methodName, int access) {
-		if (instruction == null)
-			throw new IllegalArgumentException("null given");
 
 		InsnList instrumentation = new InsnList();
 		
@@ -190,7 +241,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 
 	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic, boolean isConstructor) {
 
-		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: both L and [ refer to non primitive params
+		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: either L or [ to refer to non primitive objects or arrays, respectively.
 		int nextParamInDescriptor = 1;
 		while (methodDescr.charAt(nextParamInDescriptor) != ')') {
 			char paramType = methodDescr.charAt(nextParamInDescriptor++);
@@ -222,37 +273,52 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 				instrumentation.add(new InsnNode(Opcodes.ACONST_NULL));
 			} else if (paramType == 'Z') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
 			} else if (paramType == 'B') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;"));
 			} else if (paramType == 'C') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;"));
 			} else if (paramType == 'S') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;"));
 			} else if (paramType == 'I') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;"));
 			} else if (paramType == 'J') {
 				instrumentation.add(new VarInsnNode(Opcodes.LLOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;"));
 				paramByteCodeIndex++;
 			} else if (paramType == 'F') {
 				instrumentation.add(new VarInsnNode(Opcodes.FLOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;"));
 			} else if (paramType == 'D') {
 				instrumentation.add(new VarInsnNode(Opcodes.DLOAD, paramByteCodeIndex));
-				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;"));
 				paramByteCodeIndex++;
 			} else {
 				instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramByteCodeIndex));
 			}
-
+			addBoxingForPrimitiveValueIfNeeded(instrumentation, paramType); 
+			
 			instrumentation.add(new InsnNode(Opcodes.AASTORE));
 		}
 
+	}
+
+	private void addBoxingForPrimitiveValueIfNeeded(InsnList instrumentation, char valueType) {
+		if (valueType == 'Z') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
+		} else if (valueType == 'B') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;"));
+		} else if (valueType == 'C') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;"));
+		} else if (valueType == 'S') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;"));
+		} else if (valueType == 'I') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;"));
+		} else if (valueType == 'J') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;"));
+		} else if (valueType == 'F') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;"));
+		} else if (valueType == 'D') {
+			instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;"));
+		} else {
+			/* non primitive type: add nothing */
+		}
 	}
 
 	/*

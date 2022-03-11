@@ -87,6 +87,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			if (firstInstr.equals(v.getASMNode())) {
 				InsnList instrumentation = getInstrumentation(v, mn, className, methodName, access);
 
+				final boolean isConstructor = methodName.startsWith("<init>");
 				if (instrumentation == null)
 					throw new IllegalStateException("error instrumenting node "
 							+ v.toString());
@@ -99,6 +100,19 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 						mn.instructions.insertBefore(exitP.getASMNode(), instrumentation);					
 					}
 					//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
+				} else if (isConstructor) {
+					//the type of the 0 ('this') parameter of a constructor is 
+					//a special uninitializedThis type that is incompatible with 
+					//any other type, thus it cannot be stored in the array before
+					//it is returned by the java/lang/Object constructor
+					for (BytecodeInstruction v2 : completeCFG.vertexSet()) {
+						final AbstractInsnNode n = v2.getASMNode();
+						if (n instanceof MethodInsnNode &&
+							((MethodInsnNode) n).name.equals("<init>") &&
+							((MethodInsnNode) n).owner.equals("java/lang/Object")) {
+							mn.instructions.insertBefore(n.getNext(), instrumentation);						
+						}
+					}
 				} else {
 					mn.instructions.insertBefore(v.getASMNode(), instrumentation); /* this should be the default behavior */					
 				}
@@ -146,7 +160,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}*/
 		
 		try {
-			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0, methodName.startsWith("<init>"));
+			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0);
 		} catch(IllegalStateException e) {
 			throw new IllegalStateException("Method " + className + "." + mn.name + ":" + e.getMessage());
 		}
@@ -188,7 +202,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 	}*/
 
-	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic, boolean isConstructor) {
+	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic) {
 
 		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: both L and [ refer to non primitive params
 		int nextParamInDescriptor = 1;
@@ -218,9 +232,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
 			instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
 
-			if (isConstructor && paramIndex == 0) {
-				instrumentation.add(new InsnNode(Opcodes.ACONST_NULL));
-			} else if (paramType == 'Z') {
+			if (paramType == 'Z') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;"));
 			} else if (paramType == 'B') {

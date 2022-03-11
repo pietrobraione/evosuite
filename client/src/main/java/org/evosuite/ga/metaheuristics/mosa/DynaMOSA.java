@@ -82,10 +82,6 @@ public class DynaMOSA extends AbstractMOSA {
 	protected void evolve() {
 		int goodCrosoversAtBegin = goodOffsprings; /*SUSHI: Reset*/
 
-		if (goalsManager instanceof SushiManager) { /*SUSHI: Aiding path conditions*/
-			((SushiManager) goalsManager).manageAidingPathConditions(rankingFunction.getSubfront(0), currentIteration);
-		}
-		
 		// Generate offspring, compute their fitness, update the archive and coverage goals.
 		List<TestChromosome> offspringPopulation = this.breedNextGeneration();
 
@@ -339,9 +335,9 @@ public class DynaMOSA extends AbstractMOSA {
 		// Set up the targets to cover, which are initially free of any control dependencies.
 		// We are trying to optimize for multiple targets at the same time.
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
-			goalsManager = new PathConditionManager(fitnessFunctions);
+			goalsManager = new PathConditionManager(fitnessFunctions, this);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-			goalsManager = new SushiManager(fitnessFunctions);			
+			goalsManager = new SushiManager(fitnessFunctions, this);			
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)){ /*SEEPEP: DAG coverage*/
 			ExecutionTracer.enableSeepepTracing();
 			goalsManager = new SeepepManager(fitnessFunctions);

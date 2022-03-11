@@ -60,4 +60,8 @@ public interface MasterNodeRemote extends Remote {
 	void evosuite_migrate(String clientRmiIdentifier, Set<? extends Chromosome<?>> migrants) throws RemoteException;
 
     void evosuite_collectBestSolutions(String clientRmiIdentifier, Set<? extends Chromosome<?>> solutions) throws RemoteException;
+    
+    boolean evosuite_injectFitnessFunction(String classCanonicalName, String methodNameAndDescriptor, String evaluatorName) throws RemoteException;
+    
+    String evosuite_retrieveInjectedFitnessFunctions() throws RemoteException;
 }

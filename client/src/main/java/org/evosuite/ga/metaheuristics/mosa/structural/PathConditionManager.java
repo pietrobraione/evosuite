@@ -16,7 +16,9 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
@@ -29,7 +31,7 @@ import org.evosuite.utils.LoggingUtils;
  * @author Giovanni Denaro
  * 
  */
-public class PathConditionManager extends MultiCriteriaManager {
+public class PathConditionManager extends MultiCriteriaManager implements SearchListener<TestChromosome> {
 
 	private static final long serialVersionUID = -9076875100376403089L;
 
@@ -39,10 +41,12 @@ public class PathConditionManager extends MultiCriteriaManager {
 	/**
 	 * Constructor used to initialize the set of uncovered goals, and the initial set
 	 * of goals to consider as initial contrasting objectives
+	 * @param a 
 	 * @param fitnessFunctions List of all FitnessFunction<T>
 	 */
-	public PathConditionManager(List<TestFitnessFunction> targets){
+	public PathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo){
 		super(targets);
+		algo.addListener(this);
 		
 		if (Properties.CRITERION.length == 1) { //PATHCONDITION is the only Criterion, then remove the branch targets initialized by the super class
 			this.currentGoals.clear();
@@ -50,20 +54,25 @@ public class PathConditionManager extends MultiCriteriaManager {
 			this.branchCoverageTrueMap.clear();
 			this.branchlessMethodCoverageMap.clear();
 		}
-		
+		addPathConditionGoals(targets);
+	}
+
+	private void addPathConditionGoals(List<? extends TestFitnessFunction> targets) {
 		//add all path condition goals as current goals
 		for (TestFitnessFunction goal : targets) {
 			if (goal instanceof PathConditionCoverageGoalFitness) {
 				this.currentGoals.add(goal);
+				ExecutionTracer.addEvaluatorForPathCondition(((PathConditionCoverageGoalFitness) goal).getPathConditionGoal());
 			}
 		}
+		ExecutionTracer.logEvaluatorsForPathConditions();
 			
 		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO != null) {
-			addDependenciesBetweenPathConditionsAndRelevantBranches();
-		}
+			addDependenciesBetweenPathConditionsAndRelevantBranches(this.currentGoals);
+		}		
 	}
-
-	private void addDependenciesBetweenPathConditionsAndRelevantBranches() {
+	
+	private void addDependenciesBetweenPathConditionsAndRelevantBranches(Set<TestFitnessFunction> goals) {
 		List<BranchCoverageGoal> relevantBranches = new ArrayList<>();
 		for (TestFitnessFunction goal : this.getUncoveredGoals()){
 			if (goal instanceof BranchCoverageTestFitness) {
@@ -71,7 +80,7 @@ public class PathConditionManager extends MultiCriteriaManager {
 			}
 		}
 
-		for (TestFitnessFunction goal : this.getUncoveredGoals()) {
+		for (TestFitnessFunction goal : goals) {
 			if (!(goal instanceof PathConditionCoverageGoalFitness)) continue;
 			PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
 			
@@ -192,5 +201,42 @@ public class PathConditionManager extends MultiCriteriaManager {
 			doneWithPathCondition(pc);
 		}
 	}
+
+
+	/* 
+	 * Implement the SearchListener interface to be notified at each iteration
+	 */
+	
+	@Override
+	public void iteration(GeneticAlgorithm<TestChromosome> algorithm) {
+		List<PathConditionCoverageGoalFitness> newGoals = PathConditionCoverageFactory._I().getNewlyInjectedCoverageGoals();
+		if (newGoals == null) { // No new goals were recently injected
+			return;
+		}
+
+		LoggingUtils.getEvoLogger().info("\n\n* RETRIEVED NEWLY INJECTED PATH CONDITION GOALS: " + newGoals);
+		addPathConditionGoals(newGoals);
+
+		// We update the fitness of the population for the new goals
+		List<TestChromosome> population = algorithm.getPopulation();
+		for (TestChromosome chromosome: population) { 
+			chromosome.setChanged(true);
+			for (TestFitnessFunction ff: newGoals) {
+				chromosome.getFitness(ff); 
+			}
+		}
+	}
+
+	@Override
+	public void searchStarted(GeneticAlgorithm<TestChromosome> algorithm) { /* do nothing */ }
+
+	@Override
+	public void searchFinished(GeneticAlgorithm<TestChromosome> algorithm) { /* do nothing */ }
+
+	@Override
+	public void fitnessEvaluation(TestChromosome individual) { /* do nothing */ }
+
+	@Override
+	public void modification(TestChromosome individual) { /* do nothing */ }
 	
 }

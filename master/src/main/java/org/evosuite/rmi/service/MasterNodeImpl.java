@@ -19,6 +19,7 @@
  */
 package org.evosuite.rmi.service;
 
+import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
@@ -28,12 +29,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.result.TestGenerationResult;
+import org.evosuite.rmi.MasterServices;
 import org.evosuite.statistics.SearchStatistics;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.Listener;
@@ -243,4 +247,40 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 			listener.receiveEvent(event);
 		}
 	}
+
+	private ConcurrentLinkedQueue<String> injectedFF = new ConcurrentLinkedQueue<>();
+	
+	@Override
+	public boolean evosuite_injectFitnessFunction(String classCanonicalName, String methodNameAndDescriptor, String evaluatorName) throws RemoteException {
+		String ff = classCanonicalName + "," + methodNameAndDescriptor + "," + evaluatorName;
+		try {
+			synchronized (injectedFF) {
+				return injectedFF.add(ff);
+			}
+		} catch (Throwable e) {
+            logger.error("Cannot store the injected fitness function: " + ff, e);
+			return false;
+		}
+	}
+
+	@Override
+	public String evosuite_retrieveInjectedFitnessFunctions() throws RemoteException {
+		try {
+			String ret = null;
+			String ff;
+			synchronized (injectedFF) {
+				while ((ff = injectedFF.poll()) != null) {
+					ret = ret == null ? ff : ret + ":" + ff;
+				}
+			}
+			if (ret != null) {
+				logger.info("Injecting new fitness funtions: " + ret);
+			}
+			return ret;
+		} catch (Throwable e) {
+            logger.error("Error while trying to retrieve the injected fitness function from master node", e);
+			return null;
+		}
+	}
+	
 }

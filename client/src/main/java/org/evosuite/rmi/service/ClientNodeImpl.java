@@ -579,4 +579,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         
         return null;
     }
+
+	@Override
+	public String retrieveInjectedFitnessFunctions() {
+		try {
+			return masterNode.evosuite_retrieveInjectedFitnessFunctions();
+		} catch (RemoteException e) {
+            logger.error(ClientProcess.getPrettyPrintIdentifier() + "Cannot retrieve injected fitness functions from master", e);
+            return null;
+		}
+	}
 }

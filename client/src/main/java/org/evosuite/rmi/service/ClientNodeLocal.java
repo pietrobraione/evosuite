@@ -55,4 +55,6 @@ public interface ClientNodeLocal<T extends Chromosome<T>> extends Listenable<Set
 	void sendBestSolution(Set<T> solutions);
 
     Set<Set<T>> getBestSolutions();
+    
+    String retrieveInjectedFitnessFunctions();
 }

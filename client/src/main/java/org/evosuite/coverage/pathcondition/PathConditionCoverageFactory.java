@@ -33,6 +33,7 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.pathcondition.PathConditionTraversedBranch.NeverTraversedException;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -62,17 +63,11 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 		}
 		return _I;
 	}
-	
+
 	private PathConditionCoverageFactory() {
 		super();
 		long start = System.currentTimeMillis();
-		int id = 0;
-		for (String pathCondition : Properties.PATH_CONDITION) {
-			String parts[] = Properties.pathConditionSplitClassMethodEvaluator(pathCondition);
-			PathConditionCoverageGoalFitness goal = createPathConditionCoverageTestFitness(id, parts[0], parts[1], parts[2]);
-			coverageGoals.put(goal, new HashSet<>());
-			id++;
-		}
+		addGoals(Properties.PATH_CONDITION);
 		goalComputationTime = System.currentTimeMillis() - start;	
 	}
 
@@ -88,6 +83,32 @@ public class PathConditionCoverageFactory extends AbstractFitnessFactory<PathCon
 		return new LinkedList<>(coverageGoals.keySet());
 	}
 	
+	public List<PathConditionCoverageGoalFitness>  getNewlyInjectedCoverageGoals() {
+		String retrievedFromMaster = ClientServices.getInstance().getClientNode().retrieveInjectedFitnessFunctions();
+		if (retrievedFromMaster != null) {
+			String[] goalSpecs = retrievedFromMaster.split(":");
+			return addGoals(goalSpecs);			
+		} else {
+			return null;
+		}
+	}
+	
+	private List<PathConditionCoverageGoalFitness> addGoals(String[] goalSpecs) {
+		final ArrayList<PathConditionCoverageGoalFitness> ret = new ArrayList<>();
+		int id = coverageGoals.size(); //first not-yet taken id
+		for (String spec : goalSpecs) {
+			String parts[] = Properties.pathConditionSplitClassMethodEvaluator(spec);
+			if (parts.length != 3) {
+				LoggingUtils.getEvoLogger().info("Wrongly specified path condition goal. Skipping this goal: " + spec);
+				continue;
+			}
+			PathConditionCoverageGoalFitness goal = createPathConditionCoverageTestFitness(id, parts[0], parts[1], parts[2]);
+			coverageGoals.put(goal, new HashSet<>());
+			ret.add(goal);
+			id++;
+		}		
+		return ret;
+	}
 	public Set<BranchCoverageGoal> getBranchCovInfo(PathConditionCoverageGoalFitness pc, List<BranchCoverageGoal> searchRelevantBranches) {
 		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO == null) {
 			return new HashSet<>(); 

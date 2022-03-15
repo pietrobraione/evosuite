@@ -48,7 +48,6 @@ import java.util.List;
  * Test generation with MOSA
  * 
  * @author Annibale,Fitsum
- *
  */
 public class MOSuiteStrategy extends TestGenerationStrategy {
 

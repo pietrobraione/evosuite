@@ -20,15 +20,16 @@
 
 package org.evosuite.testcase.execution;
 
+import org.evosuite.coverage.dataflow.DefUse;
+import org.evosuite.setup.CallContext;
+import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.coverage.seepep.SeepepTraceItem;
-import org.evosuite.setup.CallContext;
-import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
 /**
  * <p>
@@ -55,8 +56,7 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * Constructor for ExecutionTraceProxy.
 	 * </p>
 	 * 
-	 * @param trace
-	 *            a {@link org.evosuite.testcase.execution.ExecutionTraceImpl}
+     * @param trace a {@link org.evosuite.testcase.execution.ExecutionTraceImpl}
 	 *            object.
 	 */
 	public ExecutionTraceProxy(ExecutionTraceImpl trace) {
@@ -69,7 +69,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#branchPassed(int, int, double,
 	 * double)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void branchPassed(int branch, int bytecode_id, double true_distance, double false_distance) {
 		copyOnWrite();
@@ -81,7 +84,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.IExecutionTrace#clear()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void clear() {
 		copyOnWrite();
@@ -107,7 +113,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * org.evosuite.testcase.IExecutionTrace#definitionPassed(java.lang.Object,
 	 * int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void definitionPassed(Object object, Object caller, int defID) {
 		copyOnWrite();
@@ -121,7 +130,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * org.evosuite.testcase.IExecutionTrace#enteredMethod(java.lang.String,
 	 * java.lang.String, java.lang.Object)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void enteredMethod(String className, String methodName, Object caller) {
 		copyOnWrite();
@@ -134,7 +146,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#exitMethod(java.lang.String,
 	 * java.lang.String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void exitMethod(String classname, String methodname) {
 		copyOnWrite();
@@ -146,7 +161,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.IExecutionTrace#finishCalls()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void finishCalls() {
 		copyOnWrite();
@@ -158,7 +176,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoverageData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Map<String, Map<Integer, Integer>>> getCoverageData() {
 		return trace.getCoverageData();
@@ -169,7 +190,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredFalseBranches()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredFalseBranches() {
 		return trace.getCoveredFalseBranches();
@@ -181,7 +205,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see
 	 * org.evosuite.testcase.ExecutionTrace#getCoveredLines(java.lang.String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredLines(String className) {
 		return trace.getCoveredLines(className);
@@ -202,7 +229,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredMethods()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<String> getCoveredMethods() {
 		return trace.getCoveredMethods();
@@ -218,7 +248,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredPredicates()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredPredicates() {
 		return trace.getCoveredPredicates();
@@ -229,7 +262,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredTrueBranches()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredTrueBranches() {
 		return trace.getCoveredTrueBranches();
@@ -260,7 +296,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getDefinitionData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getDefinitionData() {
 		return trace.getDefinitionData();
@@ -276,7 +315,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTraceInterface#getExplicitException()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Throwable getExplicitException() {
 		return trace.getExplicitException();
@@ -287,7 +329,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getFalseDistance(int branchId) {
 		return trace.getFalseDistance(branchId);
@@ -298,7 +343,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getFalseDistances() {
 		return trace.getFalseDistances();
@@ -309,7 +357,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMethodCalls()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public List<MethodCall> getMethodCalls() {
 		return trace.getMethodCalls();
@@ -320,7 +371,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMethodExecutionCount()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Integer> getMethodExecutionCount() {
 		return trace.getMethodExecutionCount();
@@ -331,7 +385,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMutationDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getMutationDistance(int mutationId) {
 		return trace.getMutationDistance(mutationId);
@@ -342,7 +399,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMutationDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getMutationDistances() {
 		return trace.getMutationDistances();
@@ -354,7 +414,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.ExecutionTrace#getPassedDefinitions(java.lang.
 	 * String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, HashMap<Integer, Integer>> getPassedDefinitions(String variableName) {
 		return trace.getPassedDefinitions(variableName);
@@ -365,7 +428,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getPassedUses(java.lang.String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, HashMap<Integer, Integer>> getPassedUses(String variableName) {
 		return trace.getPassedUses(variableName);
@@ -376,7 +442,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getPredicateExecutionCount()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Integer> getPredicateExecutionCount() {
 		return trace.getPredicateExecutionCount();
@@ -387,7 +456,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getReturnData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Map<String, Map<Integer, Integer>>> getReturnData() {
 		return trace.getReturnData();
@@ -398,7 +470,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTouchedMutants()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getTouchedMutants() {
 		return trace.getTouchedMutants();
@@ -414,7 +489,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.IExecutionTrace#getTraceForObject(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public ExecutionTrace getTraceForObject(int objectId) {
 		return trace.getTraceForObject(objectId);
@@ -426,7 +504,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#getTraceInDUCounterRange(org.
 	 * evosuite.coverage.dataflow.DefUse, boolean, int, int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public ExecutionTrace getTraceInDUCounterRange(DefUse targetDU, boolean wantToCoverTargetDU, int duCounterStart,
 			int duCounterEnd) {
@@ -438,7 +519,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getTrueDistance(int branchId) {
 		return trace.getTrueDistance(branchId);
@@ -449,7 +533,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getTrueDistances() {
 		return trace.getTrueDistances();
@@ -460,7 +547,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getUseData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getUseData() {
 		return trace.getUseData();
@@ -476,7 +566,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#hasFalseDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean hasFalseDistance(int predicateId) {
 		return trace.hasFalseDistance(predicateId);
@@ -487,7 +580,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#hasTrueDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean hasTrueDistance(int predicateId) {
 		return trace.hasTrueDistance(predicateId);
@@ -498,7 +594,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#lazyClone()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public ExecutionTrace lazyClone() {
 		ExecutionTraceProxy copy = new ExecutionTraceProxy(trace);
@@ -512,7 +611,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#linePassed(java.lang.String,
 	 * java.lang.String, int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void linePassed(String className, String methodName, int line) {
 		copyOnWrite();
@@ -524,7 +626,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.IExecutionTrace#mutationPassed(int, double)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void mutationPassed(int mutationId, double distance) {
 		copyOnWrite();
@@ -537,7 +642,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#returnValue(java.lang.String,
 	 * java.lang.String, int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void returnValue(String className, String methodName, int value) {
 		copyOnWrite();
@@ -551,7 +659,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * org.evosuite.testcase.ExecutionTraceInterface#setExplicitException(java.
 	 * lang.Throwable)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void setExplicitException(Throwable explicitException) {
 		copyOnWrite();
@@ -563,7 +674,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.IExecutionTrace#toDefUseTraceInformation()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public String toDefUseTraceInformation() {
 		return trace.toDefUseTraceInformation();
@@ -576,7 +690,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * org.evosuite.testcase.IExecutionTrace#toDefUseTraceInformation(java.lang.
 	 * String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public String toDefUseTraceInformation(String targetVar) {
 		return trace.toDefUseTraceInformation(targetVar);
@@ -589,7 +706,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * org.evosuite.testcase.IExecutionTrace#toDefUseTraceInformation(java.lang.
 	 * String, int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public String toDefUseTraceInformation(String var, int objectId) {
 		return trace.toDefUseTraceInformation(var, objectId);
@@ -601,7 +721,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.IExecutionTrace#usePassed(java.lang.Object,
 	 * int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void usePassed(Object object, Object caller, int useID) {
 		copyOnWrite();
@@ -613,31 +736,42 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#wasMutationTouched(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean wasMutationTouched(int mutationId) {
 		return trace.wasMutationTouched(mutationId);
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public List<BranchEval> getBranchesTrace() {
 		return trace.getBranchesTrace();
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getFalseDistancesSum() {
 		return trace.getTrueDistancesSum();
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getTrueDistancesSum() {
 		return trace.getTrueDistancesSum();
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses() {
 		return trace.getPassedUses();

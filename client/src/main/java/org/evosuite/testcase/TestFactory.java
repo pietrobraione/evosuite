@@ -19,17 +19,8 @@
  */
 package org.evosuite.testcase;
 
-import java.lang.reflect.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import com.googlecode.gentyref.CaptureType;
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -40,7 +31,9 @@ import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.seeding.ObjectPoolManager;
-import org.evosuite.setup.*;
+import org.evosuite.setup.TestCluster;
+import org.evosuite.setup.TestClusterGenerator;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.mutation.RandomInsertion;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentStatements;
@@ -48,19 +41,14 @@ import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.statements.reflection.PrivateMethodStatement;
 import org.evosuite.testcase.statements.reflection.ReflectionFactory;
 import org.evosuite.testcase.variable.*;
-import org.evosuite.utils.generic.GenericAccessibleObject;
-import org.evosuite.utils.generic.GenericClass;
-import org.evosuite.utils.generic.GenericConstructor;
-import org.evosuite.utils.generic.GenericField;
-import org.evosuite.utils.generic.GenericMethod;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.generic.*;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.googlecode.gentyref.CaptureType;
-import com.googlecode.gentyref.GenericTypeReflector;
+import java.lang.reflect.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /*
  * A note about terminology: this class currently uses the term "object" or
@@ -78,7 +66,6 @@ import com.googlecode.gentyref.GenericTypeReflector;
 
 /**
  * @author Gordon Fraser
- *
  */
 public class TestFactory {
 
@@ -87,7 +74,7 @@ public class TestFactory {
 	/**
 	 * Keep track of objects we are already trying to generate to avoid cycles
 	 */
-	private transient Set<GenericAccessibleObject<?>> currentRecursion = new LinkedHashSet<>();
+    private final transient Set<GenericAccessibleObject<?>> currentRecursion = new LinkedHashSet<>();
 
 	/**
 	 * Singleton instance
@@ -589,7 +576,7 @@ public class TestFactory {
 	/**
 	 * Appends the given {@code statement} at the end of the test case {@code test}, trying to
 	 * satisfy parameters.
-	 *
+     * <p>
 	 * Called from TestChromosome when doing crossover
 	 *
 	 * @param test
@@ -707,7 +694,6 @@ public class TestFactory {
 
 	/**
 	 * Attempt to generate a non-null object; initialize recursion level to 0
-	 *
 	 */
 	public VariableReference attemptGeneration(TestCase test, Type type, int position)
 	        throws ConstructionFailedException {
@@ -1759,7 +1745,6 @@ public class TestFactory {
 
 
 	/**
-	 *
 	 * @param test
 	 * @param position
 	 * @return true if statements was deleted or any dependency was modified
@@ -2330,7 +2315,7 @@ public class TestFactory {
 			//       any methods at all.
 			logger.debug("Cannot add calls on unknown type");
 		} else {
-			logger.debug("Getting calls for object {}", var.toString());
+            logger.debug("Getting calls for object {}", var);
 			try {
                 if(reflectionFactory==null){
         			final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();

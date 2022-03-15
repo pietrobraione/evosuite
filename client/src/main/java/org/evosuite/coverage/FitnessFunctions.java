@@ -23,27 +23,12 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageFactory;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
-import org.evosuite.coverage.branch.BranchCoverageFactory;
-import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
-import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageFactory;
-import org.evosuite.coverage.branch.OnlyBranchCoverageSuiteFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
+import org.evosuite.coverage.branch.*;
 import org.evosuite.coverage.cbranch.CBranchFitnessFactory;
 import org.evosuite.coverage.cbranch.CBranchSuiteFitness;
 import org.evosuite.coverage.cbranch.CBranchTestFitness;
-import org.evosuite.coverage.dataflow.AllDefsCoverageFactory;
-import org.evosuite.coverage.dataflow.AllDefsCoverageSuiteFitness;
-import org.evosuite.coverage.dataflow.AllDefsCoverageTestFitness;
-import org.evosuite.coverage.dataflow.DefUseCoverageFactory;
-import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
-import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
-import org.evosuite.coverage.exception.ExceptionCoverageFactory;
-import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
-import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
-import org.evosuite.coverage.exception.TryCatchCoverageFactory;
-import org.evosuite.coverage.exception.TryCatchCoverageSuiteFitness;
-import org.evosuite.coverage.exception.TryCatchCoverageTestFitness;
+import org.evosuite.coverage.dataflow.*;
+import org.evosuite.coverage.exception.*;
 import org.evosuite.coverage.ibranch.IBranchFitnessFactory;
 import org.evosuite.coverage.ibranch.IBranchSuiteFitness;
 import org.evosuite.coverage.ibranch.IBranchTestFitness;
@@ -57,26 +42,10 @@ import org.evosuite.coverage.line.LineCoverageFactory;
 import org.evosuite.coverage.line.LineCoverageSuiteFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.coverage.line.OnlyLineCoverageSuiteFitness;
-import org.evosuite.coverage.method.MethodCoverageFactory;
-import org.evosuite.coverage.method.MethodCoverageSuiteFitness;
-import org.evosuite.coverage.method.MethodCoverageTestFitness;
-import org.evosuite.coverage.method.MethodNoExceptionCoverageFactory;
-import org.evosuite.coverage.method.MethodNoExceptionCoverageSuiteFitness;
-import org.evosuite.coverage.method.MethodNoExceptionCoverageTestFitness;
-import org.evosuite.coverage.method.MethodTraceCoverageFactory;
-import org.evosuite.coverage.method.MethodTraceCoverageSuiteFitness;
-import org.evosuite.coverage.method.MethodTraceCoverageTestFitness;
-import org.evosuite.coverage.mutation.MutationFactory;
-import org.evosuite.coverage.mutation.MutationTestFitness;
-import org.evosuite.coverage.mutation.OnlyMutationFactory;
-import org.evosuite.coverage.mutation.OnlyMutationSuiteFitness;
-import org.evosuite.coverage.mutation.OnlyMutationTestFitness;
-import org.evosuite.coverage.mutation.StrongMutationSuiteFitness;
-import org.evosuite.coverage.mutation.StrongMutationTestFitness;
-import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
-import org.evosuite.coverage.mutation.WeakMutationTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageTestFitness;
+import org.evosuite.coverage.method.*;
+import org.evosuite.coverage.mutation.*;
 import org.evosuite.coverage.readability.ReadabilitySuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageFactory;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
@@ -94,8 +63,8 @@ import java.util.Arrays;
 
 /**
  * factory class for fitness functions
- * @author mattia
  *
+ * @author mattia
  */
 public class FitnessFunctions {
 	
@@ -106,8 +75,7 @@ public class FitnessFunctions {
 	 * getFitnessFunction
 	 * </p>
 	 * 
-	 * @param criterion
-	 *            a {@link org.evosuite.Properties.Criterion} object.
+     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
 	 * @return a {@link org.evosuite.testsuite.TestSuiteFitnessFunction} object.
 	 */
 	public static TestSuiteFitnessFunction getFitnessFunction(Criterion criterion) {
@@ -175,8 +143,7 @@ public class FitnessFunctions {
 	 * getFitnessFactory
 	 * </p>
 	 * 
-	 * @param crit
-	 *            a {@link org.evosuite.Properties.Criterion} object.
+     * @param crit a {@link org.evosuite.Properties.Criterion} object.
 	 * @return a {@link org.evosuite.coverage.TestFitnessFactory} object.
 	 */
 	public static TestFitnessFactory<? extends TestFitnessFunction> getFitnessFactory(

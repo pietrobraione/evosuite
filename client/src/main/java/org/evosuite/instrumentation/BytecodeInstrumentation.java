@@ -19,8 +19,6 @@
  */
 package org.evosuite.instrumentation;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 
 import org.evosuite.PackageInfo;
@@ -39,13 +37,13 @@ import org.evosuite.instrumentation.testability.StringTransformation;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.*;
+import org.evosuite.runtime.util.ComputeClassWriter;
 import org.evosuite.seeding.PrimitiveClassAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
 import org.evosuite.utils.ArrayUtil;
-import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -56,6 +54,9 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * The bytecode transformer - transforms bytecode depending on package and
@@ -86,8 +87,7 @@ public class BytecodeInstrumentation {
 	/**
 	 * Check if we can instrument the given class
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public static boolean checkIfCanInstrument(String className) {
@@ -97,8 +97,7 @@ public class BytecodeInstrumentation {
 	/**
 	 * Check if we the class belongs to an EvoSuite package
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public static boolean checkIfEvoSuitePackage(String className) {
@@ -115,8 +114,7 @@ public class BytecodeInstrumentation {
 	 * shouldTransform
 	 * </p>
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public boolean shouldTransform(String className) {
@@ -149,10 +147,8 @@ public class BytecodeInstrumentation {
 	 * transformBytes
 	 * </p>
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param reader
-	 *            a {@link org.objectweb.asm.ClassReader} object.
+     * @param className a {@link java.lang.String} object.
+     * @param reader    a {@link org.objectweb.asm.ClassReader} object.
 	 * @return an array of byte.
 	 */
 	public byte[] transformBytes(ClassLoader classLoader, String className, ClassReader reader) {

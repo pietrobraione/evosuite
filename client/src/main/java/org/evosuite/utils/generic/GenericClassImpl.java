@@ -19,18 +19,8 @@
  */
 package org.evosuite.utils.generic;
 
-import java.io.*;
-import java.lang.reflect.Array;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.*;
-
+import com.googlecode.gentyref.CaptureType;
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
@@ -42,14 +32,17 @@ import org.evosuite.utils.ParameterizedTypeImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.googlecode.gentyref.CaptureType;
-import com.googlecode.gentyref.GenericTypeReflector;
+import java.io.*;
+import java.lang.reflect.*;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.*;
 
 public class GenericClassImpl implements Serializable,GenericClass<GenericClassImpl> {
 
     private static final Logger logger = LoggerFactory.getLogger(GenericClass.class);
 
-    private static List<String> primitiveClasses = Arrays.asList("char", "int", "short",
+    private static final List<String> primitiveClasses = Arrays.asList("char", "int", "short",
             "long", "boolean",
             "float", "double",
             "byte");
@@ -133,7 +126,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
         else if (name.equals("char") || name.equals("C"))
             return char.class;
         else if (name.startsWith("[")) {
-            Class<?> componentType = getClass(name.substring(1, name.length()), loader);
+            Class<?> componentType = getClass(name.substring(1), loader);
             Object array = Array.newInstance(componentType, 0);
             return array.getClass();
         } else if (name.startsWith("L") && name.endsWith(";")) {
@@ -167,8 +160,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * Generate a generic class by setting all generic parameters to their
      * parameter types
      *
-     * @param clazz
-     *            a {@link java.lang.Class} object.
+     * @param clazz a {@link java.lang.Class} object.
      */
     public GenericClassImpl(Class<?> clazz) {
         this.type = addTypeParameters(clazz); //GenericTypeReflector.addWildcardParameters(clazz);
@@ -178,13 +170,15 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
     public GenericClassImpl(GenericClassImpl copy) {
         this.type = copy.type;
         this.rawClass = copy.rawClass;
+        if (copy.getTypeVariableMap() != null) {
+            this.typeVariableMap = new LinkedHashMap<>(copy.getTypeVariableMap());
+        }
     }
 
     /**
      * Generate a generic class by from a type
      *
-     * @param type
-     *            a {@link java.lang.reflect.Type} object.
+     * @param type a {@link java.lang.reflect.Type} object.
      */
     public GenericClassImpl(Type type) {
         if (type instanceof Class<?>) {
@@ -225,8 +219,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * Determine if there exists an instantiation of the type variables such
      * that the class matches otherType
      *
-     * @param otherType
-     *            is the class we want to generate
+     * @param otherType is the class we want to generate
      * @return
      */
     public boolean canBeInstantiatedTo(GenericClass<?> otherType) {
@@ -264,7 +257,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
                 }
                 return instantiation.canBeInstantiatedTo(otherType);
             } catch (ConstructionFailedException e) {
-                logger.debug("Failed to instantiate " + toString());
+                logger.debug("Failed to instantiate " + this);
                 return false;
             }
         }
@@ -277,8 +270,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * changeClassLoader
      * </p>
      *
-     * @param loader
-     *            a {@link ClassLoader} object.
+     * @param loader a {@link ClassLoader} object.
      * @return
      */
     public boolean changeClassLoader(ClassLoader loader) {
@@ -519,10 +511,10 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
 
     public GenericClass<?> getGenericInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel) throws ConstructionFailedException {
 
-        logger.debug("Instantiation " + toString() + " with type map " + typeMap);
+        logger.debug("Instantiation " + this + " with type map " + typeMap);
         // If there are no type variables, create copy
         if (isRawClass() || !hasWildcardOrTypeVariables() || recursionLevel > Properties.MAX_GENERIC_DEPTH) {
-            logger.debug("Nothing to replace: " + toString() + ", " + isRawClass() + ", "
+            logger.debug("Nothing to replace: " + this + ", " + isRawClass() + ", "
                     + hasWildcardOrTypeVariables());
             return new GenericClassImpl(this);
         }
@@ -546,9 +538,8 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * Instantiate generic component type
      *
      * @param typeMap
-     * @throws ConstructionFailedException
-     *             evel
      * @return
+     * @throws ConstructionFailedException evel
      */
     private GenericClass<?> getGenericArrayInstantiation(Map<TypeVariable<?>, Type> typeMap,
                                                       int recursionLevel) throws ConstructionFailedException {
@@ -568,7 +559,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
             Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
             throws ConstructionFailedException {
    		if (typeMap.containsKey(type) /*GIO: added:*/ && typeMap.get(type) != type) {
-            logger.debug("Type contains {}: {}", toString(), typeMap);
+            logger.debug("Type contains {}: {}", this, typeMap);
             if(typeMap.get(type) == type) {
                 // FIXXME: How does this happen?
                 throw new ConstructionFailedException("Type points to itself");
@@ -582,7 +573,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
                 return selectedClass;
             }
         }
-        logger.debug("Type map does not contain {}: {}", toString(), typeMap);
+        logger.debug("Type map does not contain {}: {}", this, typeMap);
 
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((TypeVariable<?>) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH,
@@ -590,9 +581,9 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
 
         if (selectedClass == null) {
             throw new ConstructionFailedException("Unable to instantiate "
-                    + toString());
+                    + this);
         }
-        logger.debug("Getting instantiation of type variable {}: {}", toString(), selectedClass);
+        logger.debug("Getting instantiation of type variable {}: {}", this, selectedClass);
         Map<TypeVariable<?>, Type> extendedMap = new HashMap<>(
                 typeMap);
         extendedMap.putAll(getTypeVariableMap());
@@ -1238,8 +1229,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * isAssignableFrom
      * </p>
      *
-     * @param rhsType
-     *            a {@link GenericClass} object.
+     * @param rhsType a {@link GenericClass} object.
      * @return a boolean.
      */
     public boolean isAssignableFrom(GenericClass<?> rhsType) {
@@ -1251,8 +1241,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * isAssignableFrom
      * </p>
      *
-     * @param rhsType
-     *            a {@link java.lang.reflect.Type} object.
+     * @param rhsType a {@link java.lang.reflect.Type} object.
      * @return a boolean.
      */
     public boolean isAssignableFrom(Type rhsType) {
@@ -1264,8 +1253,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * isAssignableTo
      * </p>
      *
-     * @param lhsType
-     *            a {@link GenericClass} object.
+     * @param lhsType a {@link GenericClass} object.
      * @return a boolean.
      */
     public boolean isAssignableTo(GenericClass<?> lhsType) {
@@ -1277,8 +1265,7 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
      * isAssignableTo
      * </p>
      *
-     * @param lhsType
-     *            a {@link java.lang.reflect.Type} object.
+     * @param lhsType a {@link java.lang.reflect.Type} object.
      * @return a boolean.
      */
     public boolean isAssignableTo(Type lhsType) {
@@ -1641,9 +1628,9 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
                 logger.debug("Checking lower bound "+theType);
                 Type type = GenericUtils.replaceTypeVariables(theType, ownerVariableMap);
                 logger.debug("Bound after variable replacement: " + type);
-                logger.debug("Is assignable from "+toString()+"?");
+                logger.debug("Is assignable from " + this + "?");
                 if (!isAssignableFrom(type)) {
-                    logger.debug("Not assignable from "+toString());
+                    logger.debug("Not assignable from " + this);
                     // If the boundary is not assignable it may still be possible
                     // to instantiate the generic to an assignable type
                     if(type instanceof WildcardType)
@@ -1667,14 +1654,16 @@ public class GenericClassImpl implements Serializable,GenericClass<GenericClassI
                     isAssignable = false;
                     break;
                 } else {
-                    logger.debug("Is assignable from "+toString());
+                    logger.debug("Is assignable from " + this);
                 }
             }
         }
         return isAssignable;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         if (type == null) {

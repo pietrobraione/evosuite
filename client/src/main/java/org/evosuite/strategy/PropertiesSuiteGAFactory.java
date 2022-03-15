@@ -88,7 +88,6 @@ import sun.misc.Signal;
  * Factory for GA on test suites
  * 
  * @author gordon
- *
  */
 @SuppressWarnings("restriction")
 public class PropertiesSuiteGAFactory

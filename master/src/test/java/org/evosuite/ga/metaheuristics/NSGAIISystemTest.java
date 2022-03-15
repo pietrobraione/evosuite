@@ -49,8 +49,7 @@ import com.examples.with.different.packagename.Calculator;
  * 
  * @author José Campos
  */
-public class NSGAIISystemTest extends SystemTestBase
-{
+public class NSGAIISystemTest extends SystemTestBase {
 	@BeforeClass
 	public static void setUp() {
 		Properties.CROSSOVER_RATE = 0.9;
@@ -58,8 +57,7 @@ public class NSGAIISystemTest extends SystemTestBase
 	}
 
 	@Test
-	public void testUnionEmptyPopulation()
-	{
+    public void testUnionEmptyPopulation() {
 	    NSGAII<NSGAChromosome> ga = new NSGAII<>(null);
 
 	    List<NSGAChromosome> pop = new ArrayList<>();
@@ -70,8 +68,7 @@ public class NSGAIISystemTest extends SystemTestBase
 	}
 
 	@Test
-    public void testUnion()
-    {
+    public void testUnion() {
         NSGAII<NSGAChromosome> ga = new NSGAII<>(null);
 
         NSGAChromosome c1 = new NSGAChromosome();
@@ -90,8 +87,7 @@ public class NSGAIISystemTest extends SystemTestBase
     }
 
 	@Test
-	public void testFastNonDominatedSort()
-	{
+    public void testFastNonDominatedSort() {
 		NSGAII<NSGAChromosome> ga = new NSGAII<>(null);
 
 		Problem<NSGAChromosome> p = new Booths();
@@ -160,8 +156,7 @@ public class NSGAIISystemTest extends SystemTestBase
 	}
 
 	@Test
-	public void testCrowingDistanceAssignment_OneVariable()
-	{
+    public void testCrowingDistanceAssignment_OneVariable() {
 		NSGAII<NSGAChromosome> ga = new NSGAII<>(null);
 
 		Problem<NSGAChromosome> p = new Booths();
@@ -222,8 +217,7 @@ public class NSGAIISystemTest extends SystemTestBase
 	}
 
 	@Test
-    public void testCrowingDistanceAssignment_SeveralVariables()
-	{
+    public void testCrowingDistanceAssignment_SeveralVariables() {
         NSGAII<NSGAChromosome> ga = new NSGAII<>(null);
 
         Problem<NSGAChromosome> p = new SCH();
@@ -296,8 +290,7 @@ public class NSGAIISystemTest extends SystemTestBase
     }
 
 	@Test
-	public void testIntegration()
-	{
+    public void testIntegration() {
 	    Properties.MUTATION_RATE = 1d / 1d;
 	    Properties.CRITERION = new Criterion[2];
         Properties.CRITERION[0] = Criterion.RHO;

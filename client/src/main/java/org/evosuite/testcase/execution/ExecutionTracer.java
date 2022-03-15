@@ -62,7 +62,9 @@ public class ExecutionTracer {
 	 */
 	private boolean disabled = true;
 
-	/** Flag that is used to kill threads that are stuck in endless loops */
+    /**
+     * Flag that is used to kill threads that are stuck in endless loops
+     */
 	private boolean killSwitch = false;
 
 	private int num_statements = 0;
@@ -83,8 +85,7 @@ public class ExecutionTracer {
 	 * setThread
 	 * </p>
 	 * 
-	 * @param thread
-	 *            a {@link java.lang.Thread} object.
+     * @param thread a {@link java.lang.Thread} object.
 	 */
 	public static void setThread(Thread thread) {
 		currentThread = thread;
@@ -127,8 +128,7 @@ public class ExecutionTracer {
 	 * Setter for the field <code>killSwitch</code>.
 	 * </p>
 	 * 
-	 * @param value
-	 *            a boolean.
+     * @param value a boolean.
 	 */
 	public static void setKillSwitch(boolean value) {
 		ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -140,8 +140,7 @@ public class ExecutionTracer {
 	 * Setter for the field <code>checkCallerThread</code>.
 	 * </p>
 	 * 
-	 * @param checkCallerThread
-	 *            a boolean.
+     * @param checkCallerThread a boolean.
 	 */
 	public static void setCheckCallerThread(boolean checkCallerThread) {
 		ExecutionTracer.checkCallerThread = checkCallerThread;
@@ -271,14 +270,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a new method is called
 	 * 
-	 * @param classname
-	 *            a {@link java.lang.String} object.
-	 * @param methodname
-	 *            a {@link java.lang.String} object.
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @throws org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded
-	 *             if any.
+     * @param classname  a {@link java.lang.String} object.
+     * @param methodname a {@link java.lang.String} object.
+     * @param caller     a {@link java.lang.Object} object.
+     * @throws org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded if any.
 	 */
 	public static void enteredMethod(String classname, String methodname, Object caller)
 	        throws TestCaseExecutor.TimeoutExceeded {
@@ -299,12 +294,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a return values is produced
 	 * 
-	 * @param value
-	 *            a int.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param value      a int.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void returnValue(int value, String className, String methodName) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -321,12 +313,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a return values is produced
 	 * 
-	 * @param value
-	 *            a {@link java.lang.Object} object.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param value      a {@link java.lang.Object} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void returnValue(Object value, String className, String methodName) {
 		if (isThreadNeqCurrentThread())
@@ -377,10 +366,8 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a method is left
 	 * 
-	 * @param classname
-	 *            a {@link java.lang.String} object.
-	 * @param methodname
-	 *            a {@link java.lang.String} object.
+     * @param classname  a {@link java.lang.String} object.
+     * @param methodname a {@link java.lang.String} object.
 	 */
 	public static void leftMethod(String classname, String methodname) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -420,12 +407,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new source line is executed
 	 * 
-	 * @param line
-	 *            a int.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param line       a int.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void passedLine(String className, String methodName, int line) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -443,14 +427,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val
-	 *            a int.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val         a int.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(int val, int opcode, int branch, int bytecode_id) {
 
@@ -552,7 +532,6 @@ public class ExecutionTracer {
 	}
 	
 	/**
-	 * 
 	 * @param classNameWithDots
 	 * @param fieldName
 	 */
@@ -573,16 +552,11 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val1
-	 *            a int.
-	 * @param val2
-	 *            a int.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val1        a int.
+     * @param val2        a int.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(int val1, int val2, int opcode, int branch,
 	        int bytecode_id) {
@@ -654,16 +628,11 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val1
-	 *            a {@link java.lang.Object} object.
-	 * @param val2
-	 *            a {@link java.lang.Object} object.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val1        a {@link java.lang.Object} object.
+     * @param val2        a {@link java.lang.Object} object.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(Object val1, Object val2, int opcode, int branch,
 	        int bytecode_id) {
@@ -698,14 +667,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val
-	 *            a {@link java.lang.Object} object.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val         a {@link java.lang.Object} object.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(Object val, int opcode, int branch, int bytecode_id) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -743,10 +708,8 @@ public class ExecutionTracer {
 	 * Called by instrumented code each time a variable gets written to (a
 	 * Definition)
 	 * 
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @param defID
-	 *            a int.
+     * @param caller a {@link java.lang.Object} object.
+     * @param defID  a int.
 	 */
 	public static void passedDefinition(Object object, Object caller, int defID) {
 		if (isThreadNeqCurrentThread())
@@ -760,10 +723,8 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code each time a variable is read from (a Use)
 	 * 
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @param useID
-	 *            a int.
+     * @param caller a {@link java.lang.Object} object.
+     * @param useID  a int.
 	 */
 	public static void passedUse(Object object, Object caller, int useID) {
 
@@ -779,7 +740,7 @@ public class ExecutionTracer {
 
 	/**
 	 * Called by instrumented code each time a field method call is passed
-	 * 
+     * <p>
 	 * Since it was not clear whether the field method call constitutes a
 	 * definition or a use when the instrumentation was initially added this
 	 * method will redirect the call accordingly
@@ -1119,10 +1080,8 @@ public class ExecutionTracer {
 	 * passedMutation
 	 * </p>
 	 * 
-	 * @param distance
-	 *            a double.
-	 * @param mutationId
-	 *            a int.
+     * @param distance   a double.
+     * @param mutationId a int.
 	 */
 	public static void passedMutation(double distance, int mutationId) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -1142,12 +1101,9 @@ public class ExecutionTracer {
 	 * exceptionThrown
 	 * </p>
 	 * 
-	 * @param exception
-	 *            a {@link java.lang.Object} object.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param exception  a {@link java.lang.Object} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void exceptionThrown(Object exception, String className,
 	        String methodName) {

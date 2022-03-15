@@ -38,13 +38,11 @@ import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphGenerator;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.ArrayUtil;
-import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -53,15 +51,14 @@ import java.util.*;
  * This class performs static analysis before everything else initializes
  * 
  * @author Gordon Fraser
- * 
  */
 public class DependencyAnalysis {
 
 	private static final Logger logger = LoggerFactory.getLogger(DependencyAnalysis.class);
 
-	private static Map<String, ClassNode> classCache = new LinkedHashMap<>();
+    private static final Map<String, ClassNode> classCache = new LinkedHashMap<>();
 
-	private static Map<String, CallGraph> callGraphs = new LinkedHashMap<>();
+    private static final Map<String, CallGraph> callGraphs = new LinkedHashMap<>();
 
 	private static InheritanceTree inheritanceTree = null;
 
@@ -175,7 +172,6 @@ public class DependencyAnalysis {
 	}
 
 	/**
-	 * 
 	 * @param className
 	 * @return the CallGraph of className
 	 */
@@ -184,7 +180,6 @@ public class DependencyAnalysis {
 	}
 
 	/**
-	 * 
 	 * @return the CallGraph of Properties.TARGET_CLASS
 	 */
 	public static CallGraph getCallGraph() {
@@ -212,6 +207,7 @@ public class DependencyAnalysis {
 				|| className.startsWith(Properties.TARGET_CLASS + "$")) {
 			return true;
 		}
+
 		if (targetClasses != null && targetClasses.contains(className)) {
 			return true;
 		}
@@ -280,9 +276,7 @@ public class DependencyAnalysis {
 				|| ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
 				|| ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)) {
 			CallGraph callGraph = callGraphs.get(Properties.TARGET_CLASS);
-			if (callGraph != null && callGraph.isCalledClass(className)) {
-				return true;
-			}
+            return callGraph != null && callGraph.isCalledClass(className);
 		}
 
 		return false;
@@ -323,8 +317,7 @@ public class DependencyAnalysis {
 			
 			CallGraph callGraph = callGraphs.get(Properties.TARGET_CLASS);
 			if (callGraph != null && callGraph.isCalledMethod(className, methodName)){
-				if(Properties.INSTRUMENT_LIBRARIES || DependencyAnalysis.isTargetProject(className))
-				return true;
+                return Properties.INSTRUMENT_LIBRARIES || DependencyAnalysis.isTargetProject(className);
 			}
 		}
 

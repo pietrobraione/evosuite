@@ -19,22 +19,7 @@
  */
 package org.evosuite.rmi.service;
 
-import java.rmi.RemoteException;
-import java.rmi.registry.Registry;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
+import org.evosuite.Properties;
 import org.evosuite.*;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.classpath.ClassPathHandler;
@@ -49,12 +34,17 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
-import org.evosuite.utils.FileIOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.rmi.RemoteException;
+import java.rmi.registry.Registry;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class ClientNodeImpl<T extends Chromosome<T>>
 		implements ClientNodeLocal<T>, ClientNodeRemote<T> {
@@ -555,8 +545,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     /**
      * Fires event to all registered listeners.
      *
-     * @param event
-     *            the event to fire
+     * @param event the event to fire
      */
     private void fireEvent(Set<T> event) {
         for (Listener<Set<T>> listener : listeners) {

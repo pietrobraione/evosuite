@@ -27,8 +27,8 @@ import java.util.Set;
 
 /**
  * Client Node view in the client process.
- * @author arcuri
  *
+ * @author arcuri
  */
 public interface ClientNodeLocal<T extends Chromosome<T>> extends Listenable<Set<T>> {
 

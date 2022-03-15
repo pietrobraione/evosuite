@@ -68,10 +68,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 	protected int goodOffsprings = 0;
 	protected int goodOffspringsMutationOnly = 0;
 
-	/** Keep track of overall suite fitness functions and correspondent test fitness functions */
+    /**
+     * Keep track of overall suite fitness functions and correspondent test fitness functions
+     */
 	public final Map<TestSuiteFitnessFunction, Class<?>> suiteFitnessFunctions;
 
-	/** Object used to keep track of the execution time needed to reach the maximum coverage */
+    /**
+     * Object used to keep track of the execution time needed to reach the maximum coverage
+     */
 	protected final BudgetConsumptionMonitor budgetMonitor;
 
 	/**
@@ -397,11 +401,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 		}
 	}
 
-	@Override
-	public List<TestChromosome> getBestIndividuals() {
-		return this.getNonDominatedSolutions(this.population);
-	}
-
 	/**
 	 * This method extracts non-dominated solutions (tests) according to all covered goal
 	 * (e.g., branches).
@@ -560,7 +559,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 //		Stream<SearchListener<TestChromosome>> ls = listeners.stream().filter(l -> !(l instanceof ProgressMonitor));
 //		ls.forEach(l -> l.modification(chromosome));
 //    }
-
 	@Override
 	protected void notifySearchStarted() {
 		super.notifySearchStarted();
@@ -615,6 +613,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 //
 //		return Collections.singletonList(bestTestCases);
 //    }
+
+	@Override
+    public List<TestChromosome> getBestIndividuals() {
+        return this.getNonDominatedSolutions(this.population);
+    }
 
 //	/**
 //     * {@inheritDoc}

@@ -47,7 +47,7 @@ import static java.util.Comparator.comparingInt;
 public class CastClassManager {
 
     static final Logger logger = LoggerFactory.getLogger(CastClassManager.class);
-    private static CastClassManager instance = new CastClassManager();
+    private static final CastClassManager instance = new CastClassManager();
 
     /**
      * Store the cast classes in a sorted data structure to prevent multiple sorts on the same set of classes.

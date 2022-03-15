@@ -27,8 +27,8 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.symbolic.dse.algorithm.DSEAlgorithms;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.FileIOUtils;
+import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -355,7 +355,9 @@ public class Properties {
 	@Parameter(key = "algorithm", group = "Search Algorithm", description = "Search algorithm")
 	public static Algorithm ALGORITHM = Algorithm.DYNAMOSA;
 
-	/** Different models of neighbourhoods in the Cellular GA **/
+    /**
+     * Different models of neighbourhoods in the Cellular GA
+     **/
 	public enum CGA_Models{
 		ONE_DIMENSION,
 		LINEAR_FIVE,
@@ -389,7 +391,9 @@ public class Properties {
 
 	//----------- DSE, which is a special case of LS ---------------
 
-	/** ilebrero: Mostly for benchmarks for new module, I dont think the legacy strategy is gonna be used anymore **/
+    /**
+     * ilebrero: Mostly for benchmarks for new module, I dont think the legacy strategy is gonna be used anymore
+     **/
 	public enum DSE_MODULE_VERSION {
 		LEGACY,
 		NEW
@@ -442,12 +446,18 @@ public class Properties {
 	public static int DSE_TARGET_COVERAGE = 100;
 
 	public enum DSEType {
-		/** apply DSE per statement */
+        /**
+         * apply DSE per statement
+         */
 		STATEMENT,
-		/** apply DSE with all primitives in a test */
+        /**
+         * apply DSE with all primitives in a test
+         */
 		TEST,
-		/** DSE on whole suites */
-		SUITE;
+        /**
+         * DSE on whole suites
+         */
+        SUITE
 	}
 
 	// NOTE (ilebrero): This is the current method name being explored. This is NOT a good practice, but it's
@@ -467,7 +477,7 @@ public class Properties {
 	public static boolean DSE_KEEP_ALL_TESTS = false;
 
 	public enum SolverType {
-		EVOSUITE_SOLVER, Z3_SOLVER, CVC4_SOLVER;
+        EVOSUITE_SOLVER, Z3_SOLVER, CVC4_SOLVER
 	}
 
 	@Parameter(key = "dse_solver", group = "DSE", description = "Specify which constraint solver to use. Note: external solver will need to be installed and cofigured separately")
@@ -481,7 +491,10 @@ public class Properties {
 
 	public enum DSEStoppingConditionCriterion {
 		TARGETCOVERAGE,
-		MAXTIME, /** In seconds */
+        MAXTIME,
+        /**
+         * In seconds
+         */
     	ZEROFITNESS,
 		MAXTESTS,
 		DEFAULTS /** The ones that are setted by default on the algorithm + Strategy */
@@ -535,7 +548,9 @@ public class Properties {
 
 	public enum LocalSearchBudgetType {
 		STATEMENTS, TESTS,
-		/** Time expressed in seconds */
+        /**
+         * Time expressed in seconds
+         */
 		TIME,
 		SUITES, FITNESS_EVALUATIONS
 	}
@@ -647,7 +662,7 @@ public class Properties {
 	public static int POPULATION = 50;
 
 	public enum PopulationLimit {
-		INDIVIDUALS, TESTS, STATEMENTS;
+        INDIVIDUALS, TESTS, STATEMENTS
 	}
 
 	@Parameter(key = "population_limit", group = "Search Algorithm", description = "What to use as limit for the population size")
@@ -668,7 +683,10 @@ public class Properties {
 
 	public enum StoppingCondition {
 		MAXSTATEMENTS, MAXTESTS,
-        /** Max time in seconds */ MAXTIME,
+        /**
+         * Max time in seconds
+         */
+        MAXTIME,
         MAXGENERATIONS, MAXFITNESSEVALUATIONS, TIMEDELTA
 	}
 
@@ -722,7 +740,9 @@ public class Properties {
 		UNIFORM, BINOMIAL
 	}
 
-	/** Constant <code>MUTATION_PROBABILITY_DISTRIBUTION</code> */
+    /**
+     * Constant <code>MUTATION_PROBABILITY_DISTRIBUTION</code>
+     */
 	@Parameter(key = "mutation_probability_distribution", group = "Search Algorithm", description = "Mutation probability distribution")
 	public static MutationProbabilityDistribution MUTATION_PROBABILITY_DISTRIBUTION = MutationProbabilityDistribution.UNIFORM;
 
@@ -911,7 +931,7 @@ public class Properties {
 	 */
 	public enum AvailableSchedule {
 		SIMPLE, BUDGET, SEEDING, BUDGET_AND_SEEDING, HISTORY
-	};
+    }
 
 	/*
 	 * FIXME choose best schedule for default
@@ -924,7 +944,6 @@ public class Properties {
 
 	@Parameter(key = "ctg_extra_args", group = "Continuous Test Generation", description = "Extra '-D' arguments to pass to EvoSuite test generation processes")
 	public static String CTG_EXTRA_ARGS = null;
-
 
 
 	// ---------------------------------------------------------------
@@ -1181,7 +1200,7 @@ public class Properties {
 	public static boolean SERIALIZE_DSE = false;
 
 	public enum StatisticsBackend {
-		NONE, CONSOLE, CSV, HTML, DEBUG;
+        NONE, CONSOLE, CSV, HTML, DEBUG
 	}
 
 	@Parameter(key = "statistics_backend", group = "Output", description = "Which backend to use to collect data")
@@ -1320,7 +1339,9 @@ public class Properties {
 		COVERAGE, MIO
 	}
 
-	/** Constant <code>ARCHIVE_TYPE=COVERAGE</code> */
+    /**
+     * Constant <code>ARCHIVE_TYPE=COVERAGE</code>
+     */
 	@Parameter(key = "archive_type", description = "Which type of archive to keep track of covered goals during search")
 	public static ArchiveType ARCHIVE_TYPE = ArchiveType.COVERAGE;
 
@@ -1512,7 +1533,6 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
-
 	/** Constant <code>SEEPEP_GOAL_PROVIDER=""</code> */
 	@Parameter(key = "seepep_goal_provider", group = "SEEPEP", description = "The seepep-dags to be used as objective functions. Can define more than one criterion by using a ':' separated list")
 	public static String SEEPEP_GOAL_PROVIDER = null;/*SEEPEP: DAG coverage*/
@@ -1603,7 +1623,9 @@ public class Properties {
 	@Parameter(key = "max_subclasses_per_class", group = "Test Creation", description = "The maximum amount of sub-classes from which we can select the generators for a depended class (in particular this applies for each non-concrete depended class) out of all possible subclasses. The possibile generator-classes are selected in order of package distance, until overcoming this threshold. A value of 0 (default) means that only the generators with minimum distance will be selected.")
 	public static int MAX_SUBCLASSES_PER_CLASS = 0;/*GIO: allowing further available generators */
 
-	/** Cache target class */
+    /**
+     * Cache target class
+     */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 
 	@Parameter(key = "CP", group = "Runtime", description = "The classpath of the target classes")
@@ -1619,28 +1641,40 @@ public class Properties {
 	@Parameter(key = "PROJECT_DIR", group = "Runtime", description = "Directory name of target package")
 	public static String PROJECT_DIR = null;
 
-	/** Package name of target class (might be a subpackage) */
+    /**
+     * Package name of target class (might be a subpackage)
+     */
 	public static String CLASS_PREFIX = "";
 
-	/** Sub-package name of target class */
+    /**
+     * Sub-package name of target class
+     */
 	public static String SUB_PREFIX = "";
 
 	@Parameter(key = "TARGET_CLASS_PREFIX", group = "Runtime", description = "Prefix of classes we are trying to cover")
 	public static String TARGET_CLASS_PREFIX = "";
 
-	/** Class under test */
+    /**
+     * Class under test
+     */
 	@Parameter(key = "TARGET_CLASS", group = "Runtime", description = "Class under test")
 	public static String TARGET_CLASS = "";
 
-	/** Method under test */
+    /**
+     * Method under test
+     */
 	@Parameter(key = "target_method", group = "Runtime", description = "Method for which to generate tests")
 	public static String TARGET_METHOD = "";
 
-	/** Method under test */
+    /**
+     * Method under test
+     */
 	@Parameter(key = "target_method_prefix", group = "Runtime", description = "All methods matching prefix will be used for generating tests")
 	public static String TARGET_METHOD_PREFIX = "";
 
-	/** Method under test */
+    /**
+     * Method under test
+     */
 	@Parameter(key = "target_method_list", group = "Runtime", description = "A colon(:) separated list of methods for which to generate tests")
 	public static String TARGET_METHOD_LIST = "";
 
@@ -1685,7 +1719,6 @@ public class Properties {
 
 	@Parameter(key = "is_running_a_system_test", group = "Runtime", description = "Specify that a system test is running. To be used only for debugging purposes")
 	public static volatile boolean IS_RUNNING_A_SYSTEM_TEST = false;
-
 
 
 	// ---------------------------------------------------------------
@@ -1770,8 +1803,7 @@ public class Properties {
 	/**
 	 * Load and initialize a properties file from a given path
 	 *
-	 * @param propertiesPath
-	 *            a {@link java.lang.String} object.
+     * @param propertiesPath a {@link java.lang.String} object.
 	 */
 	public void loadProperties(String propertiesPath, boolean silent) {
 		loadPropertiesFile(propertiesPath, silent);
@@ -1781,8 +1813,7 @@ public class Properties {
 	/**
 	 * Load a properties file
 	 *
-	 * @param propertiesPath
-	 *            a {@link java.lang.String} object.
+     * @param propertiesPath a {@link java.lang.String} object.
 	 */
 	public void loadPropertiesFile(String propertiesPath, boolean silent) {
 		properties = new java.util.Properties();
@@ -1824,11 +1855,15 @@ public class Properties {
 		}
 	}
 
-	/** All fields representing values, inserted via reflection */
-	private static Map<String, Field> parameterMap = new HashMap<>();
+    /**
+     * All fields representing values, inserted via reflection
+     */
+    private static final Map<String, Field> parameterMap = new HashMap<>();
 
-	/** All fields representing values, inserted via reflection */
-	private static Map<Field, Object> defaultMap = new HashMap<>();
+    /**
+     * All fields representing values, inserted via reflection
+     */
+    private static final Map<Field, Object> defaultMap = new HashMap<>();
 
 	static {
 		// need to do it once, to capture all the default values
@@ -1839,16 +1874,14 @@ public class Properties {
 	 * Keep track of which fields have been changed from their defaults during
 	 * loading
 	 */
-	private static Set<String> changedFields = new HashSet<>();
+    private static final Set<String> changedFields = new HashSet<>();
 
 	/**
 	 * Get class of parameter
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link java.lang.Class} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static Class<?> getType(String key) throws NoSuchParameterException {
 		if (!parameterMap.containsKey(key))
@@ -1861,11 +1894,9 @@ public class Properties {
 	/**
 	 * Get description string of parameter
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link java.lang.String} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static String getDescription(String key)
 			throws NoSuchParameterException {
@@ -1880,11 +1911,9 @@ public class Properties {
 	/**
 	 * Get group name of parameter
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link java.lang.String} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static String getGroup(String key) throws NoSuchParameterException {
 		if (!parameterMap.containsKey(key))
@@ -1898,11 +1927,9 @@ public class Properties {
 	/**
 	 * Get integer boundaries
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link org.evosuite.Properties.IntValue} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static IntValue getIntLimits(String key)
 			throws NoSuchParameterException {
@@ -1916,11 +1943,9 @@ public class Properties {
 	/**
 	 * Get long boundaries
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link org.evosuite.Properties.LongValue} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static LongValue getLongLimits(String key)
 			throws NoSuchParameterException {
@@ -1934,11 +1959,9 @@ public class Properties {
 	/**
 	 * Get double boundaries
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link org.evosuite.Properties.DoubleValue} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
 	 */
 	public static DoubleValue getDoubleLimits(String key)
 			throws NoSuchParameterException {
@@ -1952,15 +1975,11 @@ public class Properties {
 	/**
 	 * Get an integer parameter value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a int.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public static int getIntegerValue(String key)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -1974,15 +1993,11 @@ public class Properties {
 	/**
 	 * Get an integer parameter value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a long.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public static long getLongValue(String key)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -1996,15 +2011,11 @@ public class Properties {
 	/**
 	 * Get a boolean parameter value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a boolean.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public static boolean getBooleanValue(String key)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2018,15 +2029,11 @@ public class Properties {
 	/**
 	 * Get a double parameter value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a double.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public static double getDoubleValue(String key)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2040,15 +2047,11 @@ public class Properties {
 	/**
 	 * Get parameter value as string (works for all types)
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key a {@link java.lang.String} object.
 	 * @return a {@link java.lang.String} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public static String getStringValue(String key)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2085,16 +2088,11 @@ public class Properties {
 	/**
 	 * Set parameter to new integer value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            a int.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value a int.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalAccessException                 if any.
+     * @throws java.lang.IllegalArgumentException               if any.
 	 */
 	public void setValue(String key, int value)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2116,16 +2114,11 @@ public class Properties {
 	/**
 	 * Set parameter to new long value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            a long.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value a long.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalAccessException                 if any.
+     * @throws java.lang.IllegalArgumentException               if any.
 	 */
 	public void setValue(String key, long value)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2147,16 +2140,11 @@ public class Properties {
 	/**
 	 * Set parameter to new boolean value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            a boolean.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value a boolean.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalAccessException                 if any.
+     * @throws java.lang.IllegalArgumentException               if any.
 	 */
 	public void setValue(String key, boolean value)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2171,16 +2159,11 @@ public class Properties {
 	/**
 	 * Set parameter to new double value
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            a double.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value a double.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public void setValue(String key, double value)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2200,16 +2183,11 @@ public class Properties {
 	/**
 	 * Set parameter to new value from String
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            a {@link java.lang.String} object.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value a {@link java.lang.String} object.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void setValue(String key, String value)
@@ -2302,16 +2280,11 @@ public class Properties {
 	 * setValue
 	 * </p>
 	 *
-	 * @param key
-	 *            a {@link java.lang.String} object.
-	 * @param value
-	 *            an array of {@link java.lang.String} objects.
-	 * @throws org.evosuite.Properties.NoSuchParameterException
-	 *             if any.
-	 * @throws java.lang.IllegalArgumentException
-	 *             if any.
-	 * @throws java.lang.IllegalAccessException
-	 *             if any.
+     * @param key   a {@link java.lang.String} object.
+     * @param value an array of {@link java.lang.String} objects.
+     * @throws org.evosuite.Properties.NoSuchParameterException if any.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
 	 */
 	public void setValue(String key, String[] value)
 			throws NoSuchParameterException, IllegalArgumentException,
@@ -2347,13 +2320,19 @@ public class Properties {
 		f.set(this, value);
 	}
 
-	/** Singleton instance */
+    /**
+     * Singleton instance
+     */
 	private static Properties instance = null; // new Properties(true, true);
 
-	/** Internal properties hashmap */
+    /**
+     * Internal properties hashmap
+     */
 	private java.util.Properties properties;
 
-	/** Constructor */
+    /**
+     * Constructor
+     */
 	private Properties(boolean loadProperties, boolean silent) {
 		if (loadProperties)
 			loadProperties(silent);
@@ -2384,8 +2363,6 @@ public class Properties {
 
 	/**
 	 * This exception is used when a non-existent parameter is accessed
-	 *
-	 *
 	 */
 	public static class NoSuchParameterException extends Exception {
 
@@ -2442,6 +2419,7 @@ public class Properties {
 	 * Returns true if there is a loaded target class object.
 	 * Warning: resetTargetClass() does not load the class, only
 	 * discards the previous target class object.
+     *
 	 * @return
 	 */
 	public static boolean hasTargetClassBeenLoaded() {
@@ -2515,8 +2493,7 @@ public class Properties {
 	/**
 	 * Update the evosuite.properties file with the current setting
 	 *
-	 * @param fileName
-	 *            a {@link java.lang.String} object.
+     * @param fileName a {@link java.lang.String} object.
 	 */
 	public void writeConfiguration(String fileName) {
 		StringBuffer buffer = new StringBuffer();

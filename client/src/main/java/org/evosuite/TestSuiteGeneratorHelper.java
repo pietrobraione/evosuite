@@ -19,8 +19,6 @@
  */
 package org.evosuite;
 
-import java.util.Map;
-import java.util.Set;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.assertion.AssertionGenerator;
@@ -38,6 +36,9 @@ import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
+
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by sina on 06/04/2017.

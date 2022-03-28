@@ -1579,6 +1579,22 @@ public class Properties {
 	@Parameter(key = "check_path_conditions_only_for_direct_calls", group = "SUSHI", description = "When using path condition fitness, the path condititions are checked also for indirect calls, otherwise they are checked only for target methods called directly from test cases")
 	public static boolean CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS = false; /*SUSHI: Path condition fitness*/
 	
+	/** Constant <code>EXTERNAL_RMI_REGISTRY_PORT=""</code> */
+	@Parameter(key = "external_rmi_registry_port", group = "SUSHI", description = "Allows for an external program to start the RMI registry before executing EvoSuite, and then have EvoSuite connecting to that registry instead of starting its own one. Used when providing a test lister as an RMI object")
+	public static int EXTERNAL_RMI_REGISTRY_PORT = -1; /*SUSHI: Path condition fitness*/
+
+	/** Constant <code>TEST_LISTENER_RMI_IDENTIFIER=""</code> */
+	@Parameter(key = "test_listener_rmi_identifier", group = "SUSHI", description = "Allows for registering a test lister, which must be an RMI object registered with the given identifier in the Registry")
+	public static String TEST_LISTENER_RMI_IDENTIFIER = null; /*SUSHI: Path condition fitness*/
+
+	/** Constant <code>INJECTED_PATH_CONDITIONS_CHECKING_RATE=""</code> */
+	@Parameter(key = "injected_path_conditions_checking_rate", group = "SUSHI", description = "When using path condition fitness, check if newly path conditions where injected at the evosuite rmi server, at regualar intervals of number of iterations as defined by this parameter. If 0, do not check.")
+	public static int INJECTED_PATH_CONDITIONS_CHECKING_RATE = 0; /*SUSHI: Path condition fitness*/
+
+	/** Constant <code>DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS=""</code> */
+	@Parameter(key = "dismiss_path_conditions_no_improve_iterations", group = "SUSHI", description = "When using path condition fitness, discard t. If 0, do not check.")
+	public static int DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS = 0; /*SUSHI: Path condition fitness*/
+	
 	/** Constant <code>SUSHI_STATISTICS=""</code> */
 	@Parameter(key = "sushi_statistics", group = "SUSHI", description = "Print sushi statistics upon termination")
 	public static boolean SUSHI_STATISTICS = false; /*SUSHI: Statistics*/

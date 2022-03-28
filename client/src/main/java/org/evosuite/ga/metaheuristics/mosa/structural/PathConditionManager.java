@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -37,7 +38,24 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 
 	private Map<PathConditionCoverageGoalFitness, Set<BranchCoverageGoal>> pcRelatedUncoveredBranches = new LinkedHashMap<>(); //map path conditions to the branch targets that they (lead to) traverse
 	private Set<BranchCoverageGoal> coveredAndAlreadyPrunedBranches = new HashSet<>(); //cache of branches that were already pruned from path conditions
-
+	private Map<PathConditionCoverageGoalFitness, TrackedFitnessData> bestFitnessData = new LinkedHashMap<>();
+	private Set<TestFitnessFunction> alreadyEmitted = new HashSet<>();
+	
+	private class TrackedFitnessData {
+		double bestValue;
+		final LinkedList<Integer> updates;
+		public TrackedFitnessData(double value, int iteration) {
+			bestValue = value;
+			updates = new LinkedList<>();
+			updates.add(iteration);
+		}
+		public void update(double newValue, int iteration) {
+			if (newValue < bestValue) {
+				this.bestValue = newValue;
+				this.updates.add(iteration);		
+			}
+		}
+	}
 	/**
 	 * Constructor used to initialize the set of uncovered goals, and the initial set
 	 * of goals to consider as initial contrasting objectives
@@ -98,6 +116,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	protected void doneWithPathCondition(PathConditionCoverageGoalFitness pc) {
 		pcRelatedUncoveredBranches.remove(pc);
 		currentGoals.remove(pc);
+		bestFitnessData.remove(pc);
 		ExecutionTracer.removeEvaluatorForPathCondition(pc.getPathConditionGoal());
 	}
 
@@ -106,23 +125,43 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 		HashSet<TestFitnessFunction> currentGoalsBefore = new HashSet<>(this.getCurrentGoals());
 		super.calculateFitness(c, ga);
 		
-		//Check for completed path-condition goals
-		for (TestFitnessFunction goal: currentGoalsBefore) {
-			if (!(goal instanceof PathConditionCoverageGoalFitness) || this.getCurrentGoals().contains(goal)) {
-				continue; // goal is not a path condition or is not yet completed
-			}
-			//for each covered path condition:
-			if (Properties.EMIT_TESTS_INCREMENTALLY) { /*SUSHI: Incremental test cases*/
-				emitTestCase((PathConditionCoverageGoalFitness) goal, (TestChromosome) c);
-			}
-			doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
-		}
 		// If new targets were covered, try to prune the path conditions related to any newly covered branch
 		if (this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
 			prunePathConditionsByCoveredBranches(this.getCoveredGoals());
 		}
+		
+		// check for need to update best fitness value
+		if (Properties.DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS > 0) { 
+			for (TestFitnessFunction goal: this.getCurrentGoals()) {
+				if (!(goal instanceof PathConditionCoverageGoalFitness)) {
+					continue; 
+				}
+				PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
+				final double currentFitness = c.getFitness(pc);
+				final TrackedFitnessData bestDatum = bestFitnessData.get(pc);
+				if (bestDatum == null) {
+					bestFitnessData.put(pc, new TrackedFitnessData(currentFitness, ga.getAge()));
+				} else if (currentFitness < bestDatum.bestValue) {
+					bestDatum.update(currentFitness, ga.getAge());
+				}
+			}
+		}
 	}
 
+	@Override
+	protected void updateCoveredGoals(TestFitnessFunction goal, TestChromosome tc) {
+		if (!alreadyEmitted.contains(goal)) {
+			if (Properties.EMIT_TESTS_INCREMENTALLY  /*SUSHI: Incremental test cases*/) {
+				emitTestCase(goal, tc);
+			}
+			if (goal instanceof PathConditionCoverageGoalFitness) {
+				doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
+			}
+		} 
+		alreadyEmitted.add(goal);
+		super.updateCoveredGoals(goal, tc); // do at the end, since it will mark a covered goal as alreadyCovered
+	}
+	
 	public void restoreInstrumentationForAllGoals() {
 		if (!Properties.EMIT_TESTS_INCREMENTALLY) {
 			PathConditionCoverageFactory pathConditionFactory = PathConditionCoverageFactory._I();
@@ -138,7 +177,8 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 
 
 	/*SUSHI: Incremental test cases*/
-	private void emitTestCase(PathConditionCoverageGoalFitness goal, TestChromosome tc) {
+	private int noPcTestNum = 0;
+	private void emitTestCase(TestFitnessFunction goal, TestChromosome tc) {
 		if (Properties.JUNIT_TESTS) {
 
 			TestChromosome tcToWrite = (TestChromosome) tc.clone();
@@ -158,14 +198,28 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			TestSuiteWriter suiteWriter = new TestSuiteWriter();
 			suiteWriter.insertTest(tcToWrite.getTestCase(), "Covered goal: " + goal.toString());
 
-			String evaluatorName = goal.getEvaluatorName().substring(goal.getEvaluatorName().lastIndexOf('.') + 1);
-			String suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
+			final String suffix;
+			if (goal instanceof PathConditionCoverageGoalFitness) {
+				PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
+				String evaluatorName = pc.getEvaluatorName().substring(pc.getEvaluatorName().lastIndexOf('.') + 1);
+				suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
+			} else {
+				String goalType = goal.getClass().getSimpleName();
+				String simplifiedGoalType = goalType.substring(0, 
+						goalType.lastIndexOf("CoverageTestFitness") > 0 ? goalType.lastIndexOf("CoverageTestFitness") :  
+							goalType.lastIndexOf("TestFitness") > 0 ?  goalType.lastIndexOf("TestFitness") :
+								goalType.lastIndexOf("Fitness") > 0 ?  goalType.lastIndexOf("Fitness") : 
+									goalType.length() - 1);
+				suffix = "_" + simplifiedGoalType + "_" + (++noPcTestNum)  + "_Test";
+			}
 			String testName = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + suffix;
 			String testDir = Properties.TEST_DIR;
 
 			suiteWriter.writeTestSuite(testName, testDir, new ArrayList());
 
-			LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE: " + goal.getEvaluatorName() + ", " + testName);
+			
+			ClientServices.getInstance().getClientNode().notifyGeneratedTestCase(TestFitnessSerializationUtils.makeSerializableForNonEvosuiteClients(goal), testName);
+			LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE: " + goal + ", " + testName);
 		}
 	}
 
@@ -209,6 +263,44 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	
 	@Override
 	public void iteration(GeneticAlgorithm<TestChromosome> algorithm) {
+		// At given intervals, check if there are new path condition goals to consider
+		if (Properties.INJECTED_PATH_CONDITIONS_CHECKING_RATE > 0 && 
+				(algorithm.getAge() % Properties.INJECTED_PATH_CONDITIONS_CHECKING_RATE) == 0) {
+			checkForNewlyInjectedPathConditionGoals(algorithm);
+		}
+		
+		// Check if we can discard some path condition goal that is not improving 
+		if (Properties.DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS > 0) {
+			checkForPathConditionGoalsToDismiss(algorithm.getAge());
+		}
+	}
+
+	private void checkForPathConditionGoalsToDismiss(int currentIteration) {
+		//Check for completed path-condition goals
+		ArrayList<Entry<PathConditionCoverageGoalFitness, TrackedFitnessData>> toDismiss = new ArrayList<>();
+		for (Entry<PathConditionCoverageGoalFitness, TrackedFitnessData> entry: bestFitnessData.entrySet()) {
+			TrackedFitnessData data = entry.getValue();
+			if (currentIteration - data.updates.getLast() > Properties.DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS) {
+				PathConditionCoverageGoalFitness goal = entry.getKey();
+				toDismiss.add(entry);
+			}
+		}
+		for (Entry<PathConditionCoverageGoalFitness, TrackedFitnessData> entry: toDismiss) {
+			PathConditionCoverageGoalFitness goal = entry.getKey();
+			TrackedFitnessData data = entry.getValue();
+			doneWithPathCondition(goal);
+			int[] updts = new int[data.updates.size()];
+			for (int i = 0; i < updts.length; ++i) {
+				updts[i] = data.updates.get(i);
+			}
+			ClientServices.getInstance().getClientNode().notifyDismissedFitnessGoal(goal, currentIteration, data.bestValue, updts);
+			LoggingUtils.getEvoLogger().info("\n\n* DISMISSED PATH CONDITION GOAL (NO IMPROVEMENT IN " + 
+					Properties.DISMISS_PATH_CONDITIONS_NO_IMPROVE_ITERATIONS + " ITERATIONS): " +
+					goal.getEvaluatorName());
+		}
+	}
+
+	private void checkForNewlyInjectedPathConditionGoals(GeneticAlgorithm<TestChromosome> algorithm) {
 		List<PathConditionCoverageGoalFitness> newGoals = PathConditionCoverageFactory._I().getNewlyInjectedCoverageGoals();
 		if (newGoals == null) { // No new goals were recently injected
 			return;

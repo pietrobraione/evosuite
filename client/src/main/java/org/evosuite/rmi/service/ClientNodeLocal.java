@@ -20,6 +20,7 @@
 package org.evosuite.rmi.service;
 
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.Listenable;
 
@@ -57,4 +58,8 @@ public interface ClientNodeLocal<T extends Chromosome<T>> extends Listenable<Set
     Set<Set<T>> getBestSolutions();
     
     String retrieveInjectedFitnessFunctions();
+
+    void notifyGeneratedTestCase(FitnessFunction<?> goal, String testFileName);
+
+    void notifyDismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations);
 }

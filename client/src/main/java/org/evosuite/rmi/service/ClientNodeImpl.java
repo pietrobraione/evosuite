@@ -25,6 +25,7 @@ import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.result.TestGenerationResult;
@@ -578,4 +579,25 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             return null;
 		}
 	}
+	
+	@Override
+	public void notifyGeneratedTestCase(FitnessFunction<?> goal, String testFileName) {
+		// delegate master node to notify this event
+		try {
+			masterNode.evosuite_notifyGeneratedTestCase(goal, testFileName);
+		} catch (RemoteException e) {
+            logger.error(ClientProcess.getPrettyPrintIdentifier() + "Cannot notify to master generated test case " + testFileName + " related to goal " + goal, e);
+		}
+	}
+
+	@Override
+	public void notifyDismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) {
+		// delegate master node to notify this event
+		try {
+			masterNode.evosuite_notifyDismissedFitnessGoal(goal, iteration, bestValue, updateIterations);
+		} catch (RemoteException e) {
+            logger.error(ClientProcess.getPrettyPrintIdentifier() + "Cannot notify dismissed fitness goal " + goal + " to master", e);
+		}
+	}
+
 }

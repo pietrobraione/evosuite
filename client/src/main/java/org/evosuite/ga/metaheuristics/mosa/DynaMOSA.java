@@ -29,7 +29,7 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.SeepepManager;
-import org.evosuite.ga.metaheuristics.mosa.structural.SushiManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.AidingPathConditionManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.Properties;
@@ -171,7 +171,7 @@ public class DynaMOSA extends AbstractMOSA {
 			}
 			LoggingUtils.getEvoLogger().info("* Current PC goals = {}", numOfPCGoals);
 			if(ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-				int satisfied = ((SushiManager) goalsManager).getCoveredPathConditions().size();
+				int satisfied = ((AidingPathConditionManager) goalsManager).getCoveredPathConditions().size();
 				LoggingUtils.getEvoLogger().info("* Satisfied PC goals = {}", satisfied);
 			}
 
@@ -341,7 +341,7 @@ public class DynaMOSA extends AbstractMOSA {
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
 			goalsManager = new PathConditionManager(fitnessFunctions, this);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-			goalsManager = new SushiManager(fitnessFunctions, this);			
+			goalsManager = new AidingPathConditionManager(fitnessFunctions, this);			
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)){ /*SEEPEP: DAG coverage*/
 			ExecutionTracer.enableSeepepTracing();
 			goalsManager = new SeepepManager(fitnessFunctions);

@@ -427,6 +427,9 @@ public class DynaMOSA extends AbstractMOSA {
 
 	@Override
 	public List<? extends FitnessFunction<TestChromosome>> getFitnessFunctions() {
+		if (goalsManager == null) {
+			return super.getFitnessFunctions();
+		}
 		List<TestFitnessFunction> testFitnessFunctions = new ArrayList<>(goalsManager.getCoveredGoals());
 		testFitnessFunctions.addAll(goalsManager.getUncoveredGoals());
 		return testFitnessFunctions;

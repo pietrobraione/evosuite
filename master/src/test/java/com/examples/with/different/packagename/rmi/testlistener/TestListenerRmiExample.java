@@ -192,13 +192,19 @@ public class TestListenerRmiExample implements TestListenerRemote {
 	}
 
 	@Override
-	public void generatedTest(FitnessFunction<?> goal, String testFileName) throws RemoteException {
-		System.out.println("Evosuite server communicated new test: " + testFileName + " -- It is for goal: " + goal);
+	public void generatedTest(String evosuiteServerRmiIdentifier, FitnessFunction<?> goal, String testFileName) throws RemoteException {
+		System.out.println("Evosuite server " + evosuiteServerRmiIdentifier +  " communicated new test: " + testFileName + " -- It is for goal: " + goal);
 	}
 
 	@Override
-	public void dismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double fitnessValue, int[] updateIterations) throws RemoteException {
-		System.out.println("Evosuite server communicated dismissed goal: " + goal + ", iteration is " + iteration + ", fitness is " + fitnessValue + ", with updates at iterations " + Arrays.toString(updateIterations));
+	public void dismissedFitnessGoal(String evosuiteServerRmiIdentifier, FitnessFunction<?> goal, int iteration,
+			double fitnessValue, int[] updateIterations) throws RemoteException {
+		System.out.println("Evosuite server " + evosuiteServerRmiIdentifier +  " communicated dismissed goal: " + goal + ", iteration is " + iteration + ", fitness is " + fitnessValue + ", with updates at iterations " + Arrays.toString(updateIterations));
+	}
+
+	@Override
+	public void evosuiteServerShutdown(String evosuiteServerRmiIdentifier) throws RemoteException {
+		System.out.println("Evosuite server " + evosuiteServerRmiIdentifier +  " terminated");
 	}
 
 }

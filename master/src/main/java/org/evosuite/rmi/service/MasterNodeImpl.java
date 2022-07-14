@@ -82,6 +82,16 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal, Evosui
 		}
 	}
 
+	public void close() {
+		if (testListener != null) {
+			try {
+				testListener.evosuiteServerShutdown(MasterNodeRemote.RMI_SERVICE_NAME);
+			} catch (RemoteException e) {
+				// If so, we ignore the exception: the master node is being closed anyway
+			}
+		}
+	}
+
 	@Override
 	public void evosuite_registerClientNode(String clientRmiIdentifier) throws RemoteException {
 
@@ -294,14 +304,14 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal, Evosui
 	@Override
 	public void evosuite_notifyGeneratedTestCase(FitnessFunction<?> goal, String testFileName) throws RemoteException {
 		if (testListener != null) {
-			testListener.generatedTest(goal, testFileName);
+			testListener.generatedTest(MasterNodeRemote.RMI_SERVICE_NAME, goal, testFileName);
 		}
 	}
 
 	@Override
 	public void evosuite_notifyDismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) throws RemoteException {
 		if (testListener != null) {
-			testListener.dismissedFitnessGoal(goal, iteration, bestValue, updateIterations);
+			testListener.dismissedFitnessGoal(MasterNodeRemote.RMI_SERVICE_NAME, goal, iteration, bestValue, updateIterations);
 		}
 	}
 	

@@ -34,7 +34,9 @@ public interface TestListenerRemote extends Remote {
 	
     void evosuiteServerReady(String evosuiteServerRmiIdentifier) throws RemoteException;
 
-    void generatedTest(FitnessFunction<?> goal, String testFileName) throws RemoteException;
+    void evosuiteServerShutdown(String evosuiteServerRmiIdentifier) throws RemoteException;
 
-    void dismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) throws RemoteException;    
+    void generatedTest(String evosuiteServerRmiIdentifier, FitnessFunction<?> goal, String testFileName) throws RemoteException;
+
+    void dismissedFitnessGoal(String evosuiteServerRmiIdentifier, FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) throws RemoteException;    
 }

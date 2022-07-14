@@ -142,6 +142,7 @@ public class MasterServices {
             } catch (NoSuchObjectException e) {
                 logger.warn("Failed to delete MasterNode RMI instance", e);
             }
+            masterNode.close();
             masterNode = null;
         }
 

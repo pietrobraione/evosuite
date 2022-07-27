@@ -80,6 +80,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 		for (TestFitnessFunction goal : targets) {
 			if (goal instanceof PathConditionCoverageGoalFitness) {
 				this.currentGoals.add(goal);
+				this.archive.addTarget(goal);
 				ExecutionTracer.addEvaluatorForPathCondition(((PathConditionCoverageGoalFitness) goal).getPathConditionGoal());
 			}
 		}
@@ -171,7 +172,24 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
 			}		
 		} else {
-			Properties.JUNIT_TESTS = false;
+			LoggingUtils.getEvoLogger().info("\n\n* Results for incrementally-handled criterion PATHCONDITION");
+			LoggingUtils.getEvoLogger().info("* Total number of goals: " + PathConditionCoverageFactory._I().getCoverageGoals().size());
+			int covered = 0;
+			for (TestFitnessFunction g: alreadyEmitted) {
+				if (g instanceof PathConditionCoverageGoalFitness) {
+					++covered;
+				}
+			}
+			LoggingUtils.getEvoLogger().info("* Number of covered goals: " + covered);
+			LoggingUtils.getEvoLogger().info("* NB: path conditions were handled incrementally, please consider the above data and ignore the (standard) ones below");
+			if (Properties.CRITERION.length == 1) { 
+				// PATHCONDITION is the only Criterion: since tests were already emitted incrementally, we avoid the final test suite
+				Properties.JUNIT_TESTS = false;
+			} else { 
+				// Otherwise we generate the summary test suite with respect to all objectives but path-conditions.
+				// NB: generating the summary test suite with respect to path-conditions too, would result in unreasonably bloated test suites.
+				ExecutionTracer.removeAllEvaluatorsForPathConditions();
+			}
 		}
 	}
 
@@ -182,6 +200,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 		if (Properties.JUNIT_TESTS) {
 
 			TestChromosome tcToWrite = (TestChromosome) tc.clone();
+			tcToWrite.getTestCase().clearCoveredGoals(); 
 
 			if (Properties.MINIMIZE) {
 				TestCaseMinimizer minimizer = new TestCaseMinimizer(goal);

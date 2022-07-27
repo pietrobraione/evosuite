@@ -1072,9 +1072,13 @@ public class ExecutionTracer {
 			}
 		}
 		tracer.evaluatorCache.remove(g);
-		LoggingUtils.getEvoLogger().info("GOALS: " + tracer.pathConditions.toString());
+		LoggingUtils.getEvoLogger().info("PC GOALS: " + tracer.pathConditions.toString());
 	}
-		
+	public static void removeAllEvaluatorsForPathConditions() {	/*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+		tracer.pathConditions.clear();
+		tracer.evaluatorCache.clear();
+	}
 	/**
 	 * <p>
 	 * passedMutation

@@ -176,12 +176,17 @@ public class DynaMOSA extends AbstractMOSA {
 			}
 
 			//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
-			LoggingUtils.getEvoLogger().info("* 1st front size = {}", rankingFunction.getSubfront(0).size());
 			LoggingUtils.getEvoLogger().info("* {} no change iterations,  {} resets, {} good offsprings ({} mutation only)", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
 			LoggingUtils.getEvoLogger().info("* Top front includes {} individuals:", rankingFunction.getSubfront(0).size());
 			for (TestChromosome c : rankingFunction.getSubfront(0)) {
 				printInfo(c);			
 			}
+			/*for (int f = 1; f < rankingFunction.getNumberOfSubfronts(); f++) {
+				LoggingUtils.getEvoLogger().info("* {} front includes {} individuals:", f, rankingFunction.getSubfront(f).size());
+				for (TestChromosome c : rankingFunction.getSubfront(f)) {
+					printInfo(c);			
+				}	
+			}*/
 		}
 		//logger.debug("N. fronts = {}", ranking.getNumberOfSubfronts());
 		//logger.debug("1* front size = {}", ranking.getSubfront(0).size());
@@ -200,7 +205,7 @@ public class DynaMOSA extends AbstractMOSA {
 			fits += "=" + g.getFitness(c) + ",";
 		} 
 		fits += " from it " + c.getAge();
-		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}", System.identityHashCode(c), fits, c.getFitness());			
+		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}, fitness = {}", System.identityHashCode(c), fits, c.getFitness());			
 		LoggingUtils.getEvoLogger().info("TEST CASE = {}", ((TestChromosome)c).getTestCase().toString());			
 	}
 	

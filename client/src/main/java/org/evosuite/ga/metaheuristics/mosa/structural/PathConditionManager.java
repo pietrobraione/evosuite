@@ -19,12 +19,15 @@ import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.testcase.ConstantInliner;
-import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.testsuite.AbstractFitnessFactory;
+import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.utils.LoggingUtils;
 
 /**
@@ -39,7 +42,8 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	private Map<PathConditionCoverageGoalFitness, Set<BranchCoverageGoal>> pcRelatedUncoveredBranches = new LinkedHashMap<>(); //map path conditions to the branch targets that they (lead to) traverse
 	private Set<BranchCoverageGoal> coveredAndAlreadyPrunedBranches = new HashSet<>(); //cache of branches that were already pruned from path conditions
 	private Map<PathConditionCoverageGoalFitness, TrackedFitnessData> bestFitnessData = new LinkedHashMap<>();
-	private Set<TestFitnessFunction> alreadyEmitted = new HashSet<>();
+	private Set<TestFitnessFunction> alreadyEmittedGoals = new HashSet<>();
+	private Set<TestFitnessFunction> toEmit = new HashSet<>();
 	
 	private class TrackedFitnessData {
 		double bestValue;
@@ -122,9 +126,15 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	}
 
 	@Override
-	public void calculateFitness(TestChromosome c, GeneticAlgorithm<TestChromosome> ga) {
+	public void calculateFitness(TestChromosome tc, GeneticAlgorithm<TestChromosome> ga) {
 		HashSet<TestFitnessFunction> currentGoalsBefore = new HashSet<>(this.getCurrentGoals());
-		super.calculateFitness(c, ga);
+		toEmit.clear();
+		
+		super.calculateFitness(tc, ga);
+		
+		if (!toEmit.isEmpty()) {
+			emitTestCase(new ArrayList<TestFitnessFunction>(toEmit), tc);
+		}
 		
 		// If new targets were covered, try to prune the path conditions related to any newly covered branch
 		if (this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
@@ -138,7 +148,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 					continue; 
 				}
 				PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
-				final double currentFitness = c.getFitness(pc);
+				final double currentFitness = tc.getFitness(pc);
 				final TrackedFitnessData bestDatum = bestFitnessData.get(pc);
 				if (bestDatum == null) {
 					bestFitnessData.put(pc, new TrackedFitnessData(currentFitness, ga.getAge()));
@@ -151,15 +161,15 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 
 	@Override
 	protected void updateCoveredGoals(TestFitnessFunction goal, TestChromosome tc) {
-		if (!alreadyEmitted.contains(goal)) {
+		if (!alreadyEmittedGoals.contains(goal)) {
 			if (Properties.EMIT_TESTS_INCREMENTALLY  /*SUSHI: Incremental test cases*/) {
-				emitTestCase(goal, tc);
+				toEmit.add(goal);
 			}
 			if (goal instanceof PathConditionCoverageGoalFitness) {
 				doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
 			}
 		} 
-		alreadyEmitted.add(goal);
+		alreadyEmittedGoals.add(goal);
 		super.updateCoveredGoals(goal, tc); // do at the end, since it will mark a covered goal as alreadyCovered
 	}
 	
@@ -175,7 +185,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			LoggingUtils.getEvoLogger().info("\n\n* Results for incrementally-handled criterion PATHCONDITION");
 			LoggingUtils.getEvoLogger().info("* Total number of goals: " + PathConditionCoverageFactory._I().getCoverageGoals().size());
 			int covered = 0;
-			for (TestFitnessFunction g: alreadyEmitted) {
+			for (TestFitnessFunction g: alreadyEmittedGoals) {
 				if (g instanceof PathConditionCoverageGoalFitness) {
 					++covered;
 				}
@@ -194,52 +204,91 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	}
 
 
-	/*SUSHI: Incremental test cases*/
 	private int noPcTestNum = 0;
-	private void emitTestCase(TestFitnessFunction goal, TestChromosome tc) {
-		if (Properties.JUNIT_TESTS) {
-
-			TestChromosome tcToWrite = (TestChromosome) tc.clone();
-			tcToWrite.getTestCase().clearCoveredGoals(); 
-
-			if (Properties.MINIMIZE) {
-				TestCaseMinimizer minimizer = new TestCaseMinimizer(goal);
-				minimizer.minimize(tcToWrite);
-			}
-
-			if (Properties.INLINE) {
-				ConstantInliner inliner = new ConstantInliner();
-				inliner.inline(tcToWrite.getTestCase());
-			}
-
-			//writing the output
-
-			TestSuiteWriter suiteWriter = new TestSuiteWriter();
-			suiteWriter.insertTest(tcToWrite.getTestCase(), "Covered goal: " + goal.toString());
-
-			final String suffix;
-			if (goal instanceof PathConditionCoverageGoalFitness) {
-				PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
-				String evaluatorName = pc.getEvaluatorName().substring(pc.getEvaluatorName().lastIndexOf('.') + 1);
-				suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
-			} else {
-				String goalType = goal.getClass().getSimpleName();
-				String simplifiedGoalType = goalType.substring(0, 
-						goalType.lastIndexOf("CoverageTestFitness") > 0 ? goalType.lastIndexOf("CoverageTestFitness") :  
-							goalType.lastIndexOf("TestFitness") > 0 ?  goalType.lastIndexOf("TestFitness") :
-								goalType.lastIndexOf("Fitness") > 0 ?  goalType.lastIndexOf("Fitness") : 
-									goalType.length() - 1);
-				suffix = "_" + simplifiedGoalType + "_" + (++noPcTestNum)  + "_Test";
-			}
-			String testName = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + suffix;
-			String testDir = Properties.TEST_DIR;
-
-			suiteWriter.writeTestSuite(testName, testDir, new ArrayList());
-
-			
-			ClientServices.getInstance().getClientNode().notifyGeneratedTestCase(TestFitnessSerializationUtils.makeSerializableForNonEvosuiteClients(goal), testName);
-			LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE: " + goal + ", " + testName);
+	private void emitTestCase(List<TestFitnessFunction> goals, TestChromosome tc) {
+		if (goals.isEmpty() || !Properties.JUNIT_TESTS) {
+			LoggingUtils.getEvoLogger().error("\n\n* CANNOT EMIT TEST CASE FOR EMPTY GOALS: " + tc.getTestCase());
+			return;
 		}
+
+		TestChromosome tcToWrite = (TestChromosome) tc.clone();
+		//tcToWrite.getTestCase().clearCoveredGoals(); 
+
+		if (Properties.MINIMIZE) {
+			TestSuiteMinimizer minimizer = new TestSuiteMinimizer(new AbstractFitnessFactory<TestFitnessFunction>() {
+				@Override
+				public List<TestFitnessFunction> getCoverageGoals() {
+					return goals;
+				}
+			});
+			TestSuiteChromosome tsuite = new TestSuiteChromosome();
+			tsuite.addTestChromosome(tcToWrite);
+			minimizer.minimize(tsuite, false); //Set minimizePerTest=false, it keeps the test suite with 1 test only 
+			//LoggingUtils.getEvoLogger().info("\n\n* NON-MINIMIZED TEST WAS: " + tc.getTestCase());
+			if (tsuite.size() != 1) {
+				LoggingUtils.getEvoLogger().error("\n\n* UNEXPECTED - MINIMIZED TEST SUITE WITH MULTIPLE TESTS: ");
+				for (TestChromosome minTc: tsuite.getTestChromosomes()) {
+					LoggingUtils.getEvoLogger().error("\n\n* MINIMIZED IS: " + minTc.getTestCase());
+				}
+			}
+			tcToWrite = tsuite.getTestChromosome(0);
+		}
+
+		if (Properties.INLINE) {
+			ConstantInliner inliner = new ConstantInliner();
+			inliner.inline(tcToWrite.getTestCase());
+		}
+
+		//writing the output
+
+		// Select (arbitrarily) a newly covered goal to associate the test case with
+		TestFitnessFunction goal = null;
+		for (TestFitnessFunction g: goals) {
+			if (!(g instanceof PathConditionCoverageGoalFitness)) {
+				goal = g; //If possible, we prefer to select a non-path-condition goal...
+				break;
+			}
+		}
+		if (goal == null) {
+			goal = goals.get(0); //...anyway we select a goal eventually.
+		}
+		for (TestFitnessFunction g: goals) {
+			 //notify dismissed path conditions that are not notified in the generated test cases 
+			if (g != goal && g instanceof PathConditionCoverageGoalFitness) {
+				ClientServices.getInstance().getClientNode().notifyDismissedFitnessGoal(g, 0, 0.0, new int[0]);
+				LoggingUtils.getEvoLogger().info("\n\n* DISMISSED PATH CONDITION GOAL (CONVERGED ON ALREADY EMITTED TEST CASE): " +
+						((PathConditionCoverageGoalFitness) g).getEvaluatorName());
+			}
+		}
+
+		TestSuiteWriter suiteWriter = new TestSuiteWriter();
+		String comment = "Covered goal: " + goals.get(0).toString();
+		for (int i = 1; i < goals.size(); ++i) {
+			comment += "\n" + TestSuiteWriterUtils.METHOD_SPACE + "//Covered goal: " + goals.get(i).toString(); 
+		}
+		suiteWriter.insertTest(tcToWrite.getTestCase(), comment);
+
+		final String suffix;
+		if (goal instanceof PathConditionCoverageGoalFitness) {
+			PathConditionCoverageGoalFitness pc = (PathConditionCoverageGoalFitness) goal;
+			String evaluatorName = pc.getEvaluatorName().substring(pc.getEvaluatorName().lastIndexOf('.') + 1);
+			suffix = evaluatorName.substring(evaluatorName.indexOf('_')) + "_Test";
+		} else {
+			String goalType = goal.getClass().getSimpleName();
+			String simplifiedGoalType = goalType.substring(0, 
+					goalType.lastIndexOf("CoverageTestFitness") > 0 ? goalType.lastIndexOf("CoverageTestFitness") :  
+						goalType.lastIndexOf("TestFitness") > 0 ?  goalType.lastIndexOf("TestFitness") :
+							goalType.lastIndexOf("Fitness") > 0 ?  goalType.lastIndexOf("Fitness") : 
+								goalType.length() - 1);
+			suffix = "_" + simplifiedGoalType + "_" + (++noPcTestNum)  + "_Test";
+		}
+		String testName = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + suffix;
+		String testDir = Properties.TEST_DIR;
+
+		suiteWriter.writeTestSuite(testName, testDir, new ArrayList());
+
+		ClientServices.getInstance().getClientNode().notifyGeneratedTestCase(TestFitnessSerializationUtils.makeSerializableForNonEvosuiteClients(goal), testName);
+		LoggingUtils.getEvoLogger().info("\n\n* EMITTED TEST CASE " + testName + ", FOR GOALS: " + goals + ", " + "\n" + tcToWrite.getTestCase());
 	}
 
 	private void prunePathConditionsByCoveredBranches(Collection<TestFitnessFunction> coveredTargets) {
@@ -349,5 +398,26 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 
 	@Override
 	public void modification(TestChromosome individual) { /* do nothing */ }
+	
+	@Override
+	public Set<TestFitnessFunction> getUncoveredGoals() {
+		if (Properties.CRITERION.length != 1) { 
+			/* Only when PATHCONDITION is not the only Criterion, we stop when there are no more
+			 * targets of the other types. In these cases, we see path-condition-goals as helpers.
+			 */
+			boolean done = true; 
+			for (TestFitnessFunction goal : this.getCurrentGoals()) {
+				if (!(goal instanceof PathConditionCoverageGoalFitness)) {
+					//There are uncovered targets
+					done = false;
+					break;
+				}
+			}
+			if (done) {
+				return new HashSet<>();
+			}
+		}
+		return super.getCurrentGoals();	
+	}
 	
 }

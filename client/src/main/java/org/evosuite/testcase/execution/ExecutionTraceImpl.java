@@ -285,7 +285,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<>());
 
-	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<Integer, Double>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, ArrayList<Object>> pathConditionFeedbacks = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
 
 	public static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
@@ -2003,7 +2004,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
-	public void passedPathCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+	public void passedPathCondition(int pathConditionID, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
 		//LoggingUtils.getEvoLogger().info("--path condition distance is d: " + distance + ", pc = " + pathConditionID);
 		if (Properties.POST_CONDITION_CHECK) {
 			tempDistances.put(pathConditionID, distance);
@@ -2011,15 +2012,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
-			if (currentDistance == null) {
+			if (currentDistance == null
+					|| (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST && distance <= distance)
+					|| Properties.PATH_CONDITION_TARGET == PathConditionTarget.LAST_ONLY
+					/* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
+					)
 				pathConditionDistances.put(pathConditionID, distance);
-			} else if (Properties.PATH_CONDITION_TARGET != PathConditionTarget.FIRST_ONLY) {				
-				if (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST) {
-					distance = Math.min(currentDistance, distance);
-				} /* else PathConditionTarget.LAST_ONLY, meaning that the new value must replace the old one*/
-				
-				pathConditionDistances.put(pathConditionID, distance);			
-			} /* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
+				pathConditionFeedbacks.put(pathConditionID, feedback);
 		}
 	}
 
@@ -2064,6 +2063,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	}
 	
 	@Override
+	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks() { /*SUSHI: Path condition fitness*/
+		return pathConditionFeedbacks;
+	}
+
+	@Override
 	public void passedSeepepItem(SeepepTraceItem seepepTraceItem) {  /*SEEPEP: DAG coverage*/
 		if (seepepTracingEnabled) {
 			if (seepepTraceItem.isTraceStartMarker() || seepepTraceItem.isInputParameter()) {
@@ -2081,4 +2085,5 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public List<SeepepTraceItem> getTraversedSeepepItems() { /*SEEPEP: DAG coverage*/
 		return traversedSeepepItems;
 	}
+
 }

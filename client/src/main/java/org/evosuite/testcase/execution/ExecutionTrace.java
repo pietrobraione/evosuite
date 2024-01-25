@@ -25,6 +25,7 @@ import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -593,15 +594,16 @@ public interface ExecutionTrace {
 	 * @param distance
 	 *            the distance of the current trace from satisfying the path condition.
 	 */
-	public void passedPathCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
+	public void passedPathCondition(int pathConditionID, double distance, ArrayList<Object> feedback); /*SUSHI: Path condition fitness*/
 	public void passedPostCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
-	
+
 	/**
 	 * Retrieve map of all minimal path condition distances
 	 * 
 	 * @return a {@link java.util.Map} object.
 	 */
 	public Map<Integer, Double> getPathConditionDistances(); /*SUSHI: Path condition fitness*/
+	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks(); /*SUSHI: Path condition fitness*/
 
 	/**
 	 * Retrieve the list of traversed lines, wrt the set of relevent lines set in the ExecutionTracer
@@ -613,5 +615,4 @@ public interface ExecutionTrace {
 	public void passedSeepepItem(SeepepTraceItem seepepMethod); /*SEEPEP: DAG coverage*/
 
 	boolean checkSetSeepepDone(boolean done); /*SEEPEP: DAG coverage*/
-
 }

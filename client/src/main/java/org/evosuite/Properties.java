@@ -1628,7 +1628,7 @@ public class Properties {
 	public static String TMP_TEST_DIR = null; /*SUSHI: Aiding path conditions*/
 
 	/** Constant <code>APC_RATE=""</code> */
-	@Parameter(key = "apc_rate", group = "SUSHI", description = "The iteration-rate to check for branches that need aiding path conditions")
+	@Parameter(key = "apc_rate", group = "SUSHI", description = "The iteration-rate for checking for branches that may need aiding path conditions")
 	public static int APC_RATE = 0; /*SUSHI: Aiding path conditions*/
 
 	/** Constant <code>APC_MAX=""</code> */

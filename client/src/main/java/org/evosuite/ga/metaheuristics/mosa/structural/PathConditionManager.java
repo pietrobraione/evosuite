@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
@@ -66,11 +67,11 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	 * @param a 
 	 * @param fitnessFunctions List of all FitnessFunction<T>
 	 */
-	public PathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo){
+	public PathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo, boolean onlyPathConditionCriterion){
 		super(targets);
 		algo.addListener(this);
 		
-		if (Properties.CRITERION.length == 1) { //PATHCONDITION is the only Criterion, then remove the branch targets initialized by the super class
+		if (onlyPathConditionCriterion) { //PATHCONDITION is the only Criterion, then remove the branch targets initialized by the super class
 			this.currentGoals.clear();
 			this.branchCoverageFalseMap.clear();
 			this.branchCoverageTrueMap.clear();

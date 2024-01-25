@@ -3,6 +3,7 @@ package org.evosuite.ga.metaheuristics.mosa.jbse;
 import static jbse.common.Type.className;
 import static jbse.common.Type.isReference;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,11 +26,8 @@ import jbse.common.exc.UnexpectedInternalException;
 import jbse.mem.Clause;
 import jbse.mem.ClauseAssume;
 import jbse.mem.ClauseAssumeAliases;
-import jbse.mem.ClauseAssumeClassInitialized;
-import jbse.mem.ClauseAssumeClassNotInitialized;
 import jbse.mem.ClauseAssumeExpands;
 import jbse.mem.ClauseAssumeNull;
-import jbse.mem.ClauseAssumeReferenceSymbolic;
 import jbse.mem.Objekt;
 import jbse.mem.State;
 import jbse.mem.exc.FrozenStateException;
@@ -49,13 +47,13 @@ import jbse.val.PrimitiveSymbolicMemberArrayLength;
 import jbse.val.PrimitiveSymbolicMemberField;
 import jbse.val.PrimitiveVisitor;
 import jbse.val.ReferenceSymbolic;
-import jbse.val.ReferenceSymbolicApply;
 import jbse.val.Simplex;
 import jbse.val.Symbolic;
 import jbse.val.Term;
 import jbse.val.Value;
 import jbse.val.WideningConversion;
 import jbse.val.exc.InvalidOperandException;
+import jbse.val.exc.InvalidOperatorException;
 import jbse.val.exc.InvalidTypeException;
 
 /**
@@ -93,39 +91,14 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}
 	}
 
-	private List<List<Clause>> independentFormulas = new ArrayList<>(); 
-	
-    private boolean shouldSkip(Clause clause) {
-        //exclude all the clauses with shape ClauseAssumeReferenceSymbolic
-        //if they refer to the resolution of a symbolic reference that is a 
-        //function application
-        if (clause instanceof ClauseAssumeReferenceSymbolic && 
-        ((ClauseAssumeReferenceSymbolic) clause).getReference() instanceof ReferenceSymbolicApply) {
-            return true;
-        }
-        
-        //Other exclusion cases
-        if (clause instanceof ClauseAssumeClassInitialized || clause instanceof ClauseAssumeClassNotInitialized) {
-        		return true;
-        }
+	private List<Clause> subformula = new ArrayList<>();
 
-        //all other clauses are accepted
-        return false;
-    }
-    
-    public void decomposePathConditionInIndipendentFormulas(State finalState) {
+	public void refineFormula(State finalState) {
 		
 		Collection<Clause> pathCondition = finalState.getPathCondition();
 		
 		Map<String, NumericRange> collectedRangeAssumptions = new HashMap<>();
 		Set<Clause> alreadySeen = new HashSet<>();
-
-		ArrayList<Clause> pathConditionSimple = new ArrayList<>();
-		for (final Clause clause : pathCondition) {
-			if (!shouldSkip(clause)) {
-				pathConditionSimple.add(clause);
-			}
-		}
 
 		for (final Clause clause : pathCondition) {
 			if (alreadySeen.contains(clause)) {
@@ -136,8 +109,17 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			if (clause instanceof ClauseAssume) { 
 				//System.out.println("clause: " + clause);
 				ClauseAssume assumption = (ClauseAssume) clause;
-				if (!excludeClause(assumption) && !tryToCollectAsRangeAssumptions(assumption, collectedRangeAssumptions)) {
-					useThisAssumption(assumption);
+				if (!excludeClause(assumption)) {
+					//Primitive expr = tryToCollectAsRangeAssumptions(assumption.getCondition(), collectedRangeAssumptions, false);
+					//if (expr != null) {
+					//	try {
+					//		assumption = new ClauseAssume(expr);
+					//	} catch (InvalidInputException e) {
+					//		//this should not happen
+					//	}
+						//System.out.println("--DEBUG: directly added numeric clause: " + clause);
+						subformula.add(assumption);
+					//}
 				}
 			} else if (/*clause instanceof ClauseAssumeExpands ||*/ clause instanceof ClauseAssumeNull || clause instanceof ClauseAssumeAliases) {
 				//System.out.println("clause: " + clause);
@@ -162,22 +144,19 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 						}
 					}
 				} */
-				useThisAssumption(clause);
+				subformula.add(clause);
 			}
 		}
 		
-		for (NumericRange r : collectedRangeAssumptions.values()) {
+		/*for (NumericRange r : collectedRangeAssumptions.values()) {
 			for (ClauseAssume assumption[] : r.getAsAssumptions()) {
-				//System.out.println("clause: " + assumption);
-				useThisAssumption(assumption);				
+				System.out.println("--DEBUG: range-simplified numeric clause: " + Arrays.toString(assumption));
+				subformula.addAll(Arrays.asList(assumption));				
 			}
-		}
+		}*/
 		
-		generateIndipendentFormulas();
+		System.out.println("Considering the sub-formula: " + Arrays.toString(subformula.toArray()));
 		
-		for (int i = 0; i < independentFormulas.size(); i++) {
-			System.out.println("Considering indipendent formula: " + Arrays.toString(independentFormulas.get(i).toArray()));
-		}
 	}
 	
 	private boolean excludeClause(ClauseAssume assumption) {
@@ -235,32 +214,22 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 			@Override
 			public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 
 			@Override
 			public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 
 			@Override
 			public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 
 			@Override
 			public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 
 			@Override
 			public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 		};
 
@@ -359,7 +328,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				} catch (InvalidOperandException | InvalidTypeException e) {
 					e.printStackTrace();
 				} catch (InvalidInputException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -380,7 +348,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 							return 0;
 						}
 					} catch (InvalidOperandException | InvalidTypeException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 					return 0;
@@ -485,21 +452,20 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				} catch (InvalidOperandException | InvalidTypeException e) {
 					e.printStackTrace();
 				} catch (InvalidInputException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			//System.out.println("--DEBUG: computed range-assumptions for var " + var + ": " + Arrays.toString(ass.toArray()));
+			System.out.println("--DEBUG: computed range-assumptions for var " + var + ": " + Arrays.toString(assumptions.toArray()));
 				
 			return assumptions;
 		}
 
-		public void addAssumption(Expression rangeAssumption, boolean constTermInRightOperand) {
-			//System.out.println("--DEBUG: updating range for " + var + ": " + rangeAssumption + "...");
+		public void addAssumption(Expression rangeAssumption, boolean constTermInRightOperand, Operator op) {
+			System.out.println("--DEBUG: updating range for " + var + ": " + rangeAssumption + "...");
 		
 			Simplex constTerm = (Simplex) (constTermInRightOperand ? rangeAssumption.getSecondOperand() : rangeAssumption.getFirstOperand());
 		
-			if (rangeAssumption.getOperator().equals(Operator.EQ)) {
+			if (op.equals(Operator.EQ)) {
 				try {//Defensive check
 					if (EQValue != null && calc.push(EQValue).eq(constTerm).pop().surelyFalse()) {
 						throw new RuntimeException("CHECK THIS: path include strict equality constraints of a variable and distinct constants");
@@ -508,47 +474,46 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					e.printStackTrace();
 				}
 				EQValue = constTerm;
-				//System.out.println("  ... stored as EQ assumption, currently: " + EQValue);
+				System.out.println("  ... stored as EQ assumption, currently: " + EQValue);
 				return;
 			}
 
-			if (rangeAssumption.getOperator().equals(Operator.NE)) {
+			if (op.equals(Operator.NE)) {
 				NEValues.add(constTerm);
-				//System.out.println("  ... stored as NE assumption, currently: " + Arrays.toString(NEValues.toArray()));
+				System.out.println("  ... stored as NE assumption, currently: " + Arrays.toString(NEValues.toArray()));
 				return;
 			}
 			
-			boolean operatorWithEquality = rangeAssumption.getOperator().equals(Operator.LE) || 
-					rangeAssumption.getOperator().equals(Operator.GE);
+			boolean operatorWithEquality = op.equals(Operator.LE) || op.equals(Operator.GE);
 			
 			boolean updateInf = 
 					(constTermInRightOperand && 
-							(rangeAssumption.getOperator().equals(Operator.GT) || rangeAssumption.getOperator().equals(Operator.GE))) || 
+							(op.equals(Operator.GT) || op.equals(Operator.GE))) || 
 					(!constTermInRightOperand && 
-							(rangeAssumption.getOperator().equals(Operator.LT) || rangeAssumption.getOperator().equals(Operator.LE)));
+							(op.equals(Operator.LT) || op.equals(Operator.LE)));
 			if (updateInf) {				
 				try {
-					//System.out.println("  ... going to update inf - before was: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
+					System.out.println("  ... going to update inf - before was: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
 					if (inf == null || calc.push(constTerm).lt(inf).pop().surelyTrue()) {
 						inf = constTerm;
 						infIncluded = operatorWithEquality;
 					} else if (calc.push(constTerm).eq(inf).pop().surelyTrue()) {
 						infIncluded = infIncluded || operatorWithEquality;
 					}
-					//System.out.println("  ... - now is: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
+					System.out.println("  ... - now is: " + inf + (infIncluded?" (extreme included)":" (extreme excluded)"));
 				} catch (InvalidOperandException | InvalidTypeException e) {
 					e.printStackTrace();
 				}
 			} else { //updateSup
 				try {
-					//System.out.println("  ... going to update sup - before was: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
+					System.out.println("  ... going to update sup - before was: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
 					if (sup == null || calc.push(constTerm).gt(sup).pop().surelyTrue()) {
 						sup = constTerm;
 						supIncluded = operatorWithEquality;
 					} else if (calc.push(constTerm).eq(sup).pop().surelyTrue()) {
 						supIncluded = supIncluded || operatorWithEquality;
 					}
-					//System.out.println("  ... - now is: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
+					System.out.println("  ... - now is: " + sup + (supIncluded?" (extreme included)":" (extreme excluded)"));
 				} catch (InvalidOperandException | InvalidTypeException e) {
 					e.printStackTrace();
 				}
@@ -558,179 +523,97 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}	
 	}
 	
-	private boolean tryToCollectAsRangeAssumptions(ClauseAssume assumption, Map<String, NumericRange> rangeAssumptions) {
-		Primitive cond = assumption.getCondition();
+	private Primitive tryToCollectAsRangeAssumptions(Primitive cond, Map<String, NumericRange> rangeAssumptions, boolean negated) {
+		if (cond instanceof Simplex) { //true or false
+			return null;
+		}
 		if (!(cond instanceof Expression)) {
-			return false;
+			return cond;
 		}
 		Expression condExpr = (Expression) cond;
-		if (condExpr.isUnary()) { 
-			return false;
-		}
-		Primitive o1 = condExpr.getFirstOperand();
-		Primitive o2 = condExpr.getSecondOperand();
 		Operator op = condExpr.getOperator();
+
+		if (op == Operator.NOT) {
+			return tryToCollectAsRangeAssumptions(condExpr.getSecondOperand(), rangeAssumptions, !negated);
+		} 
+		
+		if (condExpr.isUnary()) { 
+			return condExpr;
+		}
+
+		Primitive o1 = condExpr.getFirstOperand();
+		Primitive o2 = condExpr.getSecondOperand();		
+		if (op == Operator.AND || op == Operator.OR){
+			try {
+				o1 = tryToCollectAsRangeAssumptions(o1, rangeAssumptions, negated);
+				o2 = tryToCollectAsRangeAssumptions(o2, rangeAssumptions, negated);
+				if (o1 != null && negated) {
+					o1 = Expression.makeExpressionUnary(op, o1);
+				}
+				if (o2 != null && negated) {
+					o2 = Expression.makeExpressionUnary(op, o2);
+				}
+				if (o1 == null) {
+					if (o2 == null) {
+						return null;
+					} else {
+						return o2;
+					}
+				} else if (o2 == null) {
+					return o1;
+				} else {
+					return Expression.makeExpressionBinary(o1, op, o2);
+				}
+			} catch (InvalidOperatorException | InvalidOperandException | InvalidTypeException e) {
+				return condExpr; //work as condExpr cannot be handled (though this should not happen)
+			}
+		}
+		
 		boolean isNumericComparison = 
 				op == Operator.EQ || op == Operator.NE || op == Operator.GE || op == Operator.GT || 
 				op == Operator.LE || op == Operator.LT;
 		boolean isSimpleRangeAssumption = isNumericComparison && (o1 instanceof Simplex || o2 instanceof Simplex) &&
 				(o1 instanceof PrimitiveSymbolic || o2 instanceof PrimitiveSymbolic);
-		if (isSimpleRangeAssumption) {
-			Primitive var = o1 instanceof Simplex ? o2 : o1;
-			String origin = var.toString();
-			NumericRange range = rangeAssumptions.get(origin);
-			if (range == null) {
-				range = new NumericRange((PrimitiveSymbolic) var, calc);
-				rangeAssumptions.put(origin, range);
-			}
-			range.addAssumption(condExpr, o2 instanceof Simplex);
-			//System.out.println("Range clause: " + assumption);
-			return true;
-		} else {
-			return false;
+		if (!isSimpleRangeAssumption) {
+			return condExpr;
 		}
+		
+		//handle as a range expression
+		Primitive var = o1 instanceof Simplex ? o2 : o1;
+		String origin = var.toString();
+		NumericRange range = rangeAssumptions.get(origin);
+		if (range == null) {
+			range = new NumericRange((PrimitiveSymbolic) var, calc);
+			rangeAssumptions.put(origin, range);
+		}
+		if (negated) {
+			if (op == Operator.EQ) {
+				op = Operator.NE;
+			} else if (op == Operator.NE) {
+				op = Operator.EQ;
+			} else if (op == Operator.GE) {
+				op = Operator.LT;
+			} else if (op == Operator.GT) {
+				op = Operator.LE;
+			} else if (op == Operator.LE) {
+				op = Operator.GT;
+			} else if (op == Operator.LT) {
+				op = Operator.GE;
+			}
+		}
+		range.addAssumption(condExpr, o2 instanceof Simplex, op);
+		//System.out.println("Range clause: " + assumption);
+		return null;
 	}
 
-	public int getNumOfIndipendentFormulas() {
-		return independentFormulas.size();
-	}
-
-
-	private boolean conflicting(Set<Symbolic> clauseSymbols, Set<Symbolic> formulaSymbols, boolean checkOrigins) {
-		//System.out.println(" ** Comparing clauses: " + Arrays.toString(clauseSymbols.toArray()) + " and " + Arrays.toString(formulaSymbols.toArray()));
-
-		for (Symbolic s: clauseSymbols) {
-			if (formulaSymbols.contains(s)) {
-				//System.out.println("    CONFLICT due to: " + s);
-				return true; 
-			}
-		}
-		
-		if (!checkOrigins) {
-			return false;
-		}
-		
-		//System.out.println("*** Checking conflict between ");
-		//System.out.println("      " + Arrays.toString(clauseSymbols.toArray()));
-		//System.out.println("      " + Arrays.toString(formulaSymbols.toArray()));
-		for (Symbolic clauseS: clauseSymbols) {
-			String[] fields1 = clauseS.asOriginString().split("\\.");
-		
-			for (Symbolic formulaS : formulaSymbols) {
-				String[] fields2 = formulaS.asOriginString().split("\\.");
-	
-				boolean someSharedField = false;
-				for (int i = 0; i < fields1.length && i < fields2.length; i++) {
-					if (!fields1[i].equals(fields2[i])) {
-						if (someSharedField) {
-							//System.out.println("    CONFLICT due to: " + clauseS.asOriginString() + " and " + formulaS.asOriginString());
-							return true;
-						} else {
-							//System.out.println("    NO CONFLICT between: " + clauseS.asOriginString() + " and " + formulaS.asOriginString());
-							break; //no conflict here, check next pair of symbols
-						}
-					} else { 
-						someSharedField = true;
-					}
-				}
-			}
-		}
-
-		//System.out.println("*** NO CONFLICT");
-
-		return false; 
-	}
-	
-	private List<Clause[]> assumptionsToBeIncluded = new ArrayList<>();
-	private List<Set<Symbolic>> assumptionsToBeIncludedSymbols = new ArrayList<>();
-	private List<Clause[]> assumptionsAlreadyIncluded = new ArrayList<>();
-	private List<Set<Symbolic>> assumptionsAlreadyIncludedSymbols = new ArrayList<>();
-	
-	private void useThisAssumption(Clause assumption) {
-		assumptionsToBeIncluded.add(0, new Clause[] {assumption});
-		if (assumption instanceof ClauseAssume) {
-			assumptionsToBeIncludedSymbols.add(0, 
-					new HashSet<>(symbolsIn(((ClauseAssume) assumption).getCondition())));			
-		} else {
-			assumptionsToBeIncludedSymbols.add(0, new HashSet<>());
-		}
-	}
-	
-	private void useThisAssumption(ClauseAssume[] assumption) {
-		System.out.println("Using assumption: " + Arrays.toString(assumption));
-		assumptionsToBeIncluded.add(0, assumption);
-		assumptionsToBeIncludedSymbols.add(0, new HashSet<>(symbolsIn(assumption[0].getCondition())));			
-	}
-
-	private void generateIndipendentFormulas() {
-		while (!assumptionsToBeIncluded.isEmpty()) {
-			int numOfAlreadyIncluded = assumptionsAlreadyIncluded.size();
-			List<Clause> formula = new ArrayList<>();
-			Set<Symbolic> formulaSymbols = new HashSet<>();
-			for (int i = 0; i < assumptionsToBeIncluded.size(); i++) {
-				Clause[] assumption = assumptionsToBeIncluded.get(i);
-				Set<Symbolic> symbols = assumptionsToBeIncludedSymbols.get(i);
-				if (!conflicting(symbols, formulaSymbols, false)) {
-					formula.addAll(Arrays.asList(assumption));
-					formulaSymbols.addAll(symbols);
-					assumptionsAlreadyIncluded.add(assumptionsToBeIncluded.remove(i));
-					assumptionsAlreadyIncludedSymbols.add(assumptionsToBeIncludedSymbols.remove(i));
-					--i;
-				}
-			}
-			for (int i = 0; i < numOfAlreadyIncluded; i++) {
-				Clause[] assumption = assumptionsAlreadyIncluded.get(i);
-				Set<Symbolic> symbols = assumptionsAlreadyIncludedSymbols.get(i);		
-				if (!conflicting(symbols, formulaSymbols, false)) {
-					formula.addAll(Arrays.asList(assumption));
-					formulaSymbols.addAll(symbols);
-				}
-			}
-			independentFormulas.add(formula);
-		}
-		
-		/*boolean added = false;
-		for (int i = 0; i < independentFormulas.size(); i++) {
-			Set<Symbolic> formulaSymbols = symbolsOfEachIndipendentFormula.get(i);
-			
-			if (!checkForConflicts || !conflicting(assumptionsToIncludeSymbols, formulaSymbols, checkOrigins)) {
-				independentFormulas.get(i).add(assumption);
-				formulaSymbols.addAll(assumptionsToIncludeSymbols);
-				added = true;
-				//System.out.println("  ** added to: " + Arrays.toString(independentFormulas.get(i).toArray()));
-			}
-		}
-		
-		if (!added) {
-			List<Clause> formula = new ArrayList<>();
-			formula.add(assumption);
-			Set<Symbolic> formulaSymbols = new HashSet<>(assumptionsToIncludeSymbols);
-
-			for (int i = 0; i < handledClauses.size(); i++) {
-				Set<Symbolic> handledClauseSymbols = symbolsOfEachHandledClause.get(i);
-				if (!conflicting(handledClauseSymbols, formulaSymbols, checkOrigins)) {
-					formula.add(handledClauses.get(i));
-					formulaSymbols.addAll(handledClauseSymbols);
-				}
-			}
-			independentFormulas.add(formula);
-			symbolsOfEachIndipendentFormula.add(formulaSymbols);
-			//System.out.println("  ** added as new to: " + Arrays.toString(formula.toArray()));
-		}
-		
-		handledClauses.add(assumption);
-		symbolsOfEachHandledClause.add(assumptionsToIncludeSymbols);*/
-		
-	}
-
-	public void formatPrologue(int i) {
+	public void formatPrologue(int idSuffix) {
 		this.output.append("package " + packagePath + ";\n\n");
 		this.output.append(PROLOGUE_1);
 		this.output.append('_');
 		this.output.append(this.methodNumber);
 		this.output.append('_');
-		this.output.append(i);
-		String id = "_" + this.methodNumber + "_" + i;
+		this.output.append(idSuffix);
+		String id = "_" + this.methodNumber + "_" + idSuffix;
 		if (this.traceCounterSupplier != null) {
 			this.output.append('_');
 			this.output.append(this.traceCounterSupplier.get());
@@ -775,10 +658,15 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		}
 		this.output.append("\n");
 	}
-
-	public void formatState(State state, int i) {
+	public void formatState(State state) {
+		
+	}
+	public void formatState(State state, String evaluatorDependencySpec) {
 		try {
-			new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, independentFormulas.get(i), calc, stringLiterals);
+			MethodUnderTest m = new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, subformula, calc, stringLiterals, evaluatorDependencySpec);
+			this.output.append(INDENT_1 + "public static final boolean[] subsumed = new boolean[" + m.numOfAppendedEvaluators + "];\n");
+			this.output.append(INDENT_1 + "public static final boolean[] converging = new boolean[" + m.numOfAppendedEvaluators + "];\n");
+			this.output.append(INDENT_1 + "public static final boolean[] disabled = new boolean[" + m.numOfAppendedEvaluators + "];\n");
 		} catch (FrozenStateException e) {
 			this.output.delete(0, this.output.length());
 		}
@@ -786,11 +674,8 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	}
 
 	@Override
-	public void formatState(State s) {
-	}
-
-	@Override
 	public void formatEpilogue() {
+		this.output.append(EPILOGUE_1);
 		this.output.append("}\n");
 	}
 
@@ -809,6 +694,8 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	private static final String INDENT_2 = INDENT_1 + INDENT_1;
 	private static final String INDENT_3 = INDENT_1 + INDENT_2;
 	private static final String INDENT_4 = INDENT_1 + INDENT_3;
+	private static final String INDENT_5 = INDENT_1 + INDENT_4;
+	private static final String INDENT_6 = INDENT_1 + INDENT_5;
 	private static final String PROLOGUE_1 =
 			"import static sushi.compile.path_condition_distance.DistanceBySimilarityWithPathCondition.distance;\n" +
 			"\n" +
@@ -832,7 +719,71 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			INDENT_1 + "private final SushiLibCache parsedOrigins = new SushiLibCache();\n" +	//SushiLibCache()
 			INDENT_1 + "private final HashMap<Long, String> constants = new HashMap<>();\n" +	//constants
 			INDENT_1 + "private final ClassLoader classLoader;\n" + 
+			INDENT_1 + "private static ArrayList<ClauseSimilarityHandler> pathConditionHandler = null;\n" +
+			INDENT_1 + "private static ArrayList<String> pathConditionHandlerSrc = null;\n" +
+			INDENT_1 + "private static ArrayList<ClauseSimilarityHandler> preConditionHandler = null;\n" +
+			INDENT_1 + "private static String dependencyEvaluatorClassName = null;\n" + 
+			INDENT_1 + "private static int[] dependencyEvaluatorClauseId = null;\n" + 
+			INDENT_1 + "private static HashMap<Long, boolean[]> threadLocalConvergingNow = new HashMap<>();\n" + 
 			"\n"; 
+	private static final String EPILOGUE_1 = 
+			INDENT_1 + "private static void initSubsumed() {\n" + 
+			INDENT_2 + "for (int i = 0; i < subsumed.length; ++i) {\n" + 
+			INDENT_3 + "subsumed[i] = true;\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public static int[] getConverging() {\n" + 
+			INDENT_2 + "int count = 0;\n" + 
+			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
+			INDENT_3 + "if (!disabled[i] && !subsumed[i] && converging[i]) ++count;\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_2 + "int ret[] = new int[count];\n" + 
+			INDENT_2 + "count = 0;\n" + 
+			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
+			INDENT_3 + "if (!disabled[i] && !subsumed[i] && converging[i]) {\n" + 
+			INDENT_4 + "ret[count++] = i;\n" + 
+			INDENT_3 + "}\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_2 + "return ret;\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public static void updtConverging(boolean[] convergingToMerge) {\n" + 
+			INDENT_2 + "if (convergingToMerge == null || convergingToMerge.length != converging.length) return;\n" + 
+			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
+			INDENT_3 + "converging[i] =  converging[i] || convergingToMerge[i];\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public static void setDisabled(int i, boolean val) {\n" + 
+			INDENT_2 + "if (i >= 0 && i < disabled.length) disabled[i] = val;\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "public static void disableAllButSome(int[] some) {\n" + 
+			INDENT_2 + "int keep = (some.length > 0) ? some[0] : -1;\n" + 
+			INDENT_2 + "int cursor = 1;\n" + 
+			INDENT_2 + "for (int i = 0; i < disabled.length; ++i) {\n" + 
+			INDENT_3 + "if (i != keep) {\n" + 
+			INDENT_4 + "disabled[i] = true;           		\n" + 
+			INDENT_3 + "} else {\n" + 
+			INDENT_4 + "keep = (cursor < some.length) ? some[cursor] : -1;\n" + 
+			INDENT_4 + "++cursor;\n" + 
+			INDENT_3 + "}\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public static boolean isAllDisabled() {\n" + 
+			INDENT_2 + "for (int i = 0; i < disabled.length; ++i) {\n" + 
+			INDENT_3 + "if (!disabled[i]) return false;\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_2 + "return true;\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "public static String getSimilarityHandlerSrc(int i) {\n" + 
+			INDENT_2 + "if (i >= 0 && i < pathConditionHandlerSrc.size()) \n" + 
+			INDENT_3 + "return pathConditionHandlerSrc.get(i);\n" + 
+			INDENT_2 + "else return \"\";\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "public static String getDependencyEvaluatorClassName() {\n" + 
+			INDENT_2 + "return dependencyEvaluatorClassName;\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public static int[] getDependencyEvaluatorClauseId() {\n" + 
+			INDENT_2 + "return dependencyEvaluatorClauseId;\n" + 
+			INDENT_1 + "}\n";
 	
 	private static List<PrimitiveSymbolic> symbolsIn(Primitive e) {
 		final ArrayList<PrimitiveSymbolic> symbols = new ArrayList<>();
@@ -954,28 +905,18 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			public void visitAny(Any x) { }
 			@Override
 			public void visitPrimitiveSymbolicHashCode(PrimitiveSymbolicHashCode x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 			@Override
 			public void visitPrimitiveSymbolicLocalVariable(PrimitiveSymbolicLocalVariable x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 			@Override
 			public void visitPrimitiveSymbolicMemberArray(PrimitiveSymbolicMemberArray x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 			@Override
 			public void visitPrimitiveSymbolicMemberArrayLength(PrimitiveSymbolicMemberArrayLength x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 			@Override
 			public void visitPrimitiveSymbolicMemberField(PrimitiveSymbolicMemberField x) throws Exception {
-				// TODO Auto-generated method stub
-				
 			}
 		};
 
@@ -996,14 +937,16 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		private boolean panic = false;
 		private final List<Clause> formula;
 		private final CalculatorRewriting calc;
+		private int numOfAppendedEvaluators = 0;
 		
-		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula, CalculatorRewriting calc, HashMap<Long, String> stringLiterals) 
+		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula, CalculatorRewriting calc, HashMap<Long, String> stringLiterals, String evaluatorDependencySpec) 
 		throws FrozenStateException {
 			this.s = s;
 			this.formula = formula;
 			this.calc = calc;
 			//makeVariables(finalState);
 			appendMethodDeclaration(initialState, finalState, testCounter);
+			appendPreCondition(finalState, testCounter, evaluatorDependencySpec);
 			appendPathCondition(finalState, testCounter);
 			appendIfStatement(initialState, finalState, testCounter);
 			appendMethodEnd(finalState, testCounter);
@@ -1028,22 +971,23 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append("public double test");
 			this.s.append(testCounter);
 			this.s.append("(");
-			boolean firstDone = false;
+			//boolean firstDone = false;
 			for (Symbolic symbol : inputs) {
 				makeVariableFor(symbol);
 				final String varName = getVariableFor(symbol);
 				this.evoSuiteInputVariables.add(varName);
-				if (firstDone) {
+				/*if (firstDone) {
 					this.s.append(", ");
 				} else {
 					firstDone = true;
-				}
+				}*/
                 final String type = javaType(symbol);
                 this.s.append(type);
                 this.s.append(' ');
                 this.s.append(varName);
+                this.s.append(", ");
 			}
-			this.s.append(") throws Exception {\n");
+			this.s.append("ArrayList<Object> feedbackSink) throws Exception {\n");
 			this.s.append(INDENT_2);
 			this.s.append("//generated for state ");
 			this.s.append(finalState.getBranchIdentifier());
@@ -1052,6 +996,99 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append("]\n");
 			this.s.append(INDENT_2);
 			this.s.append("Logger.setLevel(Level.FATAL);\n");
+			this.s.append(INDENT_2);
+			this.s.append("boolean[] convergingNow = new boolean[converging.length];\n");
+			this.s.append(INDENT_2);
+			this.s.append("threadLocalConvergingNow.put(Thread.currentThread().getId(), convergingNow);\n");
+			this.s.append(INDENT_2);
+			this.s.append("if (feedbackSink != null) feedbackSink.add(convergingNow);\n\n");
+		}
+
+		private void appendPreCondition(State finalState, int testCounter, String evaluatorDependencySpec) 
+		throws FrozenStateException {
+			if (this.panic) {
+				return;
+			}
+			this.s.append(INDENT_2);
+			this.s.append("if (preConditionHandler == null) {\n"); 
+			this.s.append(INDENT_3);
+			this.s.append("initSubsumed();\n"); 
+			this.s.append(INDENT_3);
+			this.s.append("preConditionHandler = new ArrayList<>();\n"); 
+			this.s.append(INDENT_3);
+			this.s.append("ClauseSimilarityHandler similarityHandler;\n");
+			if (evaluatorDependencySpec.indexOf(':') > 0) {
+				try {
+					String[] precond = evaluatorDependencySpec.split(":");
+					System.out.println("DEBUG: DEPENDENCY SPEC: " + evaluatorDependencySpec + "::" + Arrays.toString(precond));
+					if (precond.length < 2) {
+						throw new RuntimeException();
+					}
+					String dependencyEvaluatorClassName = precond[0];
+					this.s.append(INDENT_3);
+					this.s.append("dependencyEvaluatorClassName = \"");
+					this.s.append(dependencyEvaluatorClassName);
+					this.s.append("\";\n");
+					int[] dependencyEvaluatorClauseId = new int[precond.length - 1];
+					this.s.append(INDENT_3);
+					this.s.append("dependencyEvaluatorClauseId = new int[] {");
+					for (int i = 1; i < precond.length; ++i) {
+						int n = Integer.parseInt(precond[i]);
+						dependencyEvaluatorClauseId[i - 1] = n;
+						this.s.append(n);
+						if (i < precond.length - 1) this.s.append(", ");
+					}
+					this.s.append("};\n");
+					appendPreConditionClauses(dependencyEvaluatorClassName, dependencyEvaluatorClauseId);
+				} catch (Exception e) {
+					System.out.println("ERROR WHILE PARSING EVALUATOR DEPENDENCY SPEC: " + evaluatorDependencySpec + ": " + e);
+					throw new RuntimeException("ERROR WHILE PARSING EVALUATOR DEPENDENCY SPEC: " + evaluatorDependencySpec, e);
+				}
+			} else {
+				System.out.println("THERE IS NO EVALUATOR DEPENDENCY SPEC");
+			}
+			this.s.append(INDENT_2);
+			this.s.append("}\n"); 
+			this.s.append("\n");
+		}
+		
+		private void appendPreConditionClauses(String dependencyEvaluatorClassName, int[] dependencyEvaluatorClauseId) {
+			try {
+				Class<?> evaluatorClass = Class.forName(dependencyEvaluatorClassName);
+				System.out.println("NEW EVALUATOR DEPENDS ON: " + evaluatorClass.getName() + "::" + Arrays.toString(dependencyEvaluatorClauseId));
+				Object evaluator = evaluatorClass.getConstructor(ClassLoader.class).newInstance((ClassLoader) null);
+				for (Method m: evaluatorClass.getMethods()) {
+					if (m.getName().equals("test0")) {
+							m.invoke(evaluator, new Object[m.getParameterCount()]);
+						break;
+					}
+				}
+				this.s.append(INDENT_3);
+				this.s.append("// Dependency on: "); //comment
+				this.s.append(dependencyEvaluatorClassName);
+				this.s.append(Arrays.toString(dependencyEvaluatorClauseId));
+				this.s.append("\n");
+				for (int i = 0; i < dependencyEvaluatorClauseId.length; ++i) {
+					int n = dependencyEvaluatorClauseId[i];
+					String handlerSrc = (String) evaluatorClass.getMethod("getSimilarityHandlerSrc", int.class).invoke(null, n);
+					this.s.append(handlerSrc);
+					this.s.append(INDENT_3);
+					this.s.append("preConditionHandler.add(similarityHandler);\n");
+				}
+				this.s.append(INDENT_3);
+				this.s.append("// END Dependency on: "); //comment
+				this.s.append(dependencyEvaluatorClassName);
+				this.s.append(Arrays.toString(dependencyEvaluatorClauseId));
+				this.s.append("\n");
+				String nextDependencyEvaluatorClassName = (String) evaluatorClass.getMethod("getDependencyEvaluatorClassName").invoke(null);
+				if (nextDependencyEvaluatorClassName != null) {
+					int[] nextDependencyEvaluatorClauseId = (int[]) evaluatorClass.getMethod("getDependencyEvaluatorClauseId").invoke(null);
+					appendPreConditionClauses(nextDependencyEvaluatorClassName, nextDependencyEvaluatorClauseId);
+				}
+			} catch (Exception e) {
+				System.out.println("ERROR WHILE RETRIEVING EVALUATOR DEPENDENCY SPEC: " + dependencyEvaluatorClassName + ":" + Arrays.toString(dependencyEvaluatorClauseId) + " - " + e);
+				throw new RuntimeException("ERROR WHILE RETRIEVING EVALUATOR DEPENDENCY SPEC: " + dependencyEvaluatorClassName + ":" + Arrays.toString(dependencyEvaluatorClauseId) , e);
+			} 
 		}
 
 		private void appendPathCondition(State finalState, int testCounter) 
@@ -1060,16 +1097,23 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				return;
 			}
 			this.s.append(INDENT_2);
-			this.s.append("final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();\n");
-			this.s.append(INDENT_2);
-			this.s.append("ValueCalculator valueCalculator;\n");
+			this.s.append("if (pathConditionHandler == null) {\n"); 
+			this.s.append(INDENT_3);
+			this.s.append("pathConditionHandler = new ArrayList<>();\n"); 
+			this.s.append(INDENT_3);
+			this.s.append("pathConditionHandlerSrc = new ArrayList<>();\n"); 
+			//this.s.append("final ArrayList<ClauseSimilarityHandler> pathConditionHandler = new ArrayList<>();\n");
+			this.s.append(INDENT_3);
+			this.s.append("ClauseSimilarityHandler similarityHandler;\n");
+			this.s.append(INDENT_3);
+			this.s.append("String similarityHandlerSrc;\n");
 			//final Collection<Clause> pathCondition = finalState.getPathCondition();
 			final Collection<Clause> pathCondition  = formula;
 			for (Iterator<Clause> iterator = pathCondition.iterator(); iterator.hasNext(); ) {
 				final Clause clause = iterator.next();
 
 				if (clause instanceof ClauseAssumeExpands) {
-					this.s.append(INDENT_2);
+					this.s.append(INDENT_3);
 					this.s.append("// Search for inputs with fresh object: "); //comment
 					this.s.append(clause.toString());
 					this.s.append("\n");
@@ -1077,18 +1121,22 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					final ClauseAssumeExpands clauseExpands = (ClauseAssumeExpands) clause;
 					final Symbolic symbol = clauseExpands.getReference();
 					final long heapPosition = clauseExpands.getHeapPosition();
-					setWithFreshObjectAnyClass(symbol);//TODO: setWithFreshObject(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, false);//TODO: setWithFreshObject(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, true);//TODO: setWithFreshObject(finalState, symbol, heapPosition);
+					numOfAppendedEvaluators++;
 				} else if (clause instanceof ClauseAssumeNull) {					
-					this.s.append(INDENT_2);
+					this.s.append(INDENT_3);
 					this.s.append("// Search for inputs diverse (not null) from: "); //comment
 					this.s.append(clause.toString());
 					this.s.append("\n");
 
 					final ClauseAssumeNull clauseNull = (ClauseAssumeNull) clause;
 					final ReferenceSymbolic symbol = clauseNull.getReference();
-					setWithFreshObjectAnyClass(symbol);//TODO: setWithNotNull(symbol);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, false);//TODO: setWithNotNull(symbol);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, true);
+					numOfAppendedEvaluators++;
 				} else if (clause instanceof ClauseAssumeAliases) {
-					this.s.append(INDENT_2);
+					this.s.append(INDENT_3);
 					this.s.append("// Search for inputs diverse (not alias) from: "); //comment
 					this.s.append(clause.toString());
 					this.s.append("\n");
@@ -1096,9 +1144,11 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					final ClauseAssumeAliases clauseAliases = (ClauseAssumeAliases) clause;
 					final Symbolic symbol = clauseAliases.getReference();
 					final long heapPosition = clauseAliases.getHeapPosition();
-					setWithFreshObjectAnyClass(symbol);//TODO: setWithNotAlias(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, false);//TODO: setWithNotAlias(finalState, symbol, heapPosition);
+					setWithFreshObjectAnyClass(symbol, numOfAppendedEvaluators, true);//TODO: setWithNotAlias(finalState, symbol, heapPosition);
+					numOfAppendedEvaluators++;
 				} else if (clause instanceof ClauseAssume) {
-					this.s.append(INDENT_2);
+					this.s.append(INDENT_3);
 					this.s.append("// Search for inputs diverse from: "); //comment
 					this.s.append(clause.toString());
 					this.s.append("\n");
@@ -1108,17 +1158,24 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 					//System.out.println(assumption);
 					try {
 						final Primitive not_assumption = calc.push(assumption).not().pop();
-						setNumericAssumption(not_assumption);
+						setNumericAssumption(not_assumption, numOfAppendedEvaluators, false);
+						setNumericAssumption(not_assumption, numOfAppendedEvaluators, true);
 						//System.out.println("-->" + not_assumption);
+						numOfAppendedEvaluators++;
 					} catch (InvalidTypeException e) {
 						throw new RuntimeException(e);
 					} catch (InvalidOperandException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					//setNumericAssumption(assumption);
 				}
+				this.s.append(INDENT_3);
+				this.s.append("pathConditionHandler.add(similarityHandler);\n");
+				this.s.append(INDENT_3);
+				this.s.append("pathConditionHandlerSrc.add(similarityHandlerSrc);\n");	
 			}
+			this.s.append(INDENT_2);
+			this.s.append("}\n"); 
+
 			this.s.append("\n");
 		}
 
@@ -1138,13 +1195,25 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			}
 			this.s.append('\n');
 			this.s.append(INDENT_2);
+			this.s.append("double d0 = distance(preConditionHandler, candidateObjects, constants, classLoader, parsedOrigins);\n");
+			this.s.append(INDENT_2);
+			this.s.append("if (d0 > 0.0d) {\n");
+			this.s.append(INDENT_3);
+			this.s.append("threadLocalConvergingNow.remove(Thread.currentThread().getId());\n");
+			this.s.append(INDENT_3);
+			this.s.append("return BIG_DISTANCE;\n");
+			this.s.append(INDENT_2);
+			this.s.append("}\n\n");
+			this.s.append(INDENT_2);
 			this.s.append("double d = distance(pathConditionHandler, candidateObjects, constants, classLoader, parsedOrigins);\n");
 			this.s.append(INDENT_2);
 			this.s.append("if (d == 0.0d)\n");
 			this.s.append(INDENT_3);
 			this.s.append("System.out.println(\"test");
 			this.s.append(testCounter);
-			this.s.append(" 0 distance\");\n");
+			this.s.append(" 0 distance\");\n\n");
+			this.s.append(INDENT_2);
+			this.s.append("threadLocalConvergingNow.remove(Thread.currentThread().getId());\n\n");
 			this.s.append(INDENT_2);
 			this.s.append("return d;\n");
 		}
@@ -1152,6 +1221,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		private void appendMethodEnd(State finalState, int testCounter) {
 			if (this.panic) {
 				this.s.delete(0, s.length());
+
 				this.s.append(INDENT_1);
 				this.s.append("//Unable to generate test case ");
 				this.s.append(testCounter);
@@ -1166,38 +1236,157 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			}
 		}
 
-		private void setWithFreshObject(State finalState, Symbolic symbol, long heapPosition) 
+		private void setWithFreshObject(State finalState, Symbolic symbol, long heapPosition, boolean forGeneratingSourceCode) 
 		throws FrozenStateException {
 			final String expansionClass = javaClass(getTypeOfObjectInHeap(finalState, heapPosition), false);
-			this.s.append(INDENT_2);
-			this.s.append("pathConditionHandler.add(new SimilarityWithRefToFreshObject(\"");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_3);
+			this.s.append("similarityHandler = new SimilarityWithRefToFreshObject(");
+			appendQuote(forGeneratingSourceCode);
 			this.s.append(symbol.asOriginString());
-			this.s.append("\", Class.forName(\"");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(", Class.forName(");
+			appendQuote(forGeneratingSourceCode);
 			this.s.append(expansionClass); //TODO arrays
-			this.s.append("\")));\n");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append("));");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\";\n"); 
+			//TODO: handle disabled, converged and subsumed	
 		}
-		private void setWithFreshObjectAnyClass(Symbolic symbol) 
+		private void setWithFreshObjectAnyClass(Symbolic symbol, int num, boolean forGeneratingSourceCode) 
 		throws FrozenStateException {
-			this.s.append(INDENT_2);
-			this.s.append("pathConditionHandler.add(new SimilarityWithRefToFreshObjectNotClass(\"");
+			if (forGeneratingSourceCode) this.s.append(INDENT_3);
+			if (forGeneratingSourceCode) this.s.append("similarityHandlerSrc = \n");
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_3);
+			this.s.append("similarityHandler = new SimilarityWithRefToFreshObjectAnyClass(");
+			appendQuote(forGeneratingSourceCode);
 			this.s.append(symbol.asOriginString());
-			this.s.append("\"));\n");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(") {");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_4);
+			this.s.append("@Override");
+			appendEol(forGeneratingSourceCode);
+			
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_4);
+			this.s.append("protected double evaluateSimilarity(CandidateBackbone backbone, Object referredObject) {"); 
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (!forGeneratingSourceCode) {
+				this.s.append(INDENT_5);
+				this.s.append("if (disabled[");
+				this.s.append(num);
+				this.s.append("]) return 1;\n"); 
+			}
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("double similarity = super.evaluateSimilarity(backbone, referredObject);");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (!forGeneratingSourceCode) {
+				this.s.append(INDENT_5);
+				this.s.append("if (similarity == 1) {\n");
+				this.s.append(INDENT_6);
+				this.s.append("if (!subsumed[");
+				this.s.append(num);
+				this.s.append("]) threadLocalConvergingNow.get(Thread.currentThread().getId())["); 
+				this.s.append(num);
+				this.s.append("] = true;\n"); 
+				this.s.append(INDENT_5);
+				this.s.append("} else subsumed[");
+				this.s.append(num);
+				this.s.append("] = false;\n"); 
+			}
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("return similarity;");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_4);
+			this.s.append("}");			
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_3);
+			this.s.append("};");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\";\n");		
 		}
-		private void setWithNotNull(ReferenceSymbolic symbol) {
-			this.s.append(INDENT_2);
-			this.s.append("pathConditionHandler.add(new SimilarityWithRefNotNull(\"");
-			this.s.append(symbol.asOriginString());
-			this.s.append("\"));\n");
+		
+		private void appendQuote(boolean forGeneratingSourceCode) {
+			if (forGeneratingSourceCode) {
+				this.s.append("\\\"");
+			} else {
+				this.s.append("\"");
+			}
+		}
+		private void appendEol(boolean forGeneratingSourceCode) {
+			if (forGeneratingSourceCode) {
+				this.s.append("\\n");
+			} else {
+				this.s.append("\n");
+			}
 		}
 
-		private void setWithNotAlias(State finalState, Symbolic symbol, long heapPosition) {
-			final String target = getOriginOfObjectInHeap(finalState, heapPosition);
-			this.s.append(INDENT_2);
-			this.s.append("pathConditionHandler.add(new SimilarityWithRefNotAlias(\"");
+		private void setWithNotNull(ReferenceSymbolic symbol, boolean forGeneratingSourceCode) {
+			if (forGeneratingSourceCode) this.s.append(INDENT_3);
+			if (forGeneratingSourceCode) this.s.append("similarityHandlerSrc = \n");
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_3);
+			this.s.append("similarityHandler = new SimilarityWithRefNotNull(");
+			appendQuote(forGeneratingSourceCode);
 			this.s.append(symbol.asOriginString());
-			this.s.append("\", \"");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(");");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\";\n");			
+			//TODO: handle disabled, converged and subsumed
+		}
+
+		private void setWithNotAlias(State finalState, Symbolic symbol, long heapPosition, boolean forGeneratingSourceCode) {
+			final String target = getOriginOfObjectInHeap(finalState, heapPosition);
+			if (forGeneratingSourceCode) this.s.append(INDENT_3);
+			if (forGeneratingSourceCode) this.s.append("similarityHandlerSrc = \n");
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_3);
+			this.s.append("similarityHandler = new SimilarityWithRefNotAlias(");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(symbol.asOriginString());
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(", ");
+			appendQuote(forGeneratingSourceCode);
 			this.s.append(target);
-			this.s.append("\"));\n");
+			appendQuote(forGeneratingSourceCode);
+			this.s.append(");");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\";\n");
+			//TODO: handle disabled, converged and subsumed
 		}
 
         private String javaType(Symbolic symbol) {
@@ -1314,30 +1503,78 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			return null;
 		}
 
-		private void setNumericAssumption(Primitive assumption) {
-			final List<PrimitiveSymbolic> symbols = symbolsIn(assumption);
-			this.s.append(INDENT_2);
-			this.s.append("valueCalculator = new ValueCalculator() {\n");
+		private void setNumericAssumption(Primitive assumption, int num, boolean forGeneratingSourceCode) {
+			final List<PrimitiveSymbolic> symbols = symbolsIn(assumption);			
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_3);
+			if (forGeneratingSourceCode) this.s.append("similarityHandlerSrc = \n");
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
 			this.s.append(INDENT_3);
-			this.s.append("@Override public Iterable<String> getVariableOrigins() {\n");
+			this.s.append("similarityHandler = new SimilarityWithNumericExpression(new ValueCalculator() {");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
 			this.s.append(INDENT_4);
-			this.s.append("ArrayList<String> retVal = new ArrayList<>();\n");       
+			this.s.append("@Override public Iterable<String> getVariableOrigins() {");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("ArrayList<String> retVal = new ArrayList<>();");       
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
 			for (PrimitiveSymbolic symbol: symbols) {
-				this.s.append(INDENT_4);
-				this.s.append("retVal.add(\"");
+				if (forGeneratingSourceCode) this.s.append(INDENT_4);
+				if (forGeneratingSourceCode) this.s.append("\"");
+				this.s.append(INDENT_5);
+				this.s.append("retVal.add(");
+				appendQuote(forGeneratingSourceCode);
 				this.s.append(symbol.asOriginString());
-				this.s.append("\");\n");
+				appendQuote(forGeneratingSourceCode);
+				this.s.append(");");
+				appendEol(forGeneratingSourceCode);
+				if (forGeneratingSourceCode) this.s.append("\" + \n");
 			}
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("return retVal;");  
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
 			this.s.append(INDENT_4);
-			this.s.append("return retVal;\n");       
-			this.s.append(INDENT_3);
-			this.s.append("}\n");       
-			this.s.append(INDENT_3);
-			this.s.append("@Override public double calculate(List<Object> variables) {\n");
+			this.s.append("}");       
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_4);
+			this.s.append("@Override public double calculate(List<Object> variables) {");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (!forGeneratingSourceCode) {
+				this.s.append(INDENT_5);
+				this.s.append("if (disabled[");
+				this.s.append(num);
+				this.s.append("]) return 0;\n"); 
+			}
 			for (int i = 0; i < symbols.size(); ++i) {
 				final Symbolic symbol = symbols.get(i);
 				makeVariableFor(symbol);
-				this.s.append(INDENT_4);
+				if (forGeneratingSourceCode) this.s.append(INDENT_4);
+				if (forGeneratingSourceCode) this.s.append("\"");
+				this.s.append(INDENT_5);
 				this.s.append("final ");
 				this.s.append(javaType(symbol));
 				this.s.append(" ");
@@ -1346,18 +1583,55 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				this.s.append(javaType(symbol));
 				this.s.append(") variables.get(");
 				this.s.append(i);
-				this.s.append(");\n");
+				this.s.append(");");
+				appendEol(forGeneratingSourceCode);
+				if (forGeneratingSourceCode) this.s.append("\" + \n");
 			}
-			this.s.append(INDENT_4);
-			this.s.append("return ");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("double retVal = ");
 			this.s.append(javaAssumptionCheck(assumption));
-			this.s.append(";\n");
+			this.s.append(";");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+
+			if (!forGeneratingSourceCode) {
+				this.s.append(INDENT_5);
+				this.s.append("if (retVal == 0) {\n"); 
+				this.s.append(INDENT_6);
+				this.s.append("if (!subsumed[");
+				this.s.append(num);
+				this.s.append("]) threadLocalConvergingNow.get(Thread.currentThread().getId())["); 
+				this.s.append(num);
+				this.s.append("] = true;\n"); 
+				this.s.append(INDENT_5);
+				this.s.append("} else subsumed[");
+				this.s.append(num);
+				this.s.append("] = false;\n"); 
+			}
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_5);
+			this.s.append("return retVal;");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
+			this.s.append(INDENT_4);
+			this.s.append("}");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\" + \n");
+			
+			if (forGeneratingSourceCode) this.s.append(INDENT_4);
+			if (forGeneratingSourceCode) this.s.append("\"");
 			this.s.append(INDENT_3);
-			this.s.append("}\n");
-			this.s.append(INDENT_2);
-			this.s.append("};\n");
-			this.s.append(INDENT_2);
-			this.s.append("pathConditionHandler.add(new SimilarityWithNumericExpression(valueCalculator));\n");
+			this.s.append("});");
+			appendEol(forGeneratingSourceCode);
+			if (forGeneratingSourceCode) this.s.append("\";\n");
 		}
 
 		
@@ -1609,7 +1883,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 							b.append(")) ? BIG_DISTANCE : SMALL_DISTANCE");
 						} else {
 							b.append("(");
-							b.append(firstArg);
+							if (firstArg.equals("true")) {
+								b.append("0");
+							} else if (firstArg.equals("false")) {
+								b.append("1");
+							} else {
+								b.append(firstArg);
+							}
 							b.append(") ");
 							if (op.equals(Operator.AND)) {
 								b.append("+");
@@ -1619,7 +1899,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 								b.append(op.toString());
 							}
 							b.append(" (");
-							b.append(secondArg);
+							if (secondArg.equals("true")) {
+								b.append("0");
+							} else if (secondArg.equals("false")) {
+								b.append("1");
+							} else {
+								b.append(secondArg);
+							}
 							b.append(")");
 						}
 					}

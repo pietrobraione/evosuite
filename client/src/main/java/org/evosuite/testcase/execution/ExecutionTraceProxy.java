@@ -24,6 +24,7 @@ import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -869,9 +870,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
-	public void passedPathCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+	public void passedPathCondition(int pathConditionID, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
 		copyOnWrite();
-		trace.passedPathCondition(pathConditionID, distance);		
+		trace.passedPathCondition(pathConditionID, distance, feedback);		
 	}
 
 	@Override
@@ -883,6 +884,11 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	@Override
 	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
 		return trace.getPathConditionDistances();
+	}
+
+	@Override
+	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks() { /*SUSHI: Path condition fitness*/
+		return trace.getPathConditionFeedbacks();
 	}
 
 	@Override

@@ -12,8 +12,7 @@ import java.util.Stack;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.pathcondition.AidingPathConditionGoalFitness;
-import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
+import org.evosuite.ga.metaheuristics.mosa.structural.AidingPathConditionManager.ApcGroup;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionTraceProxy;
 import org.evosuite.testcase.execution.ExecutionTracer;
@@ -21,18 +20,18 @@ import org.evosuite.utils.LoggingUtils;
 
 public class JBSEManager {
 
-	/* private static JBSERunner _instance = null; //TODO: Set as ingleton
+	/* private static JBSERunner _instance = null; //TODO: Set as singleton
 	public static JBSERunner _I() {
 		if (_instance = null) {
 			_instance = new JBSERunner();
 		}
 		return null;
 	}*/
-	
-	public static AidingPathConditionGoalFitness[] computeAidingPathConditionGoal(BranchCoverageTestFitness branchF, TestChromosome tc)  {
+
+	public static void computeAPCGoals(ApcGroup hostApcGroup, BranchCoverageTestFitness branchF, TestChromosome tc, int uniqueSuffix, String evaluatorDependencySpec)  {
 		if (Properties.TMP_TEST_DIR == null) {
 			LoggingUtils.getEvoLogger().info("[JBSE] CANNOT GENERATE AIDING PATH CONDITION SINCE TMP_TEST_DIR IS NOT SET");
-			return null;
+			return;
 		}
 
 		ExecutionTraceEventListener traceData = selectEntryMethodFromTestTrace(branchF, tc);
@@ -43,30 +42,11 @@ public class JBSEManager {
 			String entryMethodDescr = traceData.entryMethod.methodName.substring(entryMethodName.length());
 			entryMethodData = new MethodData(entryClassName, entryMethodName, entryMethodDescr);
 		} else {
-			return null;
+			return;
 		}
-		/*String entryClassName = branchF.getClassName().replace('.', '/');
-		String entryMethodName = branchF.getMethod().substring(0,  branchF.getMethod().indexOf('('));
-		String entryMethodDescr = branchF.getMethod().substring(entryMethodName.length());
-		MethodData entryMethodData = 
-				new MethodData(entryClassName, entryMethodName, entryMethodDescr);
-		*/
-		String[] evaluators = JBSERunner.run(branchF.getBranch(), tc.getTestCase(), entryMethodData, traceData.entryMethodOccurrences, traceData.targetBranchOccurrences);
 		
-		if (evaluators != null) {
-			AidingPathConditionGoalFitness[] ret = new AidingPathConditionGoalFitness[evaluators.length];
-			for (int i = 0; i < evaluators.length; i++) {
-				ret[i] = new AidingPathConditionGoalFitness(branchF, branchF.getFitness(tc),
-					new PathConditionCoverageGoal(
-							branchF.getBranch().getActualBranchId() * 10000 + i, 
-							entryMethodData.getClassNameDotted(), 
-							entryMethodData.getMethodName() + entryMethodData.getMethodDescriptor(), 
-							evaluators[i]));
-			}
-			return ret;
-		} else {			
-			return null;
-		}
+		//bootstrap JBSE that will run in a separate thread, and returns control to EvoSuite
+		JBSERunner.run(hostApcGroup, branchF.getBranch(), tc.getTestCase(), entryMethodData, traceData.entryMethodOccurrences, traceData.targetBranchOccurrences, uniqueSuffix, evaluatorDependencySpec);
 	}
 	
 	private static ExecutionTraceEventListener selectEntryMethodFromTestTrace(BranchCoverageTestFitness targetBranch, TestChromosome tc) {

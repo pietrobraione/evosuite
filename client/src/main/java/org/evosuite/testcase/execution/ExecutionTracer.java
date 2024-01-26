@@ -36,6 +36,7 @@ import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
 import org.evosuite.coverage.seepep.SeepepTraceItem;
+import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.utils.ArrayUtil;
@@ -844,11 +845,12 @@ public class ExecutionTracer {
 			params[params.length - 1] = feedback;
 		}
 		for (PathConditionCoverageGoal goal : methodEvaluators) {
-			Object evaluator = getEvaluatorForPathConditionGoal(goal, tracer, cl);
+			Object evaluator = goal.getEvaluator();
 			Method evaluatorMethod = getEvaluatorMethod(evaluator, "test0", goal, className, methodName);
 			double d = executeEvaluator(evaluator, evaluatorMethod, params, className, methodName);
 			// Add path condition distance to control trace
-			tracer.trace.passedPathCondition(goal.getPathConditionId(), d, new ArrayList<>(feedback)); //need to copy the ArrayList, because we clean and reuse feedback (below)
+			
+			tracer.trace.passedPathCondition(goal.getPathConditionId(), d, (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
 			feedback.clear();
 			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
 		}
@@ -888,7 +890,7 @@ public class ExecutionTracer {
 		resetEvaluationBackbone(cl);
 
 		for (PathConditionCoverageGoal goal : methodEvaluators) {
-			Object evaluator = getEvaluatorForPathConditionGoal(goal, tracer, cl);
+			Object evaluator = goal.getEvaluator();
 			Method evaluatorMethod = getEvaluatorMethod(evaluator, "test1", goal, className, methodName);
 			
 			Object [] paramValues = new Object[params.length + 1];
@@ -994,50 +996,14 @@ public class ExecutionTracer {
 		}
 		return evaluatorMethod;
 	}
-
-	private static Object evaluatorInstance(String evaluatorName, ClassLoader cl) {
-		try {
-			Class<?> clazz = cl != null ? Class.forName(evaluatorName, true, cl) : Class.forName(evaluatorName);
-			Constructor<?>[] cnstrs = clazz.getConstructors();
-			Object evaluator = null;
-			for (Constructor<?> c : cnstrs) {
-				Class<?>[] parTypes = c.getParameterTypes();
-				if (parTypes.length >= 1 && parTypes[0] == ClassLoader.class) {
-					evaluator = c.newInstance(cl);
-					break;
-				}
-			}
-			if (evaluator == null) {
-				evaluator = clazz.newInstance();							
-			}
-			return evaluator;
-		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			throw new EvosuiteError("Cannot instantiate path condition evaluator: " + evaluatorName +
-					" because of: " + e + " ::: " + Arrays.toString(e.getStackTrace()));
-		}
-	}
 	
-	private static Object getEvaluatorForPathConditionGoal(PathConditionCoverageGoal goal, ExecutionTracer tracer, ClassLoader cl) {
-		Object evaluator = tracer.evaluatorCache.get(goal);
-		if (evaluator == null) {
-			evaluator = evaluatorInstance(goal.getEvaluatorName(), cl);
-			tracer.evaluatorCache.put(goal, evaluator);
-		}
-		return evaluator;
-	}
-
-	public static Object getEvaluatorForPathConditionGoal(PathConditionCoverageGoal goal) {
-		return getExecutionTracer().evaluatorCache.get(goal);
-	}
-
 	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<String, Map<String, List<PathConditionCoverageGoal>>>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
-	private Map<PathConditionCoverageGoal, Object> evaluatorCache = new HashMap<>();  /*SUSHI: Path condition fitness*/
 	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();
-		Object evaluator = evaluatorInstance(g.getEvaluatorName(), null);
+		Object evaluator = g.getEvaluator();
 		try {
 			Method toString = evaluator.getClass().getDeclaredMethod("toString", new Class[]{});
-			String customDescription = (String) toString.invoke(evaluator, new Object[]{});
+			String customDescription = (String) toString.invoke(evaluator, (Object[]) null);
 			g.setCustomDescription(customDescription);
 		} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			//no custom description could be loaded
@@ -1073,13 +1039,11 @@ public class ExecutionTracer {
 				tracer.pathConditions.remove(g.getClassName());
 			}
 		}
-		tracer.evaluatorCache.remove(g);
 		LoggingUtils.getEvoLogger().info("PC GOALS: " + tracer.pathConditions.toString());
 	}
 	public static void removeAllEvaluatorsForPathConditions() {	/*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();
 		tracer.pathConditions.clear();
-		tracer.evaluatorCache.clear();
 	}
 	/**
 	 * <p>

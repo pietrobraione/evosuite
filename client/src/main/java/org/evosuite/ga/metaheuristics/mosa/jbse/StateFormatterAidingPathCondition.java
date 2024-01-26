@@ -19,6 +19,8 @@ import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.evosuite.coverage.pathcondition.IApcEvaluator;
+
 import jbse.apps.Formatter;
 import jbse.common.Type;
 import jbse.common.exc.InvalidInputException;
@@ -619,6 +621,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.output.append(this.traceCounterSupplier.get());
 			id += "_" + this.traceCounterSupplier.get();
 		}
+		this.output.append(" implements IApcEvaluator");
 		this.output.append(PROLOGUE_2);
 		//declare the literal strings
         for (Map.Entry<Long, String> lit : this.stringLiterals.entrySet()) {
@@ -664,9 +667,30 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	public void formatState(State state, String evaluatorDependencySpec) {
 		try {
 			MethodUnderTest m = new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, subformula, calc, stringLiterals, evaluatorDependencySpec);
-			this.output.append(INDENT_1 + "public static final boolean[] subsumed = new boolean[" + m.numOfAppendedEvaluators + "];\n");
-			this.output.append(INDENT_1 + "public static final boolean[] converging = new boolean[" + m.numOfAppendedEvaluators + "];\n");
-			this.output.append(INDENT_1 + "public static final boolean[] disabled = new boolean[" + m.numOfAppendedEvaluators + "];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final boolean[] disabled = new boolean[");
+			this.output.append(m.numOfAppendedEvaluators);
+			this.output.append("];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final boolean[] subsumed = new boolean[");
+			this.output.append(m.numOfAppendedEvaluators);
+			this.output.append("];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final double[] minDistance = new double[");
+			this.output.append(m.numOfAppendedEvaluators + 1);
+			this.output.append("];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final int[] convergingObs = new int[");
+			this.output.append(m.numOfAppendedEvaluators);
+			this.output.append("];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final int[] alignedSpinObs = new int[");
+			this.output.append(m.numOfAppendedEvaluators);
+			this.output.append("];\n");
+			this.output.append(INDENT_1);
+			this.output.append("public final int[] reverseSpinObs = new int[");
+			this.output.append(m.numOfAppendedEvaluators);
+			this.output.append("];\n");
 		} catch (FrozenStateException e) {
 			this.output.delete(0, this.output.length());
 		}
@@ -705,10 +729,12 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			"import sushi.compile.path_condition_distance.*;\n" +
 			"import sushi.logging.Level;\n" +
 			"import sushi.logging.Logger;\n" +
+			"import org.evosuite.coverage.pathcondition.IApcEvaluator;" + 
 			"\n" +
 			"import java.util.ArrayList;\n" +
 			"import java.util.HashMap;\n" +
 			"import java.util.List;\n" +
+			"import java.util.Arrays;\n" +
 			"\n" +
 			"public class APCFitnessEvaluator";
 	private static final String PROLOGUE_2 = 
@@ -719,69 +745,125 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			INDENT_1 + "private final SushiLibCache parsedOrigins = new SushiLibCache();\n" +	//SushiLibCache()
 			INDENT_1 + "private final HashMap<Long, String> constants = new HashMap<>();\n" +	//constants
 			INDENT_1 + "private final ClassLoader classLoader;\n" + 
-			INDENT_1 + "private static ArrayList<ClauseSimilarityHandler> pathConditionHandler = null;\n" +
-			INDENT_1 + "private static ArrayList<String> pathConditionHandlerSrc = null;\n" +
-			INDENT_1 + "private static ArrayList<ClauseSimilarityHandler> preConditionHandler = null;\n" +
-			INDENT_1 + "private static String dependencyEvaluatorClassName = null;\n" + 
-			INDENT_1 + "private static int[] dependencyEvaluatorClauseId = null;\n" + 
-			INDENT_1 + "private static HashMap<Long, boolean[]> threadLocalConvergingNow = new HashMap<>();\n" + 
+			INDENT_1 + "private ArrayList<ClauseSimilarityHandler> pathConditionHandler = null;\n" +
+			INDENT_1 + "private ArrayList<String> pathConditionHandlerSrc = null;\n" +
+			INDENT_1 + "private ArrayList<ClauseSimilarityHandler> preConditionHandler = null;\n" +
+			INDENT_1 + "private String dependencyEvaluatorClassName = null;\n" + 
+			INDENT_1 + "private int[] dependencyEvaluatorClauseId = null;\n" + 
+			INDENT_1 + "private HashMap<Long, double[]> threadLocalDistanceSample = new HashMap<>();\n" + 
 			"\n"; 
 	private static final String EPILOGUE_1 = 
-			INDENT_1 + "private static void initSubsumed() {\n" + 
-			INDENT_2 + "for (int i = 0; i < subsumed.length; ++i) {\n" + 
-			INDENT_3 + "subsumed[i] = true;\n" + 
-			INDENT_2 + "}\n" + 
+			INDENT_1 + "private void initSubsumed() {\n" + 
+			INDENT_2 + "Arrays.fill(subsumed, true);\n" +
+			INDENT_2 + "Arrays.fill(minDistance, Double.MAX_VALUE);\n" + 
+			INDENT_2 + "Arrays.fill(alignedSpinObs, -1);\n" +
+			INDENT_2 + "Arrays.fill(reverseSpinObs, -1);\n" +
 			INDENT_1 + "}\n" + 
-			INDENT_1 + "public static int[] getConverging() {\n" + 
+			INDENT_1 + "public int[] getConverging() {\n" + 
 			INDENT_2 + "int count = 0;\n" + 
-			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
-			INDENT_3 + "if (!disabled[i] && !subsumed[i] && converging[i]) ++count;\n" + 
+			INDENT_2 + "for (int i = 0; i < convergingObs.length; ++i) {\n" + 
+			INDENT_3 + "if (!disabled[i] && !subsumed[i] && convergingObs[i] > 0) ++count;\n" + 
 			INDENT_2 + "}\n" + 
 			INDENT_2 + "int ret[] = new int[count];\n" + 
 			INDENT_2 + "count = 0;\n" + 
-			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
-			INDENT_3 + "if (!disabled[i] && !subsumed[i] && converging[i]) {\n" + 
+			INDENT_2 + "for (int i = 0; i < convergingObs.length; ++i) {\n" + 
+			INDENT_3 + "if (!disabled[i] && !subsumed[i] && convergingObs[i] > 0) {\n" + 
 			INDENT_4 + "ret[count++] = i;\n" + 
 			INDENT_3 + "}\n" + 
 			INDENT_2 + "}\n" + 
 			INDENT_2 + "return ret;\n" + 
 			INDENT_1 + "}\n" + 
-			INDENT_1 + "public static void updtConverging(boolean[] convergingToMerge) {\n" + 
-			INDENT_2 + "if (convergingToMerge == null || convergingToMerge.length != converging.length) return;\n" + 
-			INDENT_2 + "for (int i = 0; i < converging.length; ++i) {\n" + 
-			INDENT_3 + "converging[i] =  converging[i] || convergingToMerge[i];\n" + 
+			INDENT_1 + "public void processFeedback(ArrayList<Object> feedback) {\n" + 
+			INDENT_2 + "if (feedback == null || feedback.isEmpty()) return;\n" + 
+			INDENT_2 + "double[] distanceSample = (double[]) feedback.get(0);\n" + 
+			INDENT_2 + "if (distanceSample == null || distanceSample.length != alignedSpinObs.length + 1) return;\n" + 
+			INDENT_2 + "double currentDistance = distanceSample[distanceSample.length - 1];\n" + 
+			INDENT_2 + "double bestDistance = minDistance[minDistance.length - 1];\n" + 
+			INDENT_2 + "for (int i = 0; i < minDistance.length - 1; ++i) {\n" + 
+			INDENT_3 + "if (disabled[i] || subsumed[i]) continue;\n" + 
+			INDENT_3 + "if (currentDistance <= bestDistance) { //fitness is good or even better\n" + 
+			INDENT_4 + "if (distanceSample[i] <= minDistance[i]) ++alignedSpinObs[i]; \n" + 
+			INDENT_4 + "else if (distanceSample[i] > minDistance[i]) ++reverseSpinObs[i]; \n" + 
+			INDENT_3 + "} else /*if (currentDistance >= bestDistance)*/ { //fitness is worse\n" + 
+			INDENT_4 + "if (distanceSample[i] > minDistance[i]) ++alignedSpinObs[i]; \n" + 
+			INDENT_4 + "else if (distanceSample[i] < minDistance[i]) ++reverseSpinObs[i]; //TODO: shall we add == ?\n" + 
+			INDENT_3 + "} \n" + 
+			INDENT_3 + "if (distanceSample[i] == 0) ++convergingObs[i];\n" + 
 			INDENT_2 + "}\n" + 
-			INDENT_1 + "}\n" + 
-			INDENT_1 + "public static void setDisabled(int i, boolean val) {\n" + 
+			INDENT_2 + "if (currentDistance <= bestDistance) {\n" + 
+			INDENT_3 + "// Update best values of clauses, if we observe bestDistance\n" + 
+			INDENT_3 + "minDistance[minDistance.length - 1] = currentDistance;\n" + 
+			INDENT_3 + "for (int i = 0; i < minDistance.length - 1; ++i) {\n" + 
+			INDENT_4 + "if (disabled[i] || subsumed[i]) continue;\n" + 
+			INDENT_4 + "if (distanceSample[i] < minDistance[i]) {\n" + 
+			INDENT_5 + "minDistance[i] = distanceSample[i];\n" + 
+			INDENT_4 + "}\n" + 
+			INDENT_3 + "}\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "/* public void processFeedbackOld(ArrayList<Object> feedback) {\n" + 
+			INDENT_2 + "if (feedback == null || feedback.isEmpty()) return;\n" + 
+			INDENT_2 + "double[] distanceSample = (double[]) feedback.get(0);\n" + 
+			INDENT_2 + "if (distanceSample == null || distanceSample.length != minDistanceOfHandler.length + 1) return;\n" + 
+			INDENT_2 + "double totalDistance = distanceSample[distanceSample.length - 1];\n" + 
+			INDENT_2 + "for (int i = 0; i < minDistanceOfHandler.length; ++i) {\n" + 
+			INDENT_3 + "if (totalDistance < minDistance) {\n" + 
+			INDENT_4 + "minDistanceOfHandler[i] = distanceSample[i];\n" + 
+			INDENT_3 + "} else if (totalDistance > minDistance) {\n" + 
+			INDENT_4 + "if (distanceSample[i] < minDistanceOfHandler[i]) ++accordanceObs[i]; \n" + 
+			INDENT_4 + "else if (distanceSample[i] > minDistanceOfHandler[i]) ++disagreementObs[i]; \n" + 
+			INDENT_4 + "//else: distanceSample[i] == minDistanceOfHandler[i];\n" + 
+			INDENT_3 + "} //else: totalDistance == minDistance;\n" + 
+			INDENT_3 + "if (distanceSample[i] == 0) ++convergingObs[i];\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_2 + "if (totalDistance < minDistance) minDistance = totalDistance;\n" + 
+			INDENT_1 + "} */\n" + 
+			INDENT_1 + "public void setDisabled(int i, boolean val) {\n" + 
 			INDENT_2 + "if (i >= 0 && i < disabled.length) disabled[i] = val;\n" + 
 			INDENT_1 + "}\n" +
-			INDENT_1 + "public static void disableAllButSome(int[] some) {\n" + 
+			INDENT_1 + "public void updtDisabled(boolean[] disabled) {\n" + 
+			INDENT_2 + "if (disabled == null || disabled.length != this.disabled.length) return;\n" + 
+			INDENT_2 + "for (int i = 0; i < disabled.length; ++i) {\n" + 
+			INDENT_3 + "this.disabled[i] =  disabled[i];\n" + 
+			INDENT_2 + "}\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public void disableAllButSome(int[] some) {\n" + 
 			INDENT_2 + "int keep = (some.length > 0) ? some[0] : -1;\n" + 
 			INDENT_2 + "int cursor = 1;\n" + 
 			INDENT_2 + "for (int i = 0; i < disabled.length; ++i) {\n" + 
 			INDENT_3 + "if (i != keep) {\n" + 
 			INDENT_4 + "disabled[i] = true;           		\n" + 
 			INDENT_3 + "} else {\n" + 
+			INDENT_4 + "disabled[i] = false;\n" +
 			INDENT_4 + "keep = (cursor < some.length) ? some[cursor] : -1;\n" + 
 			INDENT_4 + "++cursor;\n" + 
 			INDENT_3 + "}\n" + 
 			INDENT_2 + "}\n" + 
 			INDENT_1 + "}\n" + 
-			INDENT_1 + "public static boolean isAllDisabled() {\n" + 
+			INDENT_1 + "public boolean[] getDisabled() {\n" + 
+			INDENT_2 + "return disabled;\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "public int[] getAlignedSpinObs() {\n" + 
+			INDENT_2 + "return alignedSpinObs;\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public int[] getReverseSpinObs() {\n" + 
+			INDENT_2 + "return reverseSpinObs;\n" + 
+			INDENT_1 + "}\n" + 
+			INDENT_1 + "public boolean isAllDisabled() {\n" + 
 			INDENT_2 + "for (int i = 0; i < disabled.length; ++i) {\n" + 
 			INDENT_3 + "if (!disabled[i]) return false;\n" + 
 			INDENT_2 + "}\n" + 
 			INDENT_2 + "return true;\n" + 
 			INDENT_1 + "}\n" +
-			INDENT_1 + "public static String getSimilarityHandlerSrc(int i) {\n" + 
+			INDENT_1 + "public String getSimilarityHandlerSrc(int i) {\n" + 
 			INDENT_2 + "if (i >= 0 && i < pathConditionHandlerSrc.size()) \n" + 
 			INDENT_3 + "return pathConditionHandlerSrc.get(i);\n" + 
 			INDENT_2 + "else return \"\";\n" + 
 			INDENT_1 + "}\n" +
-			INDENT_1 + "public static String getDependencyEvaluatorClassName() {\n" + 
+			INDENT_1 + "public String getDependencyEvaluatorClassName() {\n" + 
 			INDENT_2 + "return dependencyEvaluatorClassName;\n" + 
 			INDENT_1 + "}\n" + 
-			INDENT_1 + "public static int[] getDependencyEvaluatorClauseId() {\n" + 
+			INDENT_1 + "public int[] getDependencyEvaluatorClauseId() {\n" + 
 			INDENT_2 + "return dependencyEvaluatorClauseId;\n" + 
 			INDENT_1 + "}\n";
 	
@@ -997,11 +1079,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append(INDENT_2);
 			this.s.append("Logger.setLevel(Level.FATAL);\n");
 			this.s.append(INDENT_2);
-			this.s.append("boolean[] convergingNow = new boolean[converging.length];\n");
+			this.s.append("double[] distanceSample = new double[minDistance.length];\n");
 			this.s.append(INDENT_2);
-			this.s.append("threadLocalConvergingNow.put(Thread.currentThread().getId(), convergingNow);\n");
+			this.s.append("Arrays.fill(distanceSample, Double.MAX_VALUE);\n");
 			this.s.append(INDENT_2);
-			this.s.append("if (feedbackSink != null) feedbackSink.add(convergingNow);\n\n");
+			this.s.append("threadLocalDistanceSample.put(Thread.currentThread().getId(), distanceSample);\n");
+			this.s.append(INDENT_2);
+			this.s.append("if (feedbackSink != null) feedbackSink.add(distanceSample);\n\n");
 		}
 
 		private void appendPreCondition(State finalState, int testCounter, String evaluatorDependencySpec) 
@@ -1056,7 +1140,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			try {
 				Class<?> evaluatorClass = Class.forName(dependencyEvaluatorClassName);
 				System.out.println("NEW EVALUATOR DEPENDS ON: " + evaluatorClass.getName() + "::" + Arrays.toString(dependencyEvaluatorClauseId));
-				Object evaluator = evaluatorClass.getConstructor(ClassLoader.class).newInstance((ClassLoader) null);
+				IApcEvaluator evaluator = (IApcEvaluator) evaluatorClass.getConstructor(ClassLoader.class).newInstance((ClassLoader) null);
 				for (Method m: evaluatorClass.getMethods()) {
 					if (m.getName().equals("test0")) {
 							m.invoke(evaluator, new Object[m.getParameterCount()]);
@@ -1070,7 +1154,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				this.s.append("\n");
 				for (int i = 0; i < dependencyEvaluatorClauseId.length; ++i) {
 					int n = dependencyEvaluatorClauseId[i];
-					String handlerSrc = (String) evaluatorClass.getMethod("getSimilarityHandlerSrc", int.class).invoke(null, n);
+					String handlerSrc = evaluator.getSimilarityHandlerSrc(n);
 					this.s.append(handlerSrc);
 					this.s.append(INDENT_3);
 					this.s.append("preConditionHandler.add(similarityHandler);\n");
@@ -1080,9 +1164,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 				this.s.append(dependencyEvaluatorClassName);
 				this.s.append(Arrays.toString(dependencyEvaluatorClauseId));
 				this.s.append("\n");
-				String nextDependencyEvaluatorClassName = (String) evaluatorClass.getMethod("getDependencyEvaluatorClassName").invoke(null);
+				String nextDependencyEvaluatorClassName = evaluator.getDependencyEvaluatorClassName();
 				if (nextDependencyEvaluatorClassName != null) {
-					int[] nextDependencyEvaluatorClauseId = (int[]) evaluatorClass.getMethod("getDependencyEvaluatorClauseId").invoke(null);
+					int[] nextDependencyEvaluatorClauseId = evaluator.getDependencyEvaluatorClauseId();
 					appendPreConditionClauses(nextDependencyEvaluatorClassName, nextDependencyEvaluatorClauseId);
 				}
 			} catch (Exception e) {
@@ -1199,7 +1283,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append(INDENT_2);
 			this.s.append("if (d0 > 0.0d) {\n");
 			this.s.append(INDENT_3);
-			this.s.append("threadLocalConvergingNow.remove(Thread.currentThread().getId());\n");
+			this.s.append("threadLocalDistanceSample.remove(Thread.currentThread().getId());\n");
+			this.s.append(INDENT_3);
+			this.s.append("if (feedbackSink != null) feedbackSink.clear();\n");
 			this.s.append(INDENT_3);
 			this.s.append("return BIG_DISTANCE;\n");
 			this.s.append(INDENT_2);
@@ -1213,7 +1299,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append(testCounter);
 			this.s.append(" 0 distance\");\n\n");
 			this.s.append(INDENT_2);
-			this.s.append("threadLocalConvergingNow.remove(Thread.currentThread().getId());\n\n");
+			this.s.append("distanceSample[distanceSample.length - 1] = d;\n");
+			this.s.append(INDENT_2);
+			this.s.append("threadLocalDistanceSample.remove(Thread.currentThread().getId());\n\n");
 			this.s.append(INDENT_2);
 			this.s.append("return d;\n");
 		}
@@ -1302,17 +1390,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			
 			if (!forGeneratingSourceCode) {
 				this.s.append(INDENT_5);
-				this.s.append("if (similarity == 1) {\n");
-				this.s.append(INDENT_6);
-				this.s.append("if (!subsumed[");
-				this.s.append(num);
-				this.s.append("]) threadLocalConvergingNow.get(Thread.currentThread().getId())["); 
-				this.s.append(num);
-				this.s.append("] = true;\n"); 
-				this.s.append(INDENT_5);
-				this.s.append("} else subsumed[");
+				this.s.append("if (similarity != 1) subsumed["); 
 				this.s.append(num);
 				this.s.append("] = false;\n"); 
+				this.s.append(INDENT_5);
+				this.s.append("threadLocalDistanceSample.get(Thread.currentThread().getId())["); 
+				this.s.append(num);
+				this.s.append("] = 1 - similarity;\n"); 
 			}
 
 			if (forGeneratingSourceCode) this.s.append(INDENT_4);
@@ -1599,17 +1683,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 			if (!forGeneratingSourceCode) {
 				this.s.append(INDENT_5);
-				this.s.append("if (retVal == 0) {\n"); 
-				this.s.append(INDENT_6);
-				this.s.append("if (!subsumed[");
-				this.s.append(num);
-				this.s.append("]) threadLocalConvergingNow.get(Thread.currentThread().getId())["); 
-				this.s.append(num);
-				this.s.append("] = true;\n"); 
-				this.s.append(INDENT_5);
-				this.s.append("} else subsumed[");
+				this.s.append("if (retVal != 0) subsumed["); 
 				this.s.append(num);
 				this.s.append("] = false;\n"); 
+				this.s.append(INDENT_5);
+				this.s.append("threadLocalDistanceSample.get(Thread.currentThread().getId())["); 
+				this.s.append(num);
+				this.s.append("] = retVal;\n"); 
 			}
 
 			if (forGeneratingSourceCode) this.s.append(INDENT_4);

@@ -17,13 +17,10 @@
  */
 package org.evosuite.coverage.pathcondition;
 
-import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.LoggingUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
@@ -49,15 +46,26 @@ public class ApcGoalFitness extends PathConditionCoverageGoalFitness { /*SUSHI: 
 	public ApcGoalFitness(BranchCoverageTestFitness brGoal, double initialBranchFitness, PathConditionCoverageGoal pcGoal) throws IllegalArgumentException {
 		super(pcGoal);
 		LoggingUtils.getEvoLogger().info("[EVOSUITE] NEW APC: {} FOR {}!!!", pcGoal, brGoal);
-		if(brGoal == null){
+		if (brGoal == null){
 			throw new IllegalArgumentException("goal cannot be null");
 		}
+		if (!(super.getPathConditionGoal().getEvaluator() instanceof IApcEvaluator)) {
+			throw new IllegalArgumentException("the evaluator of the path condition associated with the ApcGoal must impelement org.evosuite.coverage.pathcondition.IApcEvaluator");
+		}
+
 		this.branchGoal = brGoal;
 		this.initialBranchFitness = initialBranchFitness;
 	}
 
 	public BranchCoverageTestFitness getBranchGoal() {
 		return branchGoal;
+	}
+
+	/**
+	 * @return the evaluator of the path condition associated with this ApcGoal
+	 */
+	public IApcEvaluator getEvaluator() {
+		return (IApcEvaluator) super.getPathConditionGoal().getEvaluator();
 	}
 
 	/**
@@ -70,30 +78,23 @@ public class ApcGoalFitness extends PathConditionCoverageGoalFitness { /*SUSHI: 
 		double branchFitness = branchGoal.getFitness(individual, result);
 		double fitness;
 		if(branchFitness == 0) {
-			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] SATISFIED APC GOAL AND CORRESPONDING BRANCH: {}!!!", this.getEvaluatorName());
+			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] APC GOAL FITNESS ({}) SATISFIED CORRESPONDING BRANCH: {}!!!", super.getFitness(individual, result), this);
 			fitness = 0d;
 		} else if (branchFitness >= 1) {
 			fitness = Double.MAX_VALUE;
 		} else if (branchFitness < initialBranchFitness) {
-			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] REMOVING APC GOAL {} BECAUSE BRANCH FITNESS HAS IMPROVED", this.getEvaluatorName());
+			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] REMOVING APC GOAL BECAUSE BRANCH FITNESS HAS IMPROVED: {}", this);
 			fitness = 0d;
 		} else {
 			double pcFitness = super.getFitness(individual, result);
 			fitness = pcFitness + branchFitness;
 			
 			// As this evaluation hits the target branch, we update the converging-clause information by using the feedback from this test case
-			Object evaluator = ExecutionTracer.getEvaluatorForPathConditionGoal(getPathConditionGoal());
+			IApcEvaluator evaluator = getEvaluator();
 			ArrayList<Object> feedback = result.getTrace().getPathConditionFeedbacks().get(getPathConditionGoal().getPathConditionId());
-			//if evaluator == null: the evaluator does not get instantiated until the corresponding method is executed in some test case
-			//if feedback == null: this test case did not hit the computation of this path-condition-fitness, and thus there is no feedback
-			if (evaluator != null && feedback != null) { 	
-				boolean[] converging = (boolean[]) feedback.get(0);
-				try {
-					evaluator.getClass().getMethod("updtConverging", boolean[].class).invoke(evaluator, converging);
-				} catch (Exception e) {
-					throw new EvosuiteError("Issue while calling updtConverging against ApcGoal's evaluator: because of: " + e + " ::: " + 
-							Arrays.toString(e.getStackTrace()));	
-				}
+			//if feedback == null: possibly this test case did not hit the computation of this path-condition-fitness, and thus there is no feedback
+			if (feedback != null) { 	
+				evaluator.processFeedback(feedback);
 			} 
 
 			// If there is an undeclared exception it is a failing test

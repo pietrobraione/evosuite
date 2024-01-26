@@ -1,6 +1,5 @@
 package org.evosuite.ga.metaheuristics.mosa.structural;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -19,7 +18,6 @@ import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEManager;
 import org.evosuite.ga.operators.ranking.RankingFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.LoggingUtils;
 
@@ -131,83 +129,9 @@ public class AidingPathConditionManager extends PathConditionManager {
 		manageAidingPathConditions(algorithm.getPopulation(), algorithm.getRankingFunction(), algorithm.getRankingFunction().getSubfront(0), algorithm.getAge());
 	}
 		
-	private static interface EvaluatorApi {
-		int[] getConverging();
-
-		void setDisabled(int n, boolean b);
-
-		boolean isAllDisabled();
-
-		void disableAllButSome(int[] some);
-	}
-	
-	private static class EvaluatorApiDecorator implements EvaluatorApi {
-		ApcGoalFitness goal;
-		Object evaluator;
-		
-		public EvaluatorApiDecorator(ApcGoalFitness goal) {
-			this.goal = goal;
-		}
-		
-		private Object evaluator() {
-			if (evaluator == null) {
-				evaluator = ExecutionTracer.getEvaluatorForPathConditionGoal(goal.getPathConditionGoal());
-				if (evaluator == null) {
-					throw new EvosuiteError("[EVOSUITE] ApcFitness Evaluator cannot be null for goal: check if there were problems while instantiating it: " + goal);
-				}
-			}
-			return evaluator;
-		}
-		 
-		@Override
-		public int[] getConverging() {
-			int[] converging = null;
-			try {
-				converging = (int[]) evaluator().getClass().getMethod("getConverging").invoke(evaluator());
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
-				throw new EvosuiteError("ERROR DURING CALL TO EVALUATOR API {getConverging}: " + e);
-			}	
-			return converging;
-		}
-
-		@Override
-		public void setDisabled(int n, boolean disabled) {
-			try {
-				evaluator().getClass().getMethod("setDisabled", int.class, boolean.class).invoke(evaluator(), n, disabled);
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
-				throw new EvosuiteError("ERROR DURING CALL TO EVALUATOR API {setDisabled}: " + e);
-		}
-		}
-
-		@Override
-		public boolean isAllDisabled() {
-			boolean ret = false;
-			try {
-				ret = (boolean) evaluator().getClass().getMethod("isAllDisabled").invoke(evaluator());
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
-				throw new EvosuiteError("ERROR DURING CALL TO EVALUATOR API {isAllDisabled}: " + e);
-			}
-			return ret;
-		}
-
-		@Override
-		public void disableAllButSome(int[] some) {
-			try {
-				evaluator().getClass().getMethod("disableAllButSome", int[].class).invoke(evaluator(), some);
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
-				throw new EvosuiteError("ERROR DURING CALL TO EVALUATOR API {disableAllButSome}: " + e);
-			}
-		}
-	}
-	
 	private static class ApcItem {
-		ApcGoalFitness goal;
-		AidingPathConditionManager manager;
-		EvaluatorApi evaluator;
+		final ApcGoalFitness goal;
+		final AidingPathConditionManager manager;
 		double bestFitness;
 		int latestImprovementIteration;
 		TestChromosome bestTest;
@@ -224,7 +148,6 @@ public class AidingPathConditionManager extends PathConditionManager {
 		ApcItem(ApcGoalFitness goal, AidingPathConditionManager manager, boolean refined, int currentIteration) {
 			this.goal = goal;
 			this.manager = manager;
-			this.evaluator = new EvaluatorApiDecorator(goal);
 			bestFitness = Double.MAX_VALUE;
 			latestImprovementIteration = currentIteration;
 			bestTest = null;
@@ -255,7 +178,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 			if (isDismissed()) {
 				return;
 			}
-			int[] convergingSoFar = evaluator.getConverging();
+			int[] convergingSoFar = goal.getEvaluator().getConverging();
 			if (convergingSoFar == null || convergingSoFar.length == 0) {
 				if (refined) {
 					// no enabled/unsubsumed APC-clause ever converged. This (likely) means that there is no more useful APC-clause in this APCgoal
@@ -269,34 +192,102 @@ public class AidingPathConditionManager extends PathConditionManager {
 			} 
 			refined = false; //something is still converging, thus it makes sense to search for a test case to cover those elements.
 			
-			boolean[] convergedWithBestTest = (boolean[]) bestTest.getLastExecutionResult().getTrace().getPathConditionFeedbacks().get(
+			int[] alignedSpinObs = goal.getEvaluator().getAlignedSpinObs();
+			int[] reverseSpinObs = goal.getEvaluator().getReverseSpinObs();
+						
+			// Possibly start refined ApCItem wrt converged clauses
+			double[] convergedWithBestTest = (double[]) bestTest.getLastExecutionResult().getTrace().getPathConditionFeedbacks().get(
 					goal.getPathConditionGoal().getPathConditionId()).get(0);
 			String convergedItemsSpec = goal.getPathConditionGoal().getEvaluatorName();
 			boolean someConverged = false;
-			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] best test {} for {}:", Arrays.toString(convergedWithBestTest), goal);
-			for (int i = 0; i < convergedWithBestTest.length; ++i) {
-				if (convergedWithBestTest[i]) {
-					convergedItemsSpec += ":" + i;
-					evaluator.setDisabled(i, true);
+			//LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] best test {} for {}:", Arrays.toString(convergedWithBestTest), goal);
+			for (int i = 0; i < convergedWithBestTest.length - 1; ++i) {
+				if (convergedWithBestTest[i] == 0) {
 					someConverged = true;
+					convergedItemsSpec += ":" + i;
+					//goal.getEvaluator().setDisabled(i, true);
+					alignedSpinObs[i] = -1; // disable this counter as we already account for this clause among the converged clauses 
+					reverseSpinObs[i] = -1; // disable this counter as we already account for this clause among the converged clauses
 				}
 			}
 			if (someConverged) {
 				LoggingUtils.getEvoLogger().info("[EVOSUITE] Computing new APC as refinement of goal: {}", goal);
 				hostApcGroup.scheduleNewApcByUsingJBSE(bestTest, convergedItemsSpec, currentIteration); 
-				dismiss(); //generate the refined goal and dismiss this one
-				if (evaluator.isAllDisabled()) {
+				/* This is not needed because we now select all remaining clauses in the refinements below
+				 * if (goal.getEvaluator().isAllDisabled()) {
 					// no more APC clause is now enabled in this evaluator, thus it is useless to refine it
 					LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] Dismissing APC, as no more clauses are enabled after refinement {}:", goal);
-				} else {
-					hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
+				} */
+			} 
+
+			// Possibly start separate refined ApCItems wrt clauses with alignedSpin and reverseSpin, respectively
+			ArrayList<Integer> alignedSpinClauses = new ArrayList<>();
+			ArrayList<Integer> reverseSpinClauses = new ArrayList<>();
+			ArrayList<Integer> otherClauses = new ArrayList<>();
+			for (int i = 0; i < alignedSpinObs.length; ++i) {
+				double total = alignedSpinObs[i] + reverseSpinObs[i];
+				if (total < 0) { //i-th clause is disabled
+					continue;
 				}
-			} else if (convergingSoFar != null && convergingSoFar.length > 0)  {
+				if (total < 30) {
+					otherClauses.add(i); //too few observations to make the decision
+				} else {
+					double alignmentFrequency = alignedSpinObs[i] / total;
+					if (alignmentFrequency >= 0.9) { //more than 90% observations have aligned spin wrt fitness
+						alignedSpinClauses.add(i);
+					} else if (alignmentFrequency < 0.2) { //more than 80% observations have reverse spin wrt fitness
+						reverseSpinClauses.add(i);						
+					} else {
+						otherClauses.add(i); // data are inconclusive for this clause						
+					}
+				}
+			}
+			//LoggingUtils.getEvoLogger().info("[EVOSUITE] DEBUG: alignedSpinObs: {}", Arrays.toString(alignedSpinObs));	
+			//LoggingUtils.getEvoLogger().info("[EVOSUITE] DEBUG: reverseSpinObs: {}", Arrays.toString(reverseSpinObs));	
+			//LoggingUtils.getEvoLogger().info("[EVOSUITE] DEBUG: alignedSpinClauses: {}", alignedSpinClauses);	
+			//LoggingUtils.getEvoLogger().info("[EVOSUITE] DEBUG: reverseSpinClauses: {}", reverseSpinClauses);	
+			//LoggingUtils.getEvoLogger().info("[EVOSUITE] DEBUG: inconclusiveSpinClauses: {}", otherClauses);	
+			
+			// Possibly start separate refined ApCItem wrt clauses with aligned spin
+			if (!alignedSpinClauses.isEmpty()) {
+				int[] alignedSpinClauses0 = new int[alignedSpinClauses.size()];
+				for (int i = 0; i < alignedSpinClauses0.length; ++i) {
+					alignedSpinClauses0[i] = alignedSpinClauses.get(i);
+				}				
+				LoggingUtils.getEvoLogger().info("[EVOSUITE] Refining on clauses {} of goal {} -- aligned spin wrt to fitness. GOAL: {}", Arrays.toString(alignedSpinClauses0), goal.getPathConditionGoal().getPathConditionId(), goal.toString());	
+				goal.getEvaluator().disableAllButSome(alignedSpinClauses0);
+				hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
+			}
+
+			// Possibly start separate refined ApCItem wrt clauses with reverse spin
+			if (!reverseSpinClauses.isEmpty()) {
+				int[] reverseSpinClauses0 = new int[reverseSpinClauses.size()];
+				for (int i = 0; i < reverseSpinClauses0.length; ++i) {
+					reverseSpinClauses0[i] = reverseSpinClauses.get(i);
+				}				
+				LoggingUtils.getEvoLogger().info("[EVOSUITE] Refining on clauses {} of goal {} -- reverse spin wrt to fitness. GOAL: {}", Arrays.toString(reverseSpinClauses0), goal.getPathConditionGoal().getPathConditionId(), goal.toString());	
+				goal.getEvaluator().disableAllButSome(reverseSpinClauses0);
+				hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
+			}
+			
+			// Possibly start separate refined ApCItem wrt clauses with inconclusive spin
+			if (!otherClauses.isEmpty()) {
+				int[] other0 = new int[otherClauses.size()];
+				for (int i = 0; i < other0.length; ++i) {
+					other0[i] = otherClauses.get(i);
+				}				
+				LoggingUtils.getEvoLogger().info("[EVOSUITE] Refining on clauses {} of goal {} -- 'inconclusive' spin wrt to fitness. GOAL: {}", Arrays.toString(other0), goal.getPathConditionGoal().getPathConditionId(), goal.toString());	
+				goal.getEvaluator().disableAllButSome(other0);
+				hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
+			}
+			/*if (convergingSoFar != null && convergingSoFar.length > 0)  {
 				LoggingUtils.getEvoLogger().info("[EVOSUITE] Refining clauses of goal by keeping only clauses {}, as those clauses converge occasionally but none converges with the best test. GOAL: {}", Arrays.toString(convergingSoFar), goal.toString());	
-				evaluator.disableAllButSome(convergingSoFar);
+				goal.getEvaluator().disableAllButSome(convergingSoFar);
 				dismiss(); //generate the refined goal and dismiss this one
 				hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
-			} //else: should be unreachable		
+			}*/
+
+			dismiss(); //Dismiss this ApcItem as now its corresponding refined items are running
 		}
 
 	}
@@ -450,7 +441,8 @@ public class AidingPathConditionManager extends PathConditionManager {
 				return; 
 			}
 			PathConditionCoverageGoal pcGoal = currentApcGoal.getPathConditionGoal();
-			scheduleNewApc(getNextApcIndex(), pcGoal.getClassName(), pcGoal.getMethodName(), pcGoal.getEvaluatorName(), true, currentIteration);
+			ApcItem apcItem = scheduleNewApc(getNextApcIndex(), pcGoal.getClassName(), pcGoal.getMethodName(), pcGoal.getEvaluatorName(), true, currentIteration);
+			apcItem.goal.getEvaluator().updtDisabled(currentApcGoal.getEvaluator().getDisabled()); //copy the disabled settings of the source evaluator
 		}
 		
 		public void scheduleNewApcByUsingJBSE(TestChromosome bestTest, String convergedItemsSpec, int currentIteration) {
@@ -473,7 +465,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 			}
 		}
 
-		private void scheduleNewApc(int apcIndex, String className, String methodName, String evaluatorName, boolean refined, int currentIteration) {
+		private ApcItem scheduleNewApc(int apcIndex, String className, String methodName, String evaluatorName, boolean refined, int currentIteration) {
 			ApcGoalFitness newApcGoal = new ApcGoalFitness(branchGoal, bestFitnessOfBranchGoal,
 					new PathConditionCoverageGoal(branchGoal.getBranch().getActualBranchId() * 10000 + apcIndex,
 							className, 
@@ -481,7 +473,8 @@ public class AidingPathConditionManager extends PathConditionManager {
 							evaluatorName));
 			LoggingUtils.getEvoLogger().info("[EVOSUITE] Scheduling new APC: {}", newApcGoal.toString());
 			ApcItem apcItem = ApcItem.startNewItem(manager, newApcGoal, refined, currentIteration);
-			apcItems.add(apcItem);		
+			apcItems.add(apcItem);	
+			return apcItem;
 		}
 		
 		public synchronized void scheduleNewApcFromJbse(int apcIndex, String className, String methodName, String evaluatorName, boolean refined, int currentIteration) {

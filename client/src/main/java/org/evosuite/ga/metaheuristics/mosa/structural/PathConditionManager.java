@@ -164,9 +164,8 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	protected void updateCoveredGoals(TestFitnessFunction goal, TestChromosome tc) {
 		if (!alreadyEmittedGoals.contains(goal)) {
 			if (Properties.EMIT_TESTS_INCREMENTALLY  /*SUSHI: Incremental test cases*/) {
-				toEmit.add(goal);
-			}
-			if (goal instanceof PathConditionCoverageGoalFitness) {
+				toEmit.add(goal); //NB: we do doneWithPathCondition after we emit the test, not to affect minimization
+			} else if (goal instanceof PathConditionCoverageGoalFitness) {
 				doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
 			}
 		} 
@@ -254,11 +253,14 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			goal = goals.get(0); //...anyway we select a goal eventually.
 		}
 		for (TestFitnessFunction g: goals) {
-			 //notify dismissed path conditions that are not notified in the generated test cases 
-			if (g != goal && g instanceof PathConditionCoverageGoalFitness) {
-				ClientServices.getInstance().getClientNode().notifyDismissedFitnessGoal(g, 0, 0.0, new int[0]);
-				LoggingUtils.getEvoLogger().info("\n\n* DISMISSED PATH CONDITION GOAL (CONVERGED ON ALREADY EMITTED TEST CASE): " +
-						((PathConditionCoverageGoalFitness) g).getEvaluatorName());
+			if (g instanceof PathConditionCoverageGoalFitness) {
+				doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
+				//notify dismissed path conditions that are not notified in the generated test cases 
+				if (g != goal) {
+					ClientServices.getInstance().getClientNode().notifyDismissedFitnessGoal(g, 0, 0.0, new int[0]);
+					LoggingUtils.getEvoLogger().info("\n\n* DISMISSED PATH CONDITION GOAL (CONVERGED ON ALREADY EMITTED TEST CASE): " +
+							((PathConditionCoverageGoalFitness) g).getEvaluatorName());
+				}
 			}
 		}
 

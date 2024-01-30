@@ -115,7 +115,7 @@ public class TestSuiteGeneratorHelper {
   	  	LoggingUtils.getEvoLogger().info("  - Path Condition Coverage");  /*SUSHI: Path condition fitness*/
   	  	break;
       case BRANCH_WITH_AIDING_PATH_CONDITIONS:
-  	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand Path Conditions");  /*SUSHI: Aiding path conditions*/
+  	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand APCs (Anti Path Conditions)");  /*SUSHI: Aiding path conditions*/
   	  	break;
       case SEEPEP:
   	  	LoggingUtils.getEvoLogger().info("  - Coverage of DAGs based on the analysis done with SEEPEP ");   /*SEEPEP: DAG coverage*/

@@ -31,6 +31,7 @@ import java.util.Map;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
@@ -849,8 +850,11 @@ public class ExecutionTracer {
 			Method evaluatorMethod = getEvaluatorMethod(evaluator, "test0", goal, className, methodName);
 			double d = executeEvaluator(evaluator, evaluatorMethod, params, className, methodName);
 			// Add path condition distance to control trace
-			
-			tracer.trace.passedPathCondition(goal.getPathConditionId(), d, (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
+			int relatedBranchId = -1;
+			if (tracer.pathConditionRelatedBranch.containsKey(goal.getPathConditionId())) {
+				relatedBranchId = tracer.pathConditionRelatedBranch.get(goal.getPathConditionId());
+			}
+			tracer.trace.passedPathCondition(goal.getPathConditionId(), relatedBranchId, d, (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
 			feedback.clear();
 			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
 		}
@@ -997,7 +1001,8 @@ public class ExecutionTracer {
 		return evaluatorMethod;
 	}
 	
-	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<String, Map<String, List<PathConditionCoverageGoal>>>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
+	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
+	private Map<Integer, Integer> pathConditionRelatedBranch =  new HashMap<>(); //pcId --> branchId
 	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();
 		Object evaluator = g.getEvaluator();
@@ -1019,6 +1024,13 @@ public class ExecutionTracer {
 			classEvaluators.put(g.getMethodName(), methodEvaluators);
 		}
 		methodEvaluators.add(g);
+	}
+	
+	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g, BranchCoverageTestFitness relatedBracnhGoal) { /*SUSHI: Path condition fitness*/
+		addEvaluatorForPathCondition(g);
+		if (relatedBracnhGoal.getBranch() != null) {
+			getExecutionTracer().pathConditionRelatedBranch.put(g.getPathConditionId(), relatedBracnhGoal.getBranch().getActualBranchId());
+		}
 	}
 	
 	public static void logEvaluatorsForPathConditions() {

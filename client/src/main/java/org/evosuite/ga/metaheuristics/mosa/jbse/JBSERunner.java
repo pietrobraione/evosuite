@@ -56,6 +56,7 @@ import jbse.jvm.exc.EngineStuckException;
 import jbse.jvm.exc.FailureException;
 import jbse.jvm.exc.InitializationException;
 import jbse.jvm.exc.NonexistingObservedVariablesException;
+import jbse.mem.Clause;
 import jbse.mem.Objekt;
 import jbse.mem.State;
 import jbse.mem.State.Phase;
@@ -94,12 +95,11 @@ public class JBSERunner {
 			public void run() {*/
 				try {
 					String retValue = null;
-					Process process = Runtime.getRuntime().exec(
-							System.getProperties().getProperty("java.home") + File.separator + "bin" + File.separator + "java" + //java1.8
-									" " + 
+					String[] commandLine = new String[] {
+							System.getProperties().getProperty("java.home") + File.separator + "bin" + File.separator + "java", //java1.8
 
-					"-classpath " + ClassPathHandler.getInstance().getTargetProjectClasspath() +
-					File.pathSeparator + extractClassPathEntry(org.evosuite.ClientProcess.class) + //evosuite-client/target/classes/
+					"-classpath", extractClassPathEntry(org.evosuite.ClientProcess.class) + //evosuite-client/target/classes/
+					File.pathSeparator + ClassPathHandler.getInstance().getTargetProjectClasspath() + 
 					//":/Users/denaro/git/evosuite/sushi-lib/lib/javaparser-core-3.4.0.jar" + //needed for using java-parser on test cases
 					File.pathSeparator + extractClassPathEntry(compiler.getClass()) + //tools.jar, needed for calling javac 
 					File.pathSeparator + extractClassPathEntry(javassist.bytecode.ClassFile.class) + //javassist-3.22.0-GA.jar" + 
@@ -108,27 +108,33 @@ public class JBSERunner {
 					File.pathSeparator + extractClassPathEntry(org.evosuite.runtime.Runtime.class) + //evosuite-runtime/target/classes
 					File.pathSeparator + extractClassPathEntry(jbse.jvm.RunnerBuilder.class) + //jbse.jar
 					File.pathSeparator + extractClassPathEntry(sushi.compile.path_condition_distance.DistanceBySimilarityWithPathCondition.class) + //sushi-lib
-					File.pathSeparator + Properties.TMP_TEST_DIR +
+					File.pathSeparator + Properties.TMP_TEST_DIR,
 
-					" org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunner " +
+					"org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunner",
 
 					/*TARGET BRANCH DATA */				
-					branch.getClassName() + 
-					" " + branch.getMethodName() + 
-					" " +bytecodeOffset + 
-					" " +targetBranchOccurrences + 
+					branch.getClassName(), 
+					branch.getMethodName(),
+					"" + bytecodeOffset, 
+					"" + targetBranchOccurrences, 
 
 					/*ENTRY_METHOD_DATA */
-					" " + entryMethodData.getClassNameSlashed() +
-					" " + entryMethodData.getMethodName() +
-					" " + entryMethodData.getMethodDescriptor() +
-					" " + entryMethodOccurrences +
+					entryMethodData.getClassNameSlashed(),
+					entryMethodData.getMethodName(),
+					entryMethodData.getMethodDescriptor(),
+					"" + entryMethodOccurrences,
 
-					" " + /*TEST_DIR */Properties.TMP_TEST_DIR +		
-					" " + /*TEST_FILE_NAME */ testFileName +
-					" " + /*APC_ID */ branch.getActualBranchId() +
-					" " + /*APC_ID_suffix */ uniqueSuffix +
-					" " + /*EVALUATOR DEPENDENCY SPEC */ evaluatorDependencySpec);
+					/*TEST_DIR */Properties.TMP_TEST_DIR,		
+					/*TEST_FILE_NAME */ testFileName,
+					/*APC_ID */ "" + branch.getActualBranchId(),
+					/*APC_ID_suffix */ "" + uniqueSuffix,
+					/*EVALUATOR DEPENDENCY SPEC */ evaluatorDependencySpec
+					};
+					
+					//LoggingUtils.getEvoLogger().info("[JBSE] DEBUG: command line: {}", Arrays.toString(commandLine));
+
+					
+					Process process = Runtime.getRuntime().exec(commandLine, null, null);
 
 					BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
 					BufferedReader brErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -175,8 +181,8 @@ public class JBSERunner {
 	    if (!uri.toString().endsWith(suffix)) throw new IOException("class resource for class" + clazz.getSimpleName() + ".class returned weird URI: " + uri);
 
 	    // strip the class's path from the URL string
-	    String path = uri.toString().substring(0, uri.toString().length() - suffix.length());
-	    if (path.startsWith("jar:")) path = path.substring(4, path.length() - 2);
+	    String path = uri.toString().substring(0, uri.toString().length() - suffix.length() - 1);
+	    if (path.startsWith("jar:")) path = path.substring(4, path.length() - 1);
 
 	    try {
 	        return new URI(path).getPath();
@@ -203,6 +209,7 @@ public class JBSERunner {
 	private State initialState = null;
 	private State  finalState = null;
     private HashMap<Long, String> stringLiterals = null;
+	private HashMap<Clause, String> clauseLocations;
 
 	public static void main(String[] args) throws DecisionException, CannotBuildEngineException, InitializationException, InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, CannotManageStateException, ThreadStackEmptyException, ContradictionException, EngineStuckException, FailureException, InvalidInputException {
 		System.out.println("ARGS: " + Arrays.toString(args));
@@ -230,7 +237,7 @@ public class JBSERunner {
 		runner.runProgram(calc);	
 		if (runner.finalState != null) {
 			String evaluatorName = emitAndCompilePathConditionEvaluator(
-					APC_ID, APC_ID_suffix, runner.initialState, runner.finalState, runner.stringLiterals, calc, evaluatorDependencySpec);
+					APC_ID, APC_ID_suffix, runner.initialState, runner.finalState, runner.clauseLocations, runner.stringLiterals, calc, evaluatorDependencySpec);
 			String successString = "SUCCESS";
 			successString += ":" + evaluatorName;
 			System.out.println(successString);
@@ -361,6 +368,7 @@ public class JBSERunner {
 		//finalizes
 		rb.getEngine().close();
 		this.stringLiterals = actions.stringLiterals;
+		this.clauseLocations = actions.clauseInstr;
 		this.finalState = actions.getFinalState();
 		System.out.println("done");
 	}
@@ -416,6 +424,11 @@ public class JBSERunner {
         private final HashMap<Long, String> stringLiterals = new HashMap<>();
 		private int targetBranchOccurrences = 0;
 		private final DecisionProcedureGuidance guid;
+		private HashMap<Clause, String> clauseInstr = new HashMap<>();
+		private int pathConditionSizeStepPre = -1;
+		private int programCounterStepPre = 0;
+		private int stackSizeStepPre = 0;
+		private ArrayList<Integer> context = new ArrayList<>();
 		
 		public ActionsRunner(DecisionProcedureGuidance guid) {
 			this.guid = guid;
@@ -445,6 +458,18 @@ public class JBSERunner {
 					final State  currentState = getEngine().getCurrentState();
 					//System.out.println(currentState.getIdentifier() + "[" + currentState.getSequenceNumber() + "] " + currentState.getCurrentMethodSignature() + " " + currentState.getPC());
 				
+		            int stackSize = currentState.getStackSize();
+		            if (stackSize > stackSizeStepPre) {
+		            	context.add(programCounterStepPre);
+		            } else if (stackSize < stackSizeStepPre) {
+		            	if (!context.isEmpty()) {
+		            		context.remove(context.size() - 1);
+		            	}
+		            }
+	            	stackSizeStepPre = stackSize;
+					pathConditionSizeStepPre = currentState.getPathCondition().size();
+					programCounterStepPre = currentState.getCurrentProgramCounter();
+							
                     //if at a load constant bytecode, saves the stack size
                     this.atLoadConstant = bytecodeLoadConstant(currentState.getInstruction());
                     if (this.atLoadConstant) {
@@ -502,7 +527,9 @@ public class JBSERunner {
 				this.finalState = currentState.clone();				
 				getEngine().stopCurrentPath();
 				return true;
-			} else if (!currentState.isStuck()) {
+			} 
+            
+            if (!currentState.isStuck()) {
 				try {
 					//System.out.println(currentState.getSequenceNumber());
 					this.guid.postStep(currentState);
@@ -511,7 +538,16 @@ public class JBSERunner {
 				}
 				//if (currentState.getStackSize() > 1000) getEngine().stopCurrentTrace(); //TODO
 			}
-
+            
+            int pcSize = currentState.getPathCondition().size();
+            if (pathConditionSizeStepPre >= 0 &&  pcSize > pathConditionSizeStepPre) {
+            	for (int i = pathConditionSizeStepPre; i < pcSize; ++i) {
+            		Clause clause = currentState.getPathCondition().get(i);
+            		clauseInstr.put(clause, context.toString() + programCounterStepPre);
+            	}
+            	pathConditionSizeStepPre = -1;
+            }
+            
             //manages constant loading
 			if (currentState.phase() != Phase.PRE_INITIAL && this.atLoadConstant) {
 				try {
@@ -605,11 +641,12 @@ public class JBSERunner {
 	 *        for which we want to generate the wrapper.
 	 * @param finalState a {@link State}; must be the final state in the execution 
 	 *        for which we want to generate the wrapper.
+	 * @param clauseLocations 
 	 * @param stringLiterals2 
 	 * @param calc 
 	 * @return a {@link Path}, the file path of the generated EvoSuite wrapper.
 	 */
-	private static String emitAndCompilePathConditionEvaluator(int id, int idSuffix, State initialState, jbse.mem.State finalState, HashMap<Long, String> stringLiterals, CalculatorRewriting calc, String evaluatorDependencySpec) {
+	private static String emitAndCompilePathConditionEvaluator(int id, int idSuffix, State initialState, jbse.mem.State finalState, HashMap<Clause, String> clauseLocations, HashMap<Long, String> stringLiterals, CalculatorRewriting calc, String evaluatorDependencySpec) {
 		final String evaluatorName = "APCFitnessEvaluator_" + id;
 		String packageString = ENTRY_METHOD_DATA.getClassNameDotted();
 		int lastDotIndex = packageString.lastIndexOf('.');
@@ -623,7 +660,7 @@ public class JBSERunner {
 		final StateFormatterAidingPathCondition fmt = new StateFormatterAidingPathCondition(id, packageString, () -> initialState, calc, stringLiterals);
 		fmt.refineFormula(finalState);
 		fmt.formatPrologue(idSuffix);
-		fmt.formatState(finalState, evaluatorDependencySpec);
+		fmt.formatState(finalState, clauseLocations, evaluatorDependencySpec);
 		fmt.formatEpilogue();
 		
 		final Path evaluatorFilePath = Paths.get(TEST_DIR).resolve(packageString.replace('.',  '/')).resolve(evaluatorName + "_" + idSuffix + ".java");

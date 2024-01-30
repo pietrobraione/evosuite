@@ -76,22 +76,27 @@ public class ApcGoalFitness extends PathConditionCoverageGoalFitness { /*SUSHI: 
 	@Override
 	public double getFitness(TestChromosome individual, ExecutionResult result) {
 		double branchFitness = branchGoal.getFitness(individual, result);
+		int pcId = getPathConditionGoal().getPathConditionId();
+		Double pcRelatedBranchDistance = result.getTrace().getPathConditionRelatedBranchDistance().get(pcId);
 		double fitness;
-		if(branchFitness == 0) {
-			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] APC GOAL FITNESS ({}) SATISFIED CORRESPONDING BRANCH: {}!!!", super.getFitness(individual, result), this);
+		if (branchFitness == 0) {
+			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] APC GOAL FITNESS (PC FITNESS IS {}) SATISFIED CORRESPONDING BRANCH: {}!!!", super.getFitness(individual, result), this);
 			fitness = 0d;
-		} else if (branchFitness >= 1) {
-			fitness = Double.MAX_VALUE;
 		} else if (branchFitness < initialBranchFitness) {
 			LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] REMOVING APC GOAL BECAUSE BRANCH FITNESS HAS IMPROVED: {}", this);
 			fitness = 0d;
+		} else if (/*branchFitness >= 1 || */pcRelatedBranchDistance == null) {
+			//if (branchFitness < 1) LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE: DEBUG] this apc fitness is branch-wise worse (INFINITE > {} --- initially {}): {}\nTEST:\n{}", branchFitness, initialBranchFitness, this, individual);
+			fitness = Double.MAX_VALUE; //branch not even reached in this execution, or not reached after the latest evaluation of the PC --> fitness is worst
 		} else {
 			double pcFitness = super.getFitness(individual, result);
-			fitness = pcFitness + branchFitness;
-			
+			double normalizedBranchFitness = pcRelatedBranchDistance / (1 + pcRelatedBranchDistance);
+			fitness = pcFitness + normalizedBranchFitness;
+			//if (normalizedBranchFitness > branchFitness) LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE: DEBUG] this apc fitness is branch-wise worse ({} > {} --- initally {}): {}\\nTEST:\\n{}", normalizedBranchFitness, branchFitness, initialBranchFitness, this, individual);
+
 			// As this evaluation hits the target branch, we update the converging-clause information by using the feedback from this test case
 			IApcEvaluator evaluator = getEvaluator();
-			ArrayList<Object> feedback = result.getTrace().getPathConditionFeedbacks().get(getPathConditionGoal().getPathConditionId());
+			ArrayList<Object> feedback = result.getTrace().getPathConditionFeedbacks().get(pcId);
 			//if feedback == null: possibly this test case did not hit the computation of this path-condition-fitness, and thus there is no feedback
 			if (feedback != null) { 	
 				evaluator.processFeedback(feedback);

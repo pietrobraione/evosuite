@@ -11,9 +11,12 @@ import java.util.List;
 import java.util.Stack;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
+import org.evosuite.coverage.pathcondition.ApcGoalFitness;
 import org.evosuite.ga.metaheuristics.mosa.structural.AidingPathConditionManager.ApcGroup;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTraceProxy;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.LoggingUtils;
@@ -28,13 +31,13 @@ public class JBSEManager {
 		return null;
 	}*/
 
-	public static void computeAPCGoals(ApcGroup hostApcGroup, BranchCoverageTestFitness branchF, TestChromosome tc, int uniqueSuffix, String evaluatorDependencySpec)  {
+	public static void computeAPCGoals(ApcGroup hostApcGroup, TestFitnessFunction targetFitnessFunction, TestChromosome tc, Branch targetBranch, int uniqueSuffix, String evaluatorDependencySpec)  {
 		if (Properties.TMP_TEST_DIR == null) {
 			LoggingUtils.getEvoLogger().info("[JBSE] CANNOT GENERATE AIDING PATH CONDITION SINCE TMP_TEST_DIR IS NOT SET");
 			return;
 		}
 
-		ExecutionTraceEventListener traceData = selectEntryMethodFromTestTrace(branchF, tc);
+		ExecutionTraceEventListener traceData = selectEntryMethodFromTestTrace(targetFitnessFunction, tc);
 		MethodData entryMethodData = null;
 		if (traceData.entryMethod != null) {
 			String entryClassName = traceData.entryMethod.className;
@@ -46,25 +49,25 @@ public class JBSEManager {
 		}
 		
 		//bootstrap JBSE that will run in a separate thread, and returns control to EvoSuite
-		JBSERunner.run(hostApcGroup, branchF.getBranch(), tc.getTestCase(), entryMethodData, traceData.entryMethodOccurrences, traceData.targetBranchOccurrences, uniqueSuffix, evaluatorDependencySpec);
+		JBSERunner.run(hostApcGroup, targetBranch, tc.getTestCase(), entryMethodData, traceData.entryMethodOccurrences, traceData.targetBranchOccurrences, uniqueSuffix, evaluatorDependencySpec);
 	}
 	
-	private static ExecutionTraceEventListener selectEntryMethodFromTestTrace(BranchCoverageTestFitness targetBranch, TestChromosome tc) {
-		double currentFitness = targetBranch.getFitness(tc);
+	private static ExecutionTraceEventListener selectEntryMethodFromTestTrace(TestFitnessFunction targetFitnessFunction, TestChromosome tc) {
+		double currentFitness = targetFitnessFunction.getFitness(tc);
 		
 		ExecutionTraceEventListener listener = new ExecutionTraceEventListener();
 		ExecutionTracer.setTraceEventListener(listener);
 		
-		targetBranch.runTest(tc.getTestCase());				
+		targetFitnessFunction.runTest(tc.getTestCase());				
 		ExecutionTracer.setTraceEventListener(null);
 
 		
 		for (TraceEvent item : listener.stack) {
 			LoggingUtils.getEvoLogger().info("[TRACE] {}", item);
 		}
-		LoggingUtils.getEvoLogger().info("With test case {}", tc.getTestCase());
+		LoggingUtils.getEvoLogger().info("With test case:\n----\n{}", tc.getTestCase());
 			
-		listener.extractTraceInfo(targetBranch.getBranch().getActualBranchId(), targetBranch.getValue(),
+		listener.extractTraceInfo(targetFitnessFunction, /*targetBranch.getBranch().getActualBranchId(), targetBranch.getValue(), *///TODO: reuse this info
 				currentFitness);
 		
 		return listener;	
@@ -90,16 +93,22 @@ public class JBSEManager {
 		}
 
 		@Override
+		public void passedPathCondition(int pathConditionId, int relatedBranchId, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
+			stack.add(new PathConditionPassedEvent(pathConditionId, distance));
+			super.passedPathCondition(pathConditionId, relatedBranchId, distance, feedback);			
+		}
+		
+		@Override
 		public void exitMethod(String classname, String methodname) {
 			stack.add(new ExitMethodEvent(classname, methodname));
 			super.exitMethod(classname, methodname);
 		}		
 		
-		public void extractTraceInfo(int branchId, boolean branchIsTrueSide, double currentFitness) {
-			int targetBranchIndex = findTargetBranch(branchId, branchIsTrueSide, currentFitness);			
+		public void extractTraceInfo(TestFitnessFunction targetFitnessFunction/*int branchId, boolean branchIsTrueSide TODO*/, double currentFitness) {
+			int targetBranchIndex = findTargetBranch(targetFitnessFunction, currentFitness);			
 
 			if (targetBranchIndex < 0) {
-				LoggingUtils.getEvoLogger().info("[DEBUG] branch id={}, fitness={} not found in TRACE", branchId, currentFitness);
+				LoggingUtils.getEvoLogger().info("[DEBUG] goal={}, fitness={} not found in TRACE", targetFitnessFunction, currentFitness);
 				return;
 			}
 
@@ -119,7 +128,7 @@ public class JBSEManager {
 			entryMethod = (EnteredMethodEvent) stack.get(entryMethodIndex);
 			entryMethodOccurrences = 1;
 			
-			LoggingUtils.getEvoLogger().info("[JBSE] Entry method occurs at index {} ({}) and the target branch is the {}th occurrence of the branch id={}", entryMethodIndex, entryMethod, targetBranchOccurrences, branchId);
+			LoggingUtils.getEvoLogger().info("[JBSE] Entry method occurs at index {} ({}) and the target goal is the {}th occurrence of the branch of goal {}", entryMethodIndex, entryMethod, targetBranchOccurrences, targetFitnessFunction);
 
 			int traceIndex = entryMethodIndex;
 			while (--traceIndex >= 0) {
@@ -131,20 +140,72 @@ public class JBSEManager {
 			LoggingUtils.getEvoLogger().info("[JBSE] entry method is the {}th occurrence of the method", entryMethodOccurrences);
 		}
 
-		private int findTargetBranch(int branchId, boolean branchIsTrueSide, double currentFitness) {
+		private int findTargetBranch(TestFitnessFunction targetFitnessFunction/*int branchId, boolean branchIsTrueSide TODO*/, double currentFitness) {
+			FitnessEvaluationSimulator evaluator = makeFitnessEvaluationSimulator(targetFitnessFunction);
 			for (int targetBranchIndex = 0; targetBranchIndex < stack.size(); targetBranchIndex++) {
 				TraceEvent ev = stack.get(targetBranchIndex);
-				if (ev instanceof BranchPassedEvent) {
-					BranchPassedEvent evBranch = (BranchPassedEvent) ev;
-					if (evBranch.branch == branchId && Math.abs(evBranch.getFitness(branchIsTrueSide) - currentFitness) < .00001) {
-						return targetBranchIndex;							
-					}
+				double fitness = evaluator.getFitnessAt(ev);
+				if (fitness >= 0  && Math.abs(fitness - currentFitness) < .00001) {
+					return targetBranchIndex;
 				}
 			}
 			return -1;
 		}
+		
+		private static interface FitnessEvaluationSimulator {
+			double getFitnessAt(TraceEvent ev);
+		}
+		
+		FitnessEvaluationSimulator makeFitnessEvaluationSimulator(TestFitnessFunction targetFitnessFunction) {
+			if (targetFitnessFunction instanceof BranchCoverageTestFitness) {
+				return new FitnessEvaluationSimulator() {
+					@Override
+					public double getFitnessAt(TraceEvent ev) {
+						if (ev instanceof BranchPassedEvent) {
+							BranchPassedEvent evBranch = (BranchPassedEvent) ev;
+							BranchCoverageTestFitness targetBranch = (BranchCoverageTestFitness) targetFitnessFunction;
+							int branchId = targetBranch.getBranch().getActualBranchId();
+							boolean branchIsTrueSide = targetBranch.getValue(); 
+							if (evBranch.branch == branchId) {
+								return Math.abs(evBranch.getFitness(branchIsTrueSide));					
+							}
+						}
+						return -1;
+					}
+				};
+			} else if (targetFitnessFunction instanceof ApcGoalFitness) {
+				return new FitnessEvaluationSimulator() {
+					double latestPcFitness = -1;
+					@Override
+					public double getFitnessAt(TraceEvent ev) {
+						if (ev instanceof PathConditionPassedEvent) {
+							ApcGoalFitness targetPc = (ApcGoalFitness) targetFitnessFunction;
+							PathConditionPassedEvent evPc = (PathConditionPassedEvent) ev;
+							int pcId = targetPc.getPathConditionGoal().getPathConditionId();
+							if (evPc.pathConditionId == pcId) {
+								latestPcFitness = evPc.getFitness(); //the fitness is associated with the last evaluated pc				
+							}
+							return -1; //fitness value is not available until we meet the target branch
+						} else if (ev instanceof BranchPassedEvent) {
+							BranchCoverageTestFitness targetBranch = ((ApcGoalFitness) targetFitnessFunction).getBranchGoal();
+							BranchPassedEvent evBranch = (BranchPassedEvent) ev;
+							int branchId = targetBranch.getBranch().getActualBranchId();
+							boolean branchIsTrueSide = targetBranch.getValue(); 
+							if (evBranch.branch == branchId) {
+								if (latestPcFitness < 0) {
+									throw new RuntimeException("Target branch met before any evalutaion of the corresponding path condition: CHECK THIS");
+								}
+								return latestPcFitness + evBranch.getFitness(branchIsTrueSide);					
+							}
+						}
+						return -1;
+					}
+				};				
+			}
+			throw new RuntimeException("Unsupported target fitness function: " + targetFitnessFunction);
+		}
 
-		private int identifyEntryMethodAndCountBranchOccurrences(int targetBranchIndex) {
+		private int identifyEntryMethodAndCountBranchOccurrences(int targetBranchIndex) { //TODO: check for correctness of counting of targetBranchOccurrences
 			Stack<ExitMethodEvent> nestedMethods = new Stack<>();
 			
 			int traceIndex = targetBranchIndex;
@@ -311,6 +372,25 @@ public class JBSEManager {
 		}
 	}
 	
+	static class PathConditionPassedEvent implements TraceEvent {
+		final int pathConditionId;
+		final double distance;
+
+		public PathConditionPassedEvent(int pathConditionId, double distance) {
+			this.pathConditionId = pathConditionId;
+			this.distance = distance;
+		}
+		
+		@Override
+		public String toString() {
+			return "PathConditionPassedEvent [pcId=" + pathConditionId + ", distance=" + distance + "]";
+		}
+		
+		public double getFitness() {
+			return distance;
+		}
+	}
+	
 	static class BranchPassedEvent implements TraceEvent {
 		final int branch;
 		final int bytecode_id;
@@ -332,7 +412,7 @@ public class JBSEManager {
 		
 		public double getFitness(boolean branchIsTrueSide) {
 			double f = branchIsTrueSide ? true_distance : false_distance;
-			return f / (1 + f); //normalized
+			return f / (1 + f); //normalized to allow for comparison with the fitness collected form the test case
 		}
 		
 		@Override

@@ -139,7 +139,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 		boolean refined;
 		
 		public static ApcItem startNewItem(AidingPathConditionManager manager, ApcGoalFitness newApcGoal, boolean refined, int currentIteration) {
-			ExecutionTracer.addEvaluatorForPathCondition(newApcGoal.getPathConditionGoal());
+			ExecutionTracer.addEvaluatorForPathCondition(newApcGoal.getPathConditionGoal(), newApcGoal.getBranchGoal());
 			ApcItem apcItem = new ApcItem(newApcGoal, manager, refined, currentIteration);
 			manager.getCurrentGoals().add(newApcGoal); 
 			return apcItem;
@@ -200,8 +200,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 					goal.getPathConditionGoal().getPathConditionId()).get(0);
 			String convergedItemsSpec = goal.getPathConditionGoal().getEvaluatorName();
 			boolean someConverged = false;
-			//LoggingUtils.getEvoLogger().info("\n\n[EVOSUITE] best test {} for {}:", Arrays.toString(convergedWithBestTest), goal);
-			for (int i = 0; i < convergedWithBestTest.length - 1; ++i) {
+			for (int i = 0; i < convergedWithBestTest.length - 1; ++i) { //ignore last item, which is the aggregated-fitness value
 				if (convergedWithBestTest[i] == 0) {
 					someConverged = true;
 					convergedItemsSpec += ":" + i;
@@ -211,8 +210,9 @@ public class AidingPathConditionManager extends PathConditionManager {
 				}
 			}
 			if (someConverged) {
-				LoggingUtils.getEvoLogger().info("[EVOSUITE] Computing new APC as refinement of goal: {}", goal);
-				hostApcGroup.scheduleNewApcByUsingJBSE(bestTest, convergedItemsSpec, currentIteration); 
+				LoggingUtils.getEvoLogger().info("[EVOSUITE] Computing new APC as refinement on {} of goal: {}", convergedItemsSpec, goal);
+				LoggingUtils.getEvoLogger().info("[EVOSUITE] ...as best test scored {}", Arrays.toString(convergedWithBestTest));
+				hostApcGroup.scheduleNewApcByUsingJBSE(bestTest, goal, convergedItemsSpec, currentIteration); 
 				/* This is not needed because we now select all remaining clauses in the refinements below
 				 * if (goal.getEvaluator().isAllDisabled()) {
 					// no more APC clause is now enabled in this evaluator, thus it is useless to refine it
@@ -220,7 +220,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 				} */
 			} 
 
-			// Possibly start separate refined ApCItems wrt clauses with alignedSpin and reverseSpin, respectively
+			// Collect information on clauses with aligned and reverse spin, respectively
 			ArrayList<Integer> alignedSpinClauses = new ArrayList<>();
 			ArrayList<Integer> reverseSpinClauses = new ArrayList<>();
 			ArrayList<Integer> otherClauses = new ArrayList<>();
@@ -287,7 +287,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 				hostApcGroup.scheduleNewApcByCopy(goal, currentIteration); 
 			}*/
 
-			dismiss(); //Dismiss this ApcItem as now its corresponding refined items are running
+			dismiss(); //Dismiss this ApcItem as now its corresponding refined items are running, and all clauses are being considered thereby
 		}
 
 	}
@@ -423,7 +423,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 			}*/
 			if (apcItems.isEmpty()) {
 				LoggingUtils.getEvoLogger().info("[EVOSUITE] Computing first APC for branch goal: {}", branchGoal);
-				scheduleNewApcByUsingJBSE(bestTestOfBranchGoal, "-", currentIteration);
+				scheduleNewApcByUsingJBSE(bestTestOfBranchGoal, branchGoal, "-", currentIteration);
 				return;
 			}
 			ArrayList<ApcItem> items = new ArrayList<>(apcItems);
@@ -445,13 +445,13 @@ public class AidingPathConditionManager extends PathConditionManager {
 			apcItem.goal.getEvaluator().updtDisabled(currentApcGoal.getEvaluator().getDisabled()); //copy the disabled settings of the source evaluator
 		}
 		
-		public void scheduleNewApcByUsingJBSE(TestChromosome bestTest, String convergedItemsSpec, int currentIteration) {
+		public void scheduleNewApcByUsingJBSE(TestChromosome bestTest, TestFitnessFunction fitnessFunction, String convergedItemsSpec, int currentIteration) {
 			if (!canScheduleNewApc()) {//we can add further support at this moment 
 				return; //TODO: here we loose the convergedItemsSpec
 			}
 			
 			//We run JBSE that will run in a separate thread, and will schedule the new goal upon its termination
-			JBSEManager.computeAPCGoals(this, branchGoal, /* minimizedTest*/(TestChromosome) bestTest.clone(), getNextApcIndex(), convergedItemsSpec);				
+			JBSEManager.computeAPCGoals(this, fitnessFunction, /* minimizedTest*/(TestChromosome) bestTest.clone(), branchGoal.getBranch(), getNextApcIndex(), convergedItemsSpec);				
 		}	
 		
 		private synchronized void startApcGoalsFromJbseIfAny(int currentIteration) {

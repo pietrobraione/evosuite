@@ -102,6 +102,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		Map<String, NumericRange> collectedRangeAssumptions = new HashMap<>();
 		Set<Clause> alreadySeen = new HashSet<>();
 
+		System.out.println("Entire path condition: " + pathCondition);
 		for (final Clause clause : pathCondition) {
 			if (alreadySeen.contains(clause)) {
 				continue;
@@ -664,9 +665,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 	public void formatState(State state) {
 		
 	}
-	public void formatState(State state, String evaluatorDependencySpec) {
+	public void formatState(State state, HashMap<Clause, String> clauseLocations, String evaluatorDependencySpec) {
 		try {
-			MethodUnderTest m = new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, subformula, calc, stringLiterals, evaluatorDependencySpec);
+			MethodUnderTest m = new MethodUnderTest(this.output, this.initialStateSupplier.get(), state, this.testCounter, subformula, clauseLocations, calc, stringLiterals, evaluatorDependencySpec);
 			this.output.append(INDENT_1);
 			this.output.append("public final boolean[] disabled = new boolean[");
 			this.output.append(m.numOfAppendedEvaluators);
@@ -750,6 +751,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			INDENT_1 + "private ArrayList<ClauseSimilarityHandler> preConditionHandler = null;\n" +
 			INDENT_1 + "private String dependencyEvaluatorClassName = null;\n" + 
 			INDENT_1 + "private int[] dependencyEvaluatorClauseId = null;\n" + 
+			INDENT_1 + "private ArrayList<String> seenLocations = new ArrayList<>();\n" + 
 			INDENT_1 + "private HashMap<Long, double[]> threadLocalDistanceSample = new HashMap<>();\n" + 
 			"\n"; 
 	private static final String EPILOGUE_1 = 
@@ -865,6 +867,9 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			INDENT_1 + "}\n" + 
 			INDENT_1 + "public int[] getDependencyEvaluatorClauseId() {\n" + 
 			INDENT_2 + "return dependencyEvaluatorClauseId;\n" + 
+			INDENT_1 + "}\n" +
+			INDENT_1 + "public String[] getSeenLocations() {\n" + 
+			INDENT_2 + "return seenLocations.toArray(new String[0]);\n" + 
 			INDENT_1 + "}\n";
 	
 	private static List<PrimitiveSymbolic> symbolsIn(Primitive e) {
@@ -1021,7 +1026,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 		private final CalculatorRewriting calc;
 		private int numOfAppendedEvaluators = 0;
 		
-		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula, CalculatorRewriting calc, HashMap<Long, String> stringLiterals, String evaluatorDependencySpec) 
+		MethodUnderTest(StringBuilder s, State initialState, State finalState, int testCounter, List<Clause> formula, HashMap<Clause, String> clauseLocations, CalculatorRewriting calc, HashMap<Long, String> stringLiterals, String evaluatorDependencySpec) 
 		throws FrozenStateException {
 			this.s = s;
 			this.formula = formula;
@@ -1029,7 +1034,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			//makeVariables(finalState);
 			appendMethodDeclaration(initialState, finalState, testCounter);
 			appendPreCondition(finalState, testCounter, evaluatorDependencySpec);
-			appendPathCondition(finalState, testCounter);
+			appendPathCondition(finalState, clauseLocations, testCounter);
 			appendIfStatement(initialState, finalState, testCounter);
 			appendMethodEnd(finalState, testCounter);
 		}
@@ -1136,11 +1141,13 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append("\n");
 		}
 		
+		IApcEvaluator evaluator = null;
+		
 		private void appendPreConditionClauses(String dependencyEvaluatorClassName, int[] dependencyEvaluatorClauseId) {
 			try {
 				Class<?> evaluatorClass = Class.forName(dependencyEvaluatorClassName);
 				System.out.println("NEW EVALUATOR DEPENDS ON: " + evaluatorClass.getName() + "::" + Arrays.toString(dependencyEvaluatorClauseId));
-				IApcEvaluator evaluator = (IApcEvaluator) evaluatorClass.getConstructor(ClassLoader.class).newInstance((ClassLoader) null);
+				evaluator = (IApcEvaluator) evaluatorClass.getConstructor(ClassLoader.class).newInstance((ClassLoader) null);
 				for (Method m: evaluatorClass.getMethods()) {
 					if (m.getName().equals("test0")) {
 							m.invoke(evaluator, new Object[m.getParameterCount()]);
@@ -1175,13 +1182,40 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			} 
 		}
 
-		private void appendPathCondition(State finalState, int testCounter) 
+		private void appendPathCondition(State finalState, HashMap<Clause, String> clauseLocations, int testCounter) 
 		throws FrozenStateException {
 			if (this.panic) {
 				return;
 			}
 			this.s.append(INDENT_2);
 			this.s.append("if (pathConditionHandler == null) {\n"); 
+			//final Collection<Clause> pathCondition = finalState.getPathCondition();
+			final ArrayList<Clause> pathCondition = new ArrayList<>();
+			
+			// Select one clasue (the latest) among the clauses observed at the same bytecode context-sensitive location
+			final HashSet<String> seenLocations = new HashSet<>();
+			if (evaluator != null) { //...and avoid any clause that correspond to locations that were already considered in the evaluator on which this one depends
+				String[] locations = evaluator.getSeenLocations();
+				for (String l: locations) {
+					seenLocations.add(l);
+				}
+			}
+			for (int i = formula.size() - 1; i >= 0; --i) {
+				Clause clause = formula.get(i);
+				String location = clauseLocations.get(clause);
+				if ( seenLocations.add(location)) {
+					pathCondition.add(0, clause);
+					System.out.println("KEEPING CLAUSE: " + clause + " -- collected at location = " + location);
+				} else {
+					System.out.println("DISCARDING CLAUSE: " + clause + " -- collected at location = " + location);
+				}
+			} for (String location: seenLocations) {
+				this.s.append(INDENT_3);
+				this.s.append("seenLocations.add(\"");
+				this.s.append(location);
+				this.s.append("\");\n");				
+			}
+			System.out.println("Considering the sub-sub-formula: " + Arrays.toString(pathCondition.toArray()));
 			this.s.append(INDENT_3);
 			this.s.append("pathConditionHandler = new ArrayList<>();\n"); 
 			this.s.append(INDENT_3);
@@ -1191,8 +1225,6 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			this.s.append("ClauseSimilarityHandler similarityHandler;\n");
 			this.s.append(INDENT_3);
 			this.s.append("String similarityHandlerSrc;\n");
-			//final Collection<Clause> pathCondition = finalState.getPathCondition();
-			final Collection<Clause> pathCondition  = formula;
 			for (Iterator<Clause> iterator = pathCondition.iterator(); iterator.hasNext(); ) {
 				final Clause clause = iterator.next();
 

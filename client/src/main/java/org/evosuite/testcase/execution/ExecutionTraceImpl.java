@@ -287,6 +287,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
 	public Map<Integer, ArrayList<Object>> pathConditionFeedbacks = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer /*branchId*/, Set<Integer> /*related pcIds*/> pathConditionBranchRelations = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, Double> pathConditionRelatedBranchDistance = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
 
 	public static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
@@ -303,6 +305,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public static Map<RuntimeVariable, Set<Integer>> bytecodeInstructionCoveredFalse = Collections
 			.synchronizedMap(new HashMap<>());
 
+	private final boolean trackBranchToPathConditionRelations;
 	/**
 	 * <p>
 	 * Constructor for ExecutionTraceImpl.
@@ -310,6 +313,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 */
 	public ExecutionTraceImpl() {
 		stack.add(new MethodCall("", "", 0, 0, 0)); // Main method
+		trackBranchToPathConditionRelations = 
+				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS);
 	}
 
 	/**
@@ -504,6 +509,23 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		// This requires a lot of memory and should not really be used
 		if (Properties.BRANCH_EVAL) {
 			branchesTrace.add(new BranchEval(branch, true_distance, false_distance));
+		}
+		
+		if (trackBranchToPathConditionRelations && pathConditionBranchRelations.containsKey(branch)) {
+			/* Here we shall track the currendDistance as the distance from the uncovered side of the branch.
+			 * If (conversely) the branch is covered, we let the fitness function bes responsible of computing the fitness as 0. */
+			double currentDistance = Math.max(true_distance, false_distance);
+			for (int pathConditionId: pathConditionBranchRelations.get(branch)) {
+				synchronized (pathConditionRelatedBranchDistance) {
+					Double latestDistance = pathConditionRelatedBranchDistance.get(pathConditionId);
+					if (latestDistance == null) {
+						latestDistance = Double.MAX_VALUE;
+					}
+					if (currentDistance < latestDistance) {
+						pathConditionRelatedBranchDistance.put(pathConditionId, currentDistance);
+					}
+				}
+			}
 		}
 	}
 
@@ -2004,21 +2026,31 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
-	public void passedPathCondition(int pathConditionID, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
+	public void passedPathCondition(int pathConditionId, int relatedBranchId, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
 		//LoggingUtils.getEvoLogger().info("--path condition distance is d: " + distance + ", pc = " + pathConditionID);
 		if (Properties.POST_CONDITION_CHECK) {
-			tempDistances.put(pathConditionID, distance);
+			tempDistances.put(pathConditionId, distance);
 			return;
 		}
+		synchronized (pathConditionBranchRelations) {
+			if (!pathConditionBranchRelations.containsKey(relatedBranchId)) {
+				pathConditionBranchRelations.put(relatedBranchId, new HashSet<>());
+			}
+		}
+		pathConditionBranchRelations.get(relatedBranchId).add(pathConditionId); //set the relation, if not done yet
 		synchronized (pathConditionDistances) {
-			Double currentDistance = pathConditionDistances.get(pathConditionID);
+			Double currentDistance = pathConditionDistances.get(pathConditionId);
 			if (currentDistance == null
 					|| (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST && distance <= distance)
 					|| Properties.PATH_CONDITION_TARGET == PathConditionTarget.LAST_ONLY
 					/* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
-					)
-				pathConditionDistances.put(pathConditionID, distance);
-				pathConditionFeedbacks.put(pathConditionID, feedback);
+					) {
+				pathConditionDistances.put(pathConditionId, distance);
+				pathConditionFeedbacks.put(pathConditionId, feedback);
+				if (trackBranchToPathConditionRelations) {
+					pathConditionRelatedBranchDistance.remove(pathConditionId); //as we are now measuring for a new path-condition, the corresponding branch is to be met yet 
+				}
+			}
 		}
 	}
 
@@ -2066,6 +2098,12 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks() { /*SUSHI: Path condition fitness*/
 		return pathConditionFeedbacks;
 	}
+	
+	@Override
+	public Map<Integer, Double> getPathConditionRelatedBranchDistance() { /*SUSHI: Path condition fitness*/
+		return pathConditionRelatedBranchDistance;
+	}
+
 
 	@Override
 	public void passedSeepepItem(SeepepTraceItem seepepTraceItem) {  /*SEEPEP: DAG coverage*/

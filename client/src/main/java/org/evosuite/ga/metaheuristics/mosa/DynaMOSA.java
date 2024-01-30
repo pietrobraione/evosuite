@@ -25,6 +25,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.Properties.Criterion;
+import org.evosuite.Properties.PathConditionTarget;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
@@ -346,6 +347,7 @@ public class DynaMOSA extends AbstractMOSA {
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
 			goalsManager = new PathConditionManager(fitnessFunctions, this, true);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
+			Properties.PATH_CONDITION_TARGET = PathConditionTarget.LAST_ONLY; //This option is mandatory with the selected criterion
 			goalsManager = new AidingPathConditionManager(fitnessFunctions, this);			
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)){ /*SEEPEP: DAG coverage*/
 			ExecutionTracer.enableSeepepTracing();

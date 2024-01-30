@@ -870,9 +870,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
-	public void passedPathCondition(int pathConditionID, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
+	public void passedPathCondition(int pathConditionID, int relatedBranchId, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
 		copyOnWrite();
-		trace.passedPathCondition(pathConditionID, distance, feedback);		
+		trace.passedPathCondition(pathConditionID, relatedBranchId, distance, feedback);		
 	}
 
 	@Override
@@ -889,6 +889,11 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	@Override
 	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks() { /*SUSHI: Path condition fitness*/
 		return trace.getPathConditionFeedbacks();
+	}
+
+	@Override
+	public Map<Integer, Double> getPathConditionRelatedBranchDistance() { /*SUSHI: Path condition fitness*/
+		return trace.getPathConditionRelatedBranchDistance();
 	}
 
 	@Override

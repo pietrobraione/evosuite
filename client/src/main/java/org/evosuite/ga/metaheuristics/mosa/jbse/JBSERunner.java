@@ -183,10 +183,9 @@ public class JBSERunner {
 
 	    // strip the class's path from the URL string
 	    String path = uri.toString().substring(0, uri.toString().length() - suffix.length() - 1);
-	    if (path.startsWith("jar:")) path = path.substring(4, path.length() - 1);
-
+	    if (path.startsWith("jar:")) path = path.substring(path.indexOf(':') + 1, path.length() - 1);
 	    try {
-	        return new URI(path).getPath();
+	        return new URI(path).getPath().replace("/C:", "C:");
 	    } catch (final URISyntaxException e) {
 			throw new IOException(e);
 	    } 

@@ -118,6 +118,7 @@ public class TestSuiteGenerator {
 
 		if (Properties.PATH_CONDITION_EVALUATORS_DIR != null) {  /*SUSHI: Path condition fitness*/
 
+			new File(Properties.PATH_CONDITION_EVALUATORS_DIR).mkdirs();
 			URLClassLoader systemClassLoader = (URLClassLoader) ClassLoader.getSystemClassLoader(); 
 			Class<URLClassLoader> classLoaderClass = URLClassLoader.class; 
 

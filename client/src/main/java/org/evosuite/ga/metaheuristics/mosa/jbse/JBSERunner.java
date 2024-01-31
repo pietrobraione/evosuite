@@ -133,7 +133,6 @@ public class JBSERunner {
 					
 					//LoggingUtils.getEvoLogger().info("[JBSE] DEBUG: command line: {}", Arrays.toString(commandLine));
 
-					
 					Process process = Runtime.getRuntime().exec(commandLine, null, null);
 
 					BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -148,6 +147,7 @@ public class JBSERunner {
 					while ((line = brErr.readLine()) != null) {
 						LoggingUtils.getEvoLogger().info(line);
 					}
+					try { Thread.sleep(2); } catch (InterruptedException e) {}
 					if (retValue == null) {
 						LoggingUtils.getEvoLogger().info("[JBSE] * WARNING: JBSE FAILED TO COMPUTE THE REFINED APC WITH SPEC {}: TARGET BRANCH NOT FOUND", evaluatorDependencySpec);
 					} else {
@@ -156,6 +156,7 @@ public class JBSERunner {
 						int apcIndex = uniqueSuffix;
 						String evaluatorName = retValue;
 						hostApcGroup.scheduleNewApcFromJbse(apcIndex, entryClassName, entryMethodName, evaluatorName, false, 0/*currentIteration*/);
+
 					}
 
 				} catch (IOException e) {
@@ -246,7 +247,7 @@ public class JBSERunner {
 	}
 	
 	public JBSERunner() {
-		this.classpath = System.getProperty("java.class.path").replace("\\", "/").split(":"); //classpath is set from command line above
+		this.classpath = System.getProperty("java.class.path").replace("\\", "/").split(File.pathSeparator); //classpath is set from command line above
 		
 		System.out.println("Using classpath: " + Arrays.toString(this.classpath));
 		
@@ -663,7 +664,8 @@ public class JBSERunner {
 		fmt.formatState(finalState, clauseLocations, evaluatorDependencySpec);
 		fmt.formatEpilogue();
 		
-		final Path evaluatorFilePath = Paths.get(TEST_DIR).resolve(packageString.replace('.',  '/')).resolve(evaluatorName + "_" + idSuffix + ".java");
+		final Path evaluatorFolderPath = Paths.get(TEST_DIR).resolve(packageString.replace('.',  '/'));
+		final Path evaluatorFilePath = evaluatorFolderPath.resolve(evaluatorName + "_" + idSuffix + ".java");
 		try (final BufferedWriter w = Files.newBufferedWriter(evaluatorFilePath)) {
 			String evaluatorJavaCode = fmt.emit();
 			w.write(evaluatorJavaCode);
@@ -683,6 +685,8 @@ public class JBSERunner {
 					File.pathSeparator + extractClassPathEntry(sushi.compile.path_condition_distance.DistanceBySimilarityWithPathCondition.class); //sushi-lib
 			final String[] javacParameters = { "-cp", classpathCompilationWrapper, "-d", TEST_DIR, evaluatorFilePath.toString() };
 			compiler.run(null, w, w, javacParameters);
+			w.flush();
+			w.close();
 			return packageString + "." + evaluatorName + "_" + idSuffix;
 		} catch (IOException e) {
 			System.out.println("[JBSE] Unexpected I/O error while creating evaluator compilation log file " + javacLogFilePath.toString() + ": " + e);

@@ -94,7 +94,14 @@ public class JBSERunner {
 			@Override
 			public void run() {*/
 				try {
+					
 					String retValue = null;
+					/*retValue = run0(branch.getClassName(), branch.getMethodName(), bytecodeOffset, targetBranchOccurrences, entryMethodData.getClassNameSlashed(),
+							entryMethodData.getMethodName(), entryMethodData.getMethodDescriptor(), entryMethodOccurrences, Properties.TMP_TEST_DIR,		
+							ClassPathHandler.getInstance().getTargetProjectClasspath(), testFileName, branch.getActualBranchId(), uniqueSuffix, evaluatorDependencySpec);
+					*/
+
+					//======= BEGIN: EXT PROCESS EXECUTION =====
 					String[] commandLine = new String[] {
 							System.getProperties().getProperty("java.home") + File.separator + "bin" + File.separator + "java", //java1.8
 
@@ -112,23 +119,24 @@ public class JBSERunner {
 
 					"org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunner",
 
-					/*TARGET BRANCH DATA */				
+					//TARGET BRANCH DATA				
 					branch.getClassName(), 
 					branch.getMethodName(),
 					"" + bytecodeOffset, 
 					"" + targetBranchOccurrences, 
 
-					/*ENTRY_METHOD_DATA */
+					// ENTRY_METHOD_DATA
 					entryMethodData.getClassNameSlashed(),
 					entryMethodData.getMethodName(),
 					entryMethodData.getMethodDescriptor(),
 					"" + entryMethodOccurrences,
 
-					/*TEST_DIR */Properties.TMP_TEST_DIR,		
-					/*TEST_FILE_NAME */ testFileName,
-					/*APC_ID */ "" + branch.getActualBranchId(),
-					/*APC_ID_suffix */ "" + uniqueSuffix,
-					/*EVALUATOR DEPENDENCY SPEC */ evaluatorDependencySpec
+					Properties.TMP_TEST_DIR, //TEST_DIR	
+					ClassPathHandler.getInstance().getTargetProjectClasspath(),//Target project bin path
+					testFileName, //TEST_FILE_NAME
+					"" + branch.getActualBranchId(), //APC_ID 
+					"" + uniqueSuffix, //APC_ID_suffix
+					evaluatorDependencySpec //EVALUATOR DEPENDENCY SPEC
 					};
 					
 					//LoggingUtils.getEvoLogger().info("[JBSE] DEBUG: command line: {}", Arrays.toString(commandLine));
@@ -147,7 +155,9 @@ public class JBSERunner {
 					while ((line = brErr.readLine()) != null) {
 						LoggingUtils.getEvoLogger().info(line);
 					}
-					try { Thread.sleep(2); } catch (InterruptedException e) {}
+					//======= END: EXT PROCESS EXECUTION =====
+					
+					
 					if (retValue == null) {
 						LoggingUtils.getEvoLogger().info("[JBSE] * WARNING: JBSE FAILED TO COMPUTE THE REFINED APC WITH SPEC {}: TARGET BRANCH NOT FOUND", evaluatorDependencySpec);
 					} else {
@@ -162,24 +172,27 @@ public class JBSERunner {
 				} catch (IOException e) {
 					e.printStackTrace();
 					LoggingUtils.getEvoLogger().info(e.getMessage() + ": " + Arrays.toString(e.getStackTrace()));
-				}		
+				} catch (Exception e) {
+					e.printStackTrace();
+					LoggingUtils.getEvoLogger().info(e.getMessage() + ": " + Arrays.toString(e.getStackTrace()));
+				}
 			/*}
 		}.start();*///TODO: Run in separate thread
 	}
 
 
-	private static String extractClassPathEntry(Class<?> clazz) throws IOException {
+	private static String extractClassPathEntry(Class<?> clazz) {
 		URL url = clazz.getResource(clazz.getSimpleName() + ".class");
-		if (url == null) throw new IOException("cannot find class resource for class" + clazz.getSimpleName() + ".class");
+		if (url == null) throw new RuntimeException("cannot find class resource for class" + clazz.getSimpleName() + ".class");
 		
 		URI uri = null;
 		try {
 			uri = url.toURI();
 		} catch (URISyntaxException e) {
-			throw new IOException(e);
+			throw new RuntimeException(e);
 		}
 	    final String suffix = clazz.getCanonicalName().replace('.', '/') + ".class";
-	    if (!uri.toString().endsWith(suffix)) throw new IOException("class resource for class" + clazz.getSimpleName() + ".class returned weird URI: " + uri);
+	    if (!uri.toString().endsWith(suffix)) throw new RuntimeException("class resource for class" + clazz.getSimpleName() + ".class returned weird URI: " + uri);
 
 	    // strip the class's path from the URL string
 	    String path = uri.toString().substring(0, uri.toString().length() - suffix.length() - 1);
@@ -187,13 +200,14 @@ public class JBSERunner {
 	    try {
 	        return new URI(path).getPath().replace("/C:", "C:");
 	    } catch (final URISyntaxException e) {
-			throw new IOException(e);
+			throw new RuntimeException(e);
 	    } 
 	}
 
 	private static JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
 	private static String TEST_DIR;
+	private static String TARGET_DIR;
 	private static String TARGET_BRANCH_CLASS;
 	private static String TARGET_BRANCH_METHOD;
 	private static int TARGET_BRANCH_BYTECODE_OFFSET;
@@ -202,7 +216,6 @@ public class JBSERunner {
 	private static int ENTRY_METHOD_OCCURRENCES;
 	private static GuidingTestCaseData GUIDING_TC_DATA;
 	
-	private String[] classpath;
 	//private final String z3Path = Paths.get("/Users", "denaro", "Desktop", "RTools", "Z3", "z3-4.3.2.d548c51a984e-x64-osx-10.8.5", "bin", "z3").toString(); //Do not need Z3: we do only test-guided symbolic execution;
 	private final RunnerParameters commonParamsGuided;
 	private final RunnerParameters commonParamsGuiding;
@@ -211,24 +224,36 @@ public class JBSERunner {
     private HashMap<Long, String> stringLiterals = null;
 	private HashMap<Clause, String> clauseLocations;
 
-	public static void main(String[] args) throws DecisionException, CannotBuildEngineException, InitializationException, InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, CannotManageStateException, ThreadStackEmptyException, ContradictionException, EngineStuckException, FailureException, InvalidInputException {
+	public static void main(String[] args) throws DecisionException, CannotBuildEngineException, InitializationException, InvalidClassFileFactoryClassException, 
+	NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, CannotManageStateException, ThreadStackEmptyException, 
+	ContradictionException, EngineStuckException, FailureException, InvalidInputException {
 		System.out.println("ARGS: " + Arrays.toString(args));
-		TARGET_BRANCH_CLASS = args[0];
-		TARGET_BRANCH_METHOD = args[1];
-		TARGET_BRANCH_BYTECODE_OFFSET = Integer.parseInt(args[2]);
-		TARGET_BRANCH_OCCURRENCES = Integer.parseInt(args[3]);
+		run0(args[0], args[1], Integer.parseInt(args[2]), Integer.parseInt(args[3]), args[4], 
+				args[5], args[6], Integer.parseInt(args[7]), args[8], 
+				args[9], args[10], Integer.parseInt(args[11]), Integer.parseInt(args[12]), args[13]);
+	}
+	
+	private static String run0 (String BRANCH_CLASS, String BRANCH_METHOD, int BRANCH_BYTECODE_OFFSET, int BRANCH_OCCURRENCES, 
+			String METHOD_DATA_CLASS, String METHOD_DATA_METHOD_NAME,String  METHOD_DATA_DESCR, int METHOD_OCCURRENCES, 
+			String TEST_DIRECTORY, String TARGET_DIRECTORY, String TEST_FILE, int apcId, int apcIdSuffix, String evaluatorDependencySpec) throws DecisionException, CannotBuildEngineException, 
+	InitializationException, InvalidClassFileFactoryClassException, NonexistingObservedVariablesException, ClasspathException, CannotBacktrackException, 
+	CannotManageStateException, ThreadStackEmptyException, ContradictionException, EngineStuckException, FailureException, InvalidInputException  {
+		TARGET_BRANCH_CLASS = BRANCH_CLASS;
+		TARGET_BRANCH_METHOD = BRANCH_METHOD;
+		TARGET_BRANCH_BYTECODE_OFFSET = BRANCH_BYTECODE_OFFSET;
+		TARGET_BRANCH_OCCURRENCES = BRANCH_OCCURRENCES;
 		
-		ENTRY_METHOD_DATA = new MethodData(args[4], args[5], args[6]);
-		ENTRY_METHOD_OCCURRENCES = Integer.parseInt(args[7]);
+		ENTRY_METHOD_DATA = new MethodData(METHOD_DATA_CLASS, METHOD_DATA_METHOD_NAME, METHOD_DATA_DESCR);
+		ENTRY_METHOD_OCCURRENCES = METHOD_OCCURRENCES;
 		
-		TEST_DIR = args[8];
-		String TEST_FILE_NAME = args[9];
+		TEST_DIR = TEST_DIRECTORY;
+		TARGET_DIR = TARGET_DIRECTORY;
+		String TEST_FILE_NAME = TEST_FILE;
 		GUIDING_TC_DATA = new GuidingTestCaseData(
 				TEST_FILE_NAME, "()V", "test0", 
 				Paths.get(TEST_DIR));
-		int APC_ID = Integer.parseInt(args[10]);
-		int APC_ID_suffix = Integer.parseInt(args[11]);
-		String evaluatorDependencySpec = args[12];
+		int APC_ID = apcId;
+		int APC_ID_suffix = apcIdSuffix;
 
 		final CalculatorRewriting calc = new CalculatorRewriting();
 		calc.addRewriter(new RewriterExpressionOrConversionOnSimplex());
@@ -241,23 +266,28 @@ public class JBSERunner {
 			String successString = "SUCCESS";
 			successString += ":" + evaluatorName;
 			System.out.println(successString);
+			return evaluatorName;
 		}
 		System.out.println("DONE");
+		return null;
 	}
 	
-	public JBSERunner() {
-		this.classpath = System.getProperty("java.class.path").replace("\\", "/").split(File.pathSeparator); //classpath is set from command line above
-		
-		System.out.println("Using classpath: " + Arrays.toString(this.classpath));
+	public JBSERunner() {		
+		String[] classpath = new String[] {
+				TARGET_DIR,
+				TEST_DIR,
+				extractClassPathEntry(jbse.jvm.RunnerBuilder.class)
+		};
+		System.out.println("Using classpath: " + Arrays.toString(classpath));
 		
 		//builds the template parameters object for the guided (symbolic) execution
 		this.commonParamsGuided = new RunnerParameters();
-		this.commonParamsGuided.addUserClasspath(this.classpath);
+		this.commonParamsGuided.addUserClasspath(classpath);
 		this.commonParamsGuided.setCountScope(100000); // To avoid infinte loops
 
 		//builds the template parameters object for the guiding (concrete) execution
 		this.commonParamsGuiding = new RunnerParameters();
-		this.commonParamsGuiding.addUserClasspath(this.classpath);
+		this.commonParamsGuiding.addUserClasspath(classpath);
 		this.commonParamsGuiding.setStateIdentificationMode(StateIdentificationMode.COMPACT);
 	}
 

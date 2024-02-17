@@ -81,18 +81,6 @@
             <artifactId>aether-util</artifactId>
             <version>1.1.0</version>
         </dependency>
-        <dependency>
-		    <groupId>jbse</groupId>
-   			<artifactId>jbse</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../../sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
-		</dependency>
-        <dependency>
-		    <groupId>sushi-lib</groupId>
-   			<artifactId>sushi-lib</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../../sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
-		</dependency>
     </dependencies>
 
     <build>

@@ -2,7 +2,6 @@ package org.evosuite.ga.metaheuristics.mosa.jbse;
 
 import static org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunnerUtil.bytecodeJump;
 import static org.evosuite.ga.metaheuristics.mosa.jbse.JBSERunnerUtil.bytecodeLoadConstant;
-import static jbse.bc.Signatures.JAVA_STRING;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -102,6 +101,7 @@ public class JBSERunner {
 					*/
 
 					//======= BEGIN: EXT PROCESS EXECUTION =====
+					LoggingUtils.getEvoLogger().info("[JBSE] Launching external JVM: {}", System.getProperties().getProperty("java.home") + File.separator + "bin" + File.separator + "java");
 					String[] commandLine = new String[] {
 							System.getProperties().getProperty("java.home") + File.separator + "bin" + File.separator + "java", //java1.8
 
@@ -169,9 +169,6 @@ public class JBSERunner {
 
 					}
 
-				} catch (IOException e) {
-					e.printStackTrace();
-					LoggingUtils.getEvoLogger().info(e.getMessage() + ": " + Arrays.toString(e.getStackTrace()));
 				} catch (Exception e) {
 					e.printStackTrace();
 					LoggingUtils.getEvoLogger().info(e.getMessage() + ": " + Arrays.toString(e.getStackTrace()));
@@ -279,6 +276,7 @@ public class JBSERunner {
 				extractClassPathEntry(jbse.jvm.RunnerBuilder.class)
 		};
 		System.out.println("Using classpath: " + Arrays.toString(classpath));
+		//LoggingUtils.getEvoLogger().info("Using classpath: " + Arrays.toString(classpath));
 		
 		//builds the template parameters object for the guided (symbolic) execution
 		this.commonParamsGuided = new RunnerParameters();
@@ -586,7 +584,7 @@ public class JBSERunner {
 						if (operand instanceof Reference) {
 							final Reference r = (Reference) operand;
 							final Objekt o = currentState.getObject(r);
-							if (o != null && JAVA_STRING.equals(o.getType().getClassName())) {
+							if (o != null && "java/lang/String".equals(o.getType().getClassName())) {
 								final String s = jbse.algo.Util.valueString(currentState, r);
 								final long heapPosition = (r instanceof ReferenceConcrete ? ((ReferenceConcrete) r).getHeapPosition() : currentState.getResolution((ReferenceSymbolic) r));
 								this.stringLiterals.put(heapPosition, s);

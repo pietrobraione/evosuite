@@ -730,8 +730,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 			"import sushi.compile.path_condition_distance.*;\n" +
 			"import sushi.logging.Level;\n" +
 			"import sushi.logging.Logger;\n" +
-			"import org.evosuite.coverage.pathcondition.IApcEvaluator;" + 
-			"\n" +
+			"import " + IApcEvaluator.class.getName() + ";\n" +
 			"import java.util.ArrayList;\n" +
 			"import java.util.HashMap;\n" +
 			"import java.util.List;\n" +

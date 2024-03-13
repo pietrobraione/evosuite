@@ -630,7 +630,7 @@ public final class StateFormatterAidingPathCondition implements Formatter {
             this.output.append("private static final String CONST_");
             this.output.append(lit.getKey());
             this.output.append(" = \"");
-            this.output.append(lit.getValue());
+            this.output.append(escapedString(lit.getValue()));
             this.output.append("\";\n");
         }
         
@@ -648,6 +648,10 @@ public final class StateFormatterAidingPathCondition implements Formatter {
         }
 		this.output.append(INDENT_1 + "}\n");
 
+	}
+
+	private String escapedString(String s) {
+		return s.replace("\\", "\\\\").replace("\"", "\\\"");
 	}
 
 	public void formatStringLiterals(Set<String> stringLiterals) {
@@ -1920,7 +1924,17 @@ public final class StateFormatterAidingPathCondition implements Formatter {
 
 				@Override
 				public void visitSimplex(Simplex x) {
-					translation.add(x.getActualValue().toString());
+					String literalTypeDiscriminator;
+					if (x.getType() == Type.LONG) {
+						literalTypeDiscriminator = "L";
+					} else if (x.getType() == Type.FLOAT) {
+						literalTypeDiscriminator = "F";						
+					} else if (x.getType() == Type.DOUBLE) {
+						literalTypeDiscriminator = "D";
+					} else {
+						literalTypeDiscriminator = "";
+					}
+					translation.add(x.getActualValue().toString() + literalTypeDiscriminator);
 				}
 
 				@Override

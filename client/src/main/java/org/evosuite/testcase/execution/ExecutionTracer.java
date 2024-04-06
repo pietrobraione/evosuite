@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.execution;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -37,9 +36,9 @@ import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
 import org.evosuite.coverage.seepep.SeepepTraceItem;
-import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.testcase.execution.ExecutionTraceImpl.PathConditionEvaluationInfo;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
@@ -778,6 +777,123 @@ public class ExecutionTracer {
 	 *            the parameters passed to the call
 	 */
 	public static void passedMethodCall(String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
+		try {
+			ExecutionTracer tracer = getExecutionTracer();
+
+			if (tracer.disabled)
+				return;
+
+			if (isThreadNeqCurrentThread())
+				return;
+
+			checkTimeout();
+
+			//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
+
+			if (reentrantCall(tracer.trace)) {
+				return;
+			}
+
+			if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)) { /*SEEPEP: DAG coverage*/
+				if (methodName.equals(Properties.SEEPEP_ENTRY_METHOD)) {
+					if (tracer.trace.checkSetSeepepDone(true)) {
+						throw new RuntimeException("stop");
+					}
+					SeepepTraceItem startMarker = SeepepTraceItem.makeTraceStartMarker();
+					tracer.trace.passedSeepepItem(startMarker);
+					//LoggingUtils.getEvoLogger().info("Passing start trace: {}", startMarker);
+					for (int i = 0; i < params.length - 1; i++) {
+						SeepepTraceItem seepepItem = SeepepTraceItem.makeInputParameter(i, params[i + 1]);
+						tracer.trace.passedSeepepItem(seepepItem);
+						//LoggingUtils.getEvoLogger().info("Passing input: {}", seepepItem);
+					}
+				} else if (methodName.equals("notifyActionPassed(Ljava/lang/String;Ljava/lang/Object;)V")) {
+					SeepepTraceItem seepepItem = SeepepTraceItem.makeAction((String) params[0], params[1]);
+					tracer.trace.passedSeepepItem(seepepItem);
+					//LoggingUtils.getEvoLogger().info("Passing action:{}", seepepItem);
+				} else if (methodName.equals("notifyTransformationPassed(Ljava/lang/String;I)V")) {
+					SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
+					tracer.trace.passedSeepepItem(seepepItem);
+					//LoggingUtils.getEvoLogger().info("Passing transformation: {}", seepepItem);
+				} else if (methodName.equals("notifyOuterTransformationPassed(Ljava/lang/String;I)V")) {
+					List<SeepepTraceItem> itemsSoFar = tracer.trace.getTraversedSeepepItems();
+					SeepepTraceItem itemToReplace = itemsSoFar.remove(itemsSoFar.size() - 1);
+					SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
+					tracer.trace.passedSeepepItem(seepepItem);
+					//LoggingUtils.getEvoLogger().info("Passing outer transformation: {} (replaces {})", seepepItem, itemToReplace);
+				}
+			}
+
+			if (!mustCheckPathConditionsForThisCall()) {
+				return;
+			}
+
+			Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
+			if (classEvaluators == null) 
+				return; // no evaluator for this class
+
+			List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+			if (methodEvaluators == null) 
+				return; // no evaluator for this method
+
+			tracer.trace.evaluatingPathConditionsBegin(className, methodName);
+			try {
+				ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+				resetEvaluationBackbone(cl);
+
+				ArrayList<Object> feedback = null;
+				boolean isEvaluatorWithFeedback = ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS);
+				if (isEvaluatorWithFeedback) {
+					try {
+						feedback = (ArrayList<Object>) cl.loadClass("java.util.ArrayList").newInstance(); //ArrayList to collect feedback
+					} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+						throw new EvosuiteError("Cannot load class java.util.ArrayList with ClassLoaderForSUT: because of: " + e + " ::: " + 
+								Arrays.toString(e.getStackTrace()));	
+					}
+					params = Arrays.copyOf(params, params.length + 1);
+					params[params.length - 1] = feedback;
+				}
+				for (PathConditionCoverageGoal goal : methodEvaluators) {
+					Object evaluator = goal.getEvaluator();
+					Method evaluatorMethod = getEvaluatorMethod(evaluator, "test0", goal, className, methodName);
+					double d = executeEvaluator(evaluator, evaluatorMethod, params, className, methodName);
+					int relatedBranchId = -1;
+					if (tracer.pathConditionRelatedBranch.containsKey(goal.getPathConditionId())) {
+						relatedBranchId = tracer.pathConditionRelatedBranch.get(goal.getPathConditionId());
+					}
+					tracer.trace.passedPathCondition(goal.getPathConditionId(), relatedBranchId, d, feedback == null ? null : (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
+					if (feedback != null) {
+						feedback.clear();
+					}
+					//LoggingUtils.getEvoLogger().info("    Evaluator test0 on:{} = {} (params = {}, goal = {})", goal.getPathConditionId(), d, Arrays.toString(params), goal);
+				}
+			} catch (Throwable e) {
+				throw e;
+			} finally {
+				tracer.trace.evaluatingPathConditionsDone(className, methodName);
+			}
+		} catch (Throwable e) {
+			throw new EvosuiteError("Unexpected exception within the instrumentation related to path-conditions: CHECK THIS: " + e);
+		}
+	}
+	
+	public static void aastoreHelper(Object[] theArray, int theIndex, Object theItem) {
+		theArray[theIndex] = theItem;
+		//return theArray;
+	}
+	
+	public static void passedExceptionPropagatedBackToTheTestCase(Throwable thrownException) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in TEST CASE: Stack trace: {}", theException.getClass(), Arrays.toString(theException.getStackTrace()));
+		unwindMethodExitsUntraversedDueToThrownException(thrownException, null, null); //passing null.null as method unwinds all calls
+	}
+	
+	public static void passedExceptionHandler(Throwable thrownException, String className, String methodName) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info(" **** Exception received in METHOD {}.{}: Stack trace: {}", className, methodName, Arrays.toString(theException.getStackTrace()));
+		unwindMethodExitsUntraversedDueToThrownException(thrownException, className, methodName); //passing null.null as method unwinds all calls
+	}
+	
+	private static void unwindMethodExitsUntraversedDueToThrownException(Throwable thrownException, String className, String methodName) {
+		// here we unwind methods exited silently after the throw statement
 		ExecutionTracer tracer = getExecutionTracer();
 
 		if (tracer.disabled)
@@ -785,81 +901,31 @@ public class ExecutionTracer {
 
 		if (isThreadNeqCurrentThread())
 			return;
-		
-		checkTimeout();
 
-		if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)) { /*SEEPEP: DAG coverage*/
-			if (methodName.equals(Properties.SEEPEP_ENTRY_METHOD)) {
-				if (tracer.trace.checkSetSeepepDone(true)) {
-					throw new RuntimeException("stop");
-				}
-				SeepepTraceItem startMarker = SeepepTraceItem.makeTraceStartMarker();
-				tracer.trace.passedSeepepItem(startMarker);
-				//LoggingUtils.getEvoLogger().info("Passing start trace: {}", startMarker);
-				for (int i = 0; i < params.length - 1; i++) {
-					SeepepTraceItem seepepItem = SeepepTraceItem.makeInputParameter(i, params[i + 1]);
-					tracer.trace.passedSeepepItem(seepepItem);
-					//LoggingUtils.getEvoLogger().info("Passing input: {}", seepepItem);
-				}
-			} else if (methodName.equals("notifyActionPassed(Ljava/lang/String;Ljava/lang/Object;)V")) {
-				SeepepTraceItem seepepItem = SeepepTraceItem.makeAction((String) params[0], params[1]);
-				tracer.trace.passedSeepepItem(seepepItem);
-				//LoggingUtils.getEvoLogger().info("Passing action:{}", seepepItem);
-			} else if (methodName.equals("notifyTransformationPassed(Ljava/lang/String;I)V")) {
-				SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
-				tracer.trace.passedSeepepItem(seepepItem);
-				//LoggingUtils.getEvoLogger().info("Passing transformation: {}", seepepItem);
-			} else if (methodName.equals("notifyOuterTransformationPassed(Ljava/lang/String;I)V")) {
-				List<SeepepTraceItem> itemsSoFar = tracer.trace.getTraversedSeepepItems();
-				SeepepTraceItem itemToReplace = itemsSoFar.remove(itemsSoFar.size() - 1);
-				SeepepTraceItem seepepItem = SeepepTraceItem.makeTransformation((String) params[0], (int) params[1]);
-				tracer.trace.passedSeepepItem(seepepItem);
-				//LoggingUtils.getEvoLogger().info("Passing outer transformation: {} (replaces {})", seepepItem, itemToReplace);
-			}
-		}
-		
-		if (!mustCheckPathConditionsForThisCall()) {
-			return;
+		if (className != null && methodName != null && !mustCheckPathConditionsForThisCall()) {
+			return; // if this method call does not require checking, we assume that the nested call did not either 
 		}
 
-		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
-		if (classEvaluators == null) 
-			return; // no evaluator for this class
-
-		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
-		if (methodEvaluators == null) 
-			return; // no evaluator for this method
-		
-		ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		resetEvaluationBackbone(cl);
-		
-		ArrayList<Object> feedback = null;
-		boolean isEvaluatorWithFeedback = ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS);
-		if (isEvaluatorWithFeedback) {
-			try {
-				feedback = (ArrayList<Object>) cl.loadClass("java.util.ArrayList").newInstance(); //ArrayList to collect feedback
-			} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
-				throw new EvosuiteError("Cannot load class java.util.ArrayList with ClassLoaderForSUT: because of: " + e + " ::: " + 
-						Arrays.toString(e.getStackTrace()));	
+		List<PathConditionEvaluationInfo> evalautedPathConditions = tracer.trace.getPathConditionEvaluationStack();
+		for (PathConditionEvaluationInfo evalPC: evalautedPathConditions) {
+			if (evalPC.methodName.equals(methodName) && evalPC.className.equals(className)) {
+				break; // we can stop unwinding because this is the method that intercepted the exception, and it will exit naturally eventually. 
 			}
-			params = Arrays.copyOf(params, params.length + 1);
-			params[params.length - 1] = feedback;
-		}
-		for (PathConditionCoverageGoal goal : methodEvaluators) {
-			Object evaluator = goal.getEvaluator();
-			Method evaluatorMethod = getEvaluatorMethod(evaluator, "test0", goal, className, methodName);
-			double d = executeEvaluator(evaluator, evaluatorMethod, params, className, methodName);
-			// Add path condition distance to control trace
-			int relatedBranchId = -1;
-			if (tracer.pathConditionRelatedBranch.containsKey(goal.getPathConditionId())) {
-				relatedBranchId = tracer.pathConditionRelatedBranch.get(goal.getPathConditionId());
+			if (evalPC.methodName.startsWith("<init>")) {
+				passedMethodExit(thrownException, evalPC.className, evalPC.methodName, new Object[0], true); 			
+			} else {
+				throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+						+ "while we are unwinding methods that exited silently due a thrown exception."
+						+ "However we expect this to happen only for trailing prefixes of constructors"
+						+ "(the calls to 'super'), but in fact we are unwinding method " 
+						+ evalPC.className + "." + evalPC.methodName
+						+ "\n--- Current caller is: " + className + "." + methodName
+						+ "\n--- Current stack of evalauted path conds is: " + evalautedPathConditions
+						+ "\n--- Current stack trace is: " + Arrays.toString(Thread.currentThread().getStackTrace()));
 			}
-			tracer.trace.passedPathCondition(goal.getPathConditionId(), relatedBranchId, d, (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
-			feedback.clear();
-			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
-		}
+		}		
 	}
-	
+
 	/**
 	 * Called by instrumented code each time method is executed at the exit. This method
 	 * receives both the return value and full set of parameters of the corresponding call
@@ -869,60 +935,106 @@ public class ExecutionTracer {
 	 * @param params
 	 *            the parameters passed to the call
 	 */
-	public static void passedMethodExit(Object retVal, String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
-		ExecutionTracer tracer = getExecutionTracer();
+	public static void passedMethodExit(Object retVal, String className, String methodName, Object[] params, boolean enforcePathConditionCheckForThisCall) { /*SUSHI: Path condition fitness*/
+		try{
+			ExecutionTracer tracer = getExecutionTracer();
 
-		if (tracer.disabled)
-			return;
+			if (tracer.disabled)
+				return;
 
-		if (isThreadNeqCurrentThread())
-			return;
-		
-		if (!mustCheckPathConditionsForThisCall()) {
-			return;
-		}
+			if (isThreadNeqCurrentThread())
+				return;
 
-		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
-		if (classEvaluators == null) 
-			return; // no evaluator for this class
+			//LoggingUtils.getEvoLogger().info("-- EXIT on:{} :: {} :: {}", className, methodName, retVal);
 
-		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
-		if (methodEvaluators == null) 
-			return; // no evaluator for this method
-		
-		ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		resetEvaluationBackbone(cl);
-
-		for (PathConditionCoverageGoal goal : methodEvaluators) {
-			Object evaluator = goal.getEvaluator();
-			Method evaluatorMethod = getEvaluatorMethod(evaluator, "test1", goal, className, methodName);
-			
-			Object [] paramValues = new Object[params.length + 1];
-			paramValues[0] = retVal;
-			for (int i = 0; i < params.length; i++) {
-				paramValues[i + 1] = params[i];
+			if (reentrantCall(tracer.trace)) {
+				return;
 			}
-			double d = executeEvaluator(evaluator, evaluatorMethod, paramValues, className, methodName);
 
-			// Add path condition distance to control trace
-			tracer.trace.passedPostCondition(goal.getPathConditionId(), d);
-			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
+			if (!enforcePathConditionCheckForThisCall && !mustCheckPathConditionsForThisCall()) {
+				return;
+			}
+
+			Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
+			if (classEvaluators == null) 
+				return; // no evaluator for this class
+
+			List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+			if (methodEvaluators == null) 
+				return; // no evaluator for this method
+
+			tracer.trace.evaluatingPostConditionsBegin(className, methodName);
+			try {
+				ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+				resetEvaluationBackbone(cl);
+
+				for (PathConditionCoverageGoal goal : methodEvaluators) {
+					Object evaluator = goal.getEvaluator();
+					Method evaluatorMethod = getEvaluatorMethod(evaluator, "test1", goal, className, methodName);
+
+					Object [] paramValues = new Object[evaluatorMethod.getParameterCount()]; //expected equal to (params.length + 1)
+					paramValues[0] = retVal;
+					for (int i = 0; i < params.length; i++) {
+						paramValues[i + 1] = params[i];
+					}
+					double d = executeEvaluator(evaluator, evaluatorMethod, paramValues, className, methodName);
+					tracer.trace.passedPostCondition(goal.getPathConditionId(), d);
+					//LoggingUtils.getEvoLogger().info("    * Evaluator test1 on:{} = {} (params = {}, goal = {})", goal.getPathConditionId(), d, Arrays.toString(params), goal);
+				}
+			} catch (Throwable e) {
+				throw e;
+			} finally {
+				tracer.trace.evaluatingPostConditionsDone(className, methodName);
+			}
+		} catch (Throwable e) {
+			throw new EvosuiteError("Unexpected exception within the instrumentation related to post-conditions: CHECK THIS: " + e);
 		}
+
+	}
+	
+
+	private static boolean reentrantCall(ExecutionTrace trace) {
+		return trace.isEvaluatingPathConditions();
+		/*
+		StackTraceElement[] strace = Thread.currentThread().getStackTrace();
+		/ *
+		 * the stack trace includes for sure: 0) getStackTrace, 1) this method,
+		 * 2) ExecutionTracer.passedMethod..., and 3) the method that executed the instrumentation.
+		 * Then, if the 4th method belongs to sun.reflect.*, it means that
+		 * the instrumented method was called directly from within the test case, otherwise
+		 * it was reached indirectly call when the test case called another method.
+		 * /
+		int i = 1;
+		while (i < strace.length && strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
+			++i; //this traverses the current calls within ExecutionTracer...
+		}
+		++i;
+		while (i < strace.length) {
+			if (strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
+				return true; //...once again in ExecutionTracer: Then it is a reentrant call!
+			}
+			++i; 
+		}
+		return false; */
 	}
 
 	private static boolean mustCheckPathConditionsForThisCall() {
 		StackTraceElement[] strace = Thread.currentThread().getStackTrace();
-		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS && 
-				strace.length > 4 && 
-				!strace[4].toString().startsWith("sun.reflect.")) {
+		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS && strace.length > 4) {
 			/*
-			 * the stack trace includes for sure: 1) getStackTrace, 2) this method,
-			 * 3) ExecutionTracer.passedMethod..., and 4) the method that executed the instrumentation.
-			 * Then, if the 5th method belongs to sun.reflect.*, it means that
+			 * the stack trace includes for sure: 0) getStackTrace, 1) this method,
+			 * 2) ExecutionTracer.passedMethod..., and 3) the method that executed the instrumentation.
+			 * Then, if the 4th method belongs to sun.reflect.*, it means that
 			 * the instrumented method was called directly from within the test case, otherwise
 			 * it was reached indirectly call when the test case called another method.
 			 */
-			return false;
+			int i = 3;
+			while (i < strace.length && strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
+				++i; //this is needed only if there were multiple calls within ExecutionTracer...
+			}
+			if (i + 1 < strace.length && !strace[i + 1].toString().startsWith("sun.reflect.")) {
+				return false;
+			}
 		} 
 		return true;
 	}

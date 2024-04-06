@@ -289,6 +289,21 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public Map<Integer, ArrayList<Object>> pathConditionFeedbacks = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
 	public Map<Integer /*branchId*/, Set<Integer> /*related pcIds*/> pathConditionBranchRelations = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
 	public Map<Integer, Double> pathConditionRelatedBranchDistance = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	private class methodInfo {
+		String className;
+		String methodNameAndDescription;
+		public methodInfo(String className, String methodNameAndDescription) {
+			this.className = className;
+			this.methodNameAndDescription = methodNameAndDescription;
+		}
+		public String getClassName() {
+			return className;
+		}
+		public String getMethodNameAndDescription() {
+			return methodNameAndDescription;
+		}		
+	}
+	public List<methodInfo> methodsWithEvaluatedPathConditions = Collections.synchronizedList(new ArrayList<>());
 
 	public static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
@@ -2024,20 +2039,79 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public List<String> getInitializedClasses() {
 		return this.initializedClasses;
 	}
+	
+	public static class PathConditionEvaluationInfo { /*SUSHI: Path condition fitness*/
+		final String className;
+		final String methodName;
+		final Map<Integer, Double> distances;
+		public PathConditionEvaluationInfo(String className, String methodName) {
+			this.className = className;
+			this.methodName = methodName;
+			this.distances = Collections.synchronizedMap(new HashMap<Integer, Double>());
+		}
+		public String toString() { //for debugging purpose
+			return className + "." + methodName + "::" + distances;
+		}
+	}
+
+	private boolean isEvaluatingPathConditions = false;
+	private List<PathConditionEvaluationInfo> pathConditionEvaluationStack = Collections.synchronizedList(new ArrayList<PathConditionEvaluationInfo>());
+	private static final boolean debugInfoEnabled = false;
+	private List<String> pathConditionEvaluationStack_debugInfo = Collections.synchronizedList(new ArrayList<String>());
+	
+	@Override
+	public void evaluatingPathConditionsBegin(String className, String methodName) {
+		isEvaluatingPathConditions = true;
+		if (Properties.POST_CONDITION_CHECK) {
+			synchronized (pathConditionEvaluationStack) {
+				pathConditionEvaluationStack.add(0, new PathConditionEvaluationInfo(className, methodName));
+				if (debugInfoEnabled) {
+					pathConditionEvaluationStack_debugInfo.add(0, "pre-condition: " + className + "." + methodName);
+				}
+			}
+			//LoggingUtils.getEvoLogger().info("-- ENTERING PCs for:{} :: {} :: {}", className, methodName);
+		}
+	}
+	
+	@Override
+	public boolean isEvaluatingPathConditions() {
+		return isEvaluatingPathConditions;
+	}
+	
+
+	@Override
+	public String[] getMethodInfoForLatestPathCondition() {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+					+ "as we are asking for the method of the latest evalauted path condition, while in fact "
+					+ "the stack of methods with evalauted preconditons is empty");
+		}
+		String retVal[] = new String[2];
+		retVal[0] = pathConditionEvaluationStack.get(0).className;
+		retVal[1] = pathConditionEvaluationStack.get(0).methodName;
+		return retVal;
+	}
+
+	@Override
+	public List<PathConditionEvaluationInfo> getPathConditionEvaluationStack() {
+		return new ArrayList<>(pathConditionEvaluationStack);
+	}
 
 	@Override
 	public void passedPathCondition(int pathConditionId, int relatedBranchId, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
 		//LoggingUtils.getEvoLogger().info("--path condition distance is d: " + distance + ", pc = " + pathConditionID);
 		if (Properties.POST_CONDITION_CHECK) {
-			tempDistances.put(pathConditionId, distance);
+			pathConditionEvaluationStack.get(0).distances.put(pathConditionId, distance);
 			return;
 		}
-		synchronized (pathConditionBranchRelations) {
-			if (!pathConditionBranchRelations.containsKey(relatedBranchId)) {
-				pathConditionBranchRelations.put(relatedBranchId, new HashSet<>());
+		if (trackBranchToPathConditionRelations) {
+			synchronized (pathConditionBranchRelations) {
+				if (!pathConditionBranchRelations.containsKey(relatedBranchId)) {
+					pathConditionBranchRelations.put(relatedBranchId, new HashSet<>());
+				}
 			}
+			pathConditionBranchRelations.get(relatedBranchId).add(pathConditionId); //set the relation, if not done yet
 		}
-		pathConditionBranchRelations.get(relatedBranchId).add(pathConditionId); //set the relation, if not done yet
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionId);
 			if (currentDistance == null
@@ -2046,7 +2120,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 					/* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
 					) {
 				pathConditionDistances.put(pathConditionId, distance);
-				pathConditionFeedbacks.put(pathConditionId, feedback);
+				if (feedback != null) {
+					pathConditionFeedbacks.put(pathConditionId, feedback);
+				}
 				if (trackBranchToPathConditionRelations) {
 					pathConditionRelatedBranchDistance.remove(pathConditionId); //as we are now measuring for a new path-condition, the corresponding branch is to be met yet 
 				}
@@ -2054,12 +2130,37 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
-	public Map<Integer, Double> tempDistances = Collections.synchronizedMap(new HashMap<Integer, Double>());/*SUSHI: Path condition fitness*/
+	@Override
+	public void evaluatingPathConditionsDone(String className, String methodName) {
+		isEvaluatingPathConditions = false;
+		//LoggingUtils.getEvoLogger().info("DONE WITH: ENTERING PCs for:{} :: {} :: {}", className, methodName);
+	}
+	
+	@Override
+	public void evaluatingPostConditionsBegin(String className, String methodName) {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			throw new EvosuiteError("Unexpected sequence of pre- and post-condition, "
+					+ "as we are being asked for evalauting a post-condition, but unfortunately"
+					+ "the stack of methods with evaluated pre-conditons is empty" + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}
+		if (pathConditionEvaluationStack.get(0).className.equals(className) && 
+				pathConditionEvaluationStack.get(0).methodName.equals(methodName)) {
+			isEvaluatingPathConditions = true;
+			//LoggingUtils.getEvoLogger().info("-- POST for:{} :: {} :: {}", className, methodName);
+		} else {
+			throw new EvosuiteError("Unexpected sequence when evaluating post-condition, "
+					+ "as the stored precodition is expected for method " + className + "." + methodName
+					+ " while in fact it is for method " + pathConditionEvaluationStack.get(0).className + "." 
+					+ pathConditionEvaluationStack.get(0).methodName + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}		
+	}
 
 	@Override
 	public void passedPostCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
 		//LoggingUtils.getEvoLogger().info("--post condition distance is d: " + distance + ", pc = " + pathConditionID);
-		Double tempDistance = tempDistances.remove(pathConditionID);
+		Double tempDistance = pathConditionEvaluationStack.get(0).distances.get(pathConditionID);
 		if (tempDistance == null) {
 			throw new EvosuiteError("Unexpected sequence when evaluating post-condition, "
 					+ "since there is no temporarily stored distance for the precodition that "
@@ -2074,7 +2175,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		} else { //tempDistance == 0
 			distance = distance / (1 + distance); //the precondition converged already, thus the distance corresponds to the post-condition distance normalized in interval (0, 1)
 		}
-		
+		/*if (pathConditionID < 2)
+			LoggingUtils.getEvoLogger().info("    ** Evaluator post on:{} = {}", pathConditionID, distance);*/
+
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
 			if (currentDistance == null) {
@@ -2087,6 +2190,34 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 				pathConditionDistances.put(pathConditionID, distance);			
 			} /* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
 		}
+	}
+
+	private String seenSequenceOfPreAndPostConditions(String className, String methodName) {
+		String s = "";
+		for (String info: pathConditionEvaluationStack_debugInfo) {
+			s += info + "\n";
+		} 
+		s += "post-condition: " + className + "." + methodName + "\n";
+		return s;
+	}
+	
+	@Override
+	public void evaluatingPostConditionsDone(String className, String methodName) {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			
+			throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+					+ "as we are asking for the evalauting a post condition, while in fact "
+					+ "the stack of methods with evalauted preconditons is empty" + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}
+		isEvaluatingPathConditions = false;
+		synchronized (pathConditionEvaluationStack) {
+			pathConditionEvaluationStack.remove(0);
+			if (debugInfoEnabled) {
+				pathConditionEvaluationStack_debugInfo.remove(0);
+			}
+		}
+		//LoggingUtils.getEvoLogger().info("DONE WITH: POST for:{} :: {} :: {}", className, methodName);
 	}
 
 	@Override

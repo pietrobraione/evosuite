@@ -23,6 +23,7 @@ package org.evosuite.testcase.execution;
 import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
+import org.evosuite.testcase.execution.ExecutionTraceImpl.PathConditionEvaluationInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -882,6 +883,45 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	}
 
 	@Override
+	public void evaluatingPathConditionsBegin(String className, String methodName) {
+		copyOnWrite();
+		trace.evaluatingPathConditionsBegin(className, methodName);
+	}
+
+	@Override
+	public void evaluatingPathConditionsDone(String className, String methodName) {
+		copyOnWrite();
+		trace.evaluatingPathConditionsDone(className, methodName);
+	}
+
+	@Override
+	public void evaluatingPostConditionsBegin(String className, String methodName) {
+		copyOnWrite();
+		trace.evaluatingPostConditionsBegin(className, methodName);
+	}
+
+	@Override
+	public void evaluatingPostConditionsDone(String className, String methodName) {
+		copyOnWrite();
+		trace.evaluatingPostConditionsDone(className, methodName);
+	}
+
+	@Override
+	public boolean isEvaluatingPathConditions() {
+		return trace.isEvaluatingPathConditions();
+	}
+	
+	@Override
+	public String[] getMethodInfoForLatestPathCondition() {
+		return trace.getMethodInfoForLatestPathCondition();
+	}
+
+	@Override
+	public List<PathConditionEvaluationInfo> getPathConditionEvaluationStack() {
+		return trace.getPathConditionEvaluationStack();
+	}
+
+	@Override
 	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
 		return trace.getPathConditionDistances();
 	}
@@ -911,5 +951,4 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	public boolean checkSetSeepepDone(boolean done) { /*SEEPEP: DAG coverage*/
 		return trace.checkSetSeepepDone(done);
 	}
-
 }

@@ -25,6 +25,7 @@ package org.evosuite.instrumentation.coverage;
 import java.util.ListIterator;
 import java.util.Set;
 
+import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.graphs.GraphPool;
@@ -34,7 +35,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -59,7 +59,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 	/** Constant <code>logger</code> */
 	protected static final Logger logger = LoggerFactory.getLogger(PathConditonInstrumentation.class);
 
-    private static final String EXECUTION_TRACER = Type.getInternalName(ExecutionTracer.class);
+    private static final String EXECUTION_TRACER = PackageInfo.getNameWithSlash(ExecutionTracer.class);
     
 	/*
 	 * (non-Javadoc)
@@ -71,24 +71,24 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 	 */
 	/** {@inheritDoc} */
 	@Override
-	public void analyze(ClassLoader classLoader, MethodNode mn, String className,
+	public void analyze(ClassLoader classLoader, MethodNode mn, String classNameWithDots,
 			String methodName, int access) {
-		RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(className, methodName);
+		RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(classNameWithDots, methodName);
 	
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-			if (!(className.startsWith(Properties.TARGET_CLASS))) {
+			if (!(classNameWithDots.startsWith(Properties.TARGET_CLASS))) {
 				return;
 			}
 		}
-		LoggingUtils.getEvoLogger().info("Instrumenting {}::{}", className, methodName);
+		LoggingUtils.getEvoLogger().info("Instrumenting {}::{}", classNameWithDots, methodName);
 		
-		InsnList instrumentation = getInstrumentation(mn, className, methodName, access);
+		InsnList instrumentation = getInstrumentation(mn, classNameWithDots, methodName, access, false);
 		if (instrumentation == null)
-			throw new IllegalStateException("error instrumenting method " + className + "::" + methodName);
+			throw new IllegalStateException("error instrumenting method " + classNameWithDots + "::" + methodName);
 
 		// in this case we activate the instrumentation for checking post conditions at the exit of the method
 		if (Properties.POST_CONDITION_CHECK) {
-			instrumentExitPointsForPostconditions(instrumentation, mn, completeCFG); 
+			instrumentExitPointsForPostconditions(instrumentation, mn, classNameWithDots, methodName, completeCFG); 
 		}
 		
 		if (Properties.PATH_CONDITION_CHECK_AT_METHOD_EXIT) {
@@ -101,33 +101,31 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			//LoggingUtils.getEvoLogger().info("Instrumentation set to check path condition at method exit ");
 		} else {
 			final boolean isConstructor = methodName.startsWith("<init>");
-			for (BytecodeInstruction v : completeCFG.vertexSet()) {
-				final AbstractInsnNode node = v.getASMNode();
-				if (isConstructor) {
-					if ( node instanceof MethodInsnNode &&
-						((MethodInsnNode) node).name.equals("<init>") &&
-						((MethodInsnNode) node).owner.equals("java/lang/Object")) {
-						mn.instructions.insertBefore(node.getNext(), instrumentation);				
-						break;
-					}
-				} else if (mn.instructions.getFirst().equals(node)) {
-					mn.instructions.insertBefore(node, instrumentation); /* this should be the default behavior */					
-					break;
-				}
+			AbstractInsnNode[] instrs = mn.instructions.toArray();
+			AbstractInsnNode insertionPoint = instrs[0]; 
+			if (isConstructor) {
+				/* we need a different instrumentation, without AASTORE instruction, as Java forbids  
+				 * AASTORE to be inserted in the initial part of of a constructor (before calling super)
+				 */
+				instrumentation = getInstrumentation(mn, classNameWithDots, methodName, access, true);
 			}
+			mn.instructions.insertBefore(insertionPoint, instrumentation);					
 			mn.maxStack += 7;
 		}
 	}
-	
-	private void instrumentExitPointsForPostconditions(InsnList instrumentation, MethodNode mn, RawControlFlowGraph completeCFG) {
+		
+	private void instrumentExitPointsForPostconditions(InsnList instrumentation, MethodNode mn, String classNameWithDots, String methodName, RawControlFlowGraph completeCFG) {
 		char retType = mn.desc.charAt(mn.desc.indexOf(')') + 1);
 		BytecodeInstruction instrumentedAllExitingExceptionThrow = null;
 		for (BytecodeInstruction exitP : completeCFG.vertexSet()) {
+			InsnList instrumentationPostCond = cloneInstrumentation(instrumentation, instrumentation.size() - 1);
 			if (exitP.canBeExitPoint()) {
-				InsnList instrumentationPostCond = cloneInstrumentation(instrumentation, instrumentation.size() - 1);
 				InsnList instr = new InsnList();
 				if (exitP.isThrow()) {
-					instrumentedAllExitingExceptionThrow = exitP; // postpone instrumentation (see below)
+					/* postpone instrumentation at the last throw, as we ground on the knowledge that there was a
+					 * previous instrumentation pass as defined in org.evosuite.instrumentation.coverage.MonitorAnyExeption
+					 */
+					instrumentedAllExitingExceptionThrow = exitP; 
 					continue;
 				} else if (retType == 'V') {
 					instr.add(new InsnNode(Opcodes.ACONST_NULL)); // instrument with null return value
@@ -140,8 +138,9 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 					addBoxingForPrimitiveValueIfNeeded(instr, retType); // instrument with (possibly boxed) return value
 				}
 				instrumentationPostCond.insert(instr);
+				instrumentationPostCond.add(new LdcInsnNode(0));
 				instrumentationPostCond.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-						EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", false));
+						EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;Z)V", false));
 				mn.instructions.insertBefore(exitP.getASMNode(), instrumentationPostCond);					
 			}
 		}
@@ -150,12 +149,13 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			InsnList instr = new InsnList();
 			instr.insert(new InsnNode(Opcodes.DUP)); //instrument with the exception as return value					
 			instrumentationPostCond.insert(instr);
+			instrumentationPostCond.add(new LdcInsnNode(0));
 			instrumentationPostCond.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-					EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", false));
+					EXECUTION_TRACER, "passedMethodExit", "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;Z)V", false));
 			mn.instructions.insertBefore(instrumentedAllExitingExceptionThrow.getASMNode(), instrumentationPostCond);					
 		}
 	}
-
+	
 	private InsnList cloneInstrumentation(InsnList instrumentation) {
 		return cloneInstrumentation(instrumentation, instrumentation.size());
 	}
@@ -178,12 +178,12 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 	 *            a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 * @return a {@link org.objectweb.asm.tree.InsnList} object.
 	 */
-	protected InsnList getInstrumentation(MethodNode mn, String className,
-	        String methodName, int access) {
+	protected InsnList getInstrumentation(MethodNode mn, String classNameWithDots,
+	        String methodName, int access, boolean isConstructor) {
 
 		InsnList instrumentation = new InsnList();
 		
-		instrumentation.add(new LdcInsnNode(className));
+		instrumentation.add(new LdcInsnNode(classNameWithDots));
 		instrumentation.add(new LdcInsnNode(methodName));
 				
 		//count parameters out of the signature
@@ -205,9 +205,9 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}*/
 		
 		try {
-			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0);
+			addArrayOfParams(instrumentation, mn.desc, (mn.access & Opcodes.ACC_STATIC) > 0, isConstructor);
 		} catch(IllegalStateException e) {
-			throw new IllegalStateException("Method " + className + "." + mn.name + ":" + e.getMessage());
+			throw new IllegalStateException("Method " + classNameWithDots + "." + mn.name + ":" + e.getMessage());
 		}
 		
 		instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -247,7 +247,7 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 		}
 	}*/
 
-	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic) {
+	private void addArrayOfParams(InsnList instrumentation, String methodDescr, boolean isStatic, boolean isConstructor) {
 
 		String simplifiedDescriptor = isStatic ? "" : "L"; //simplified descriptor, with a single char for each parameter: either L or [ to refer to non primitive objects or arrays, respectively.
 		int nextParamInDescriptor = 1;
@@ -277,7 +277,12 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			instrumentation.add(new InsnNode(Opcodes.DUP));////instrumentation.add(new VarInsnNode(Opcodes.ALOAD, paramList.size()));
 			instrumentation.add(new IntInsnNode(Opcodes.BIPUSH, paramIndex));
 
-			if (paramType == 'Z') {
+			if (isConstructor && paramIndex == 0) {
+				/* pass fist parameter as null, as uninitialized object cannot be passed as parameter to aastoreHelper,
+				 * and thus cannot be added in the array without using AASTORE
+				 */
+				instrumentation.add(new InsnNode(Opcodes.ACONST_NULL)); 
+			} else if (paramType == 'Z') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
 			} else if (paramType == 'B') {
 				instrumentation.add(new VarInsnNode(Opcodes.ILOAD, paramByteCodeIndex));
@@ -300,7 +305,13 @@ public class PathConditonInstrumentation implements MethodInstrumentation {  /*S
 			}
 			addBoxingForPrimitiveValueIfNeeded(instrumentation, paramType); 
 			
-			instrumentation.add(new InsnNode(Opcodes.AASTORE));
+			if (isConstructor) {
+				// use method ExecutionTracker.aastoreHelper instead of bytecode AASTORE
+				instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+						EXECUTION_TRACER, "aastoreHelper", "([Ljava/lang/Object;ILjava/lang/Object;)V", false));
+			} else {
+				instrumentation.add(new InsnNode(Opcodes.AASTORE));
+			}
 		}
 
 	}

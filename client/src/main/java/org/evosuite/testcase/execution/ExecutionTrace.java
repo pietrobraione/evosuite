@@ -24,6 +24,7 @@ import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
+import org.evosuite.testcase.execution.ExecutionTraceImpl.PathConditionEvaluationInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -596,6 +597,13 @@ public interface ExecutionTrace {
 	 */
 	public void passedPathCondition(int pathConditionID, int relatedBranchId, double distance, ArrayList<Object> feedback); /*SUSHI: Path condition fitness*/
 	public void passedPostCondition(int pathConditionID, double distance); /*SUSHI: Path condition fitness*/
+	void evaluatingPathConditionsBegin(String className, String methodName); /*SUSHI: Path condition fitness*/
+	void evaluatingPathConditionsDone(String className, String methodName); /*SUSHI: Path condition fitness*/
+	void evaluatingPostConditionsBegin(String className, String methodName); /*SUSHI: Path condition fitness*/
+	void evaluatingPostConditionsDone(String className, String methodName); /*SUSHI: Path condition fitness*/
+	public boolean isEvaluatingPathConditions(); /*SUSHI: Path condition fitness*/
+	String[] getMethodInfoForLatestPathCondition(); /*SUSHI: Path condition fitness*/
+	List<PathConditionEvaluationInfo> getPathConditionEvaluationStack(); /*SUSHI: Path condition fitness*/
 
 	/**
 	 * Retrieve map of all minimal path condition distances
@@ -615,5 +623,4 @@ public interface ExecutionTrace {
 	public void passedSeepepItem(SeepepTraceItem seepepMethod); /*SEEPEP: DAG coverage*/
 
 	boolean checkSetSeepepDone(boolean done); /*SEEPEP: DAG coverage*/
-
 }

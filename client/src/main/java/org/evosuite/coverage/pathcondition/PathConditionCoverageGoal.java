@@ -40,7 +40,7 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	private final String methodName;
 	private final String evaluatorName;
 	private final int pathConditionId;
-	private final transient Object evaluator;
+	private transient Object evaluator;
 	private String customDescription = null; //set when the evaluator object is created
 
 	/**
@@ -58,7 +58,7 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 		this.className = className;
 		this.methodName = methodName;
 		this.evaluatorName = evaluatorName;
-		this.evaluator = getEvaluatorInstance();
+		this.evaluator = null; //postpone creation at first actual access, to avoid early creation, when the ClassLoaderForSUT is not yet ready
 	}
 
 
@@ -112,6 +112,9 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	 * @return the evaluator of this path condition
 	 */
 	public Object getEvaluator() {
+		if (evaluator == null) {
+			evaluator = getEvaluatorInstance();
+		}
 		return evaluator;
 	}
 

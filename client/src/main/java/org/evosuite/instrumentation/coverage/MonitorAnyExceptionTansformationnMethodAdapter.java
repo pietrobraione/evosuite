@@ -19,9 +19,13 @@
  */
 package org.evosuite.instrumentation.coverage;
 
+import org.evosuite.PackageInfo;
+import org.evosuite.classpath.ResourceList;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,11 +46,12 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
 
     protected final static Logger logger = LoggerFactory.getLogger(MonitorAnyExceptionTansformationnMethodAdapter.class);
 
-    private final String className;
+    private final String classNameWithDots;
     private final String methodName;
     private final MethodVisitor next;
-    private final List<TryCatchBlock> tryCatchBlockss = new LinkedList<>();
-    
+   
+    private final List<TryCatchBlock> tryCatchBlocks = new LinkedList<>();
+
     private static class TryCatchBlock {
         Label start;
         Label end;
@@ -66,40 +71,57 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
         //super(Opcodes.ASM9,
         //        new AnnotatedMethodNode(access, methodName, desc, null, null), access,
         //        methodName, desc);
-        this.className = className;
-        this.methodName = methodName;
+    	if (methodName.equals("<init>")) {
+    		instrumentingConstructor = true;
+    	}
+        this.classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
+        this.methodName = methodName + desc;
         next = mv;
-
     }
 
 	private Label start = newLabel();
 	private Label end   = newLabel();
 	private Label catchLabel  = newLabel();
     int exceptionInstanceVar;
-    boolean isCallToSuperClassConstructor = false;
+    boolean instrumentingConstructor = false;
+    boolean startAlreadyMarked = false;
+    int newInsnMetSoFar = 0;
 	
     @Override
     public void visitCode() {
-    	if (methodName.equals("<init>")) {
-            isCallToSuperClassConstructor = true; // postpone exception handling block after super-class constructor 
-    	} else {
+    	if (!instrumentingConstructor) {
     		addStartOfDominantExceptionHandlingBlock() ;
     	}
         super.visitCode();
     }    
 	    
-	@Override
+    @Override
+    public void visitTypeInsn(final int opcode, final String type) {
+    	if (instrumentingConstructor && !startAlreadyMarked && opcode == Opcodes.NEW) {
+    		++newInsnMetSoFar;
+    	}
+    	super.visitTypeInsn(opcode, type);
+    }
+
+    @Override
 	public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
 		super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-		if (isCallToSuperClassConstructor) {
-			addStartOfDominantExceptionHandlingBlock() ;
-			isCallToSuperClassConstructor = false;
+		if (instrumentingConstructor && !startAlreadyMarked && name.equals("<init>")) { 
+			//we are looking for the call to super(...) or this(...)
+			if (newInsnMetSoFar > 0) {
+				--newInsnMetSoFar; //this is not call to super(...), it is the constructor for an object instantiated thereby
+			} else { //as there is no matching new insn beforehand, this was the call to super
+				addStartOfDominantExceptionHandlingBlock();
+			}
 		}
 	}
 
     private void addStartOfDominantExceptionHandlingBlock() {
         // Insert start of try block label
-        mark(start);    	
+    	if (!startAlreadyMarked) { //add only once
+    		mark(start);    	
+    		startAlreadyMarked = true;
+    	}
     }
 
     @Override
@@ -120,22 +142,43 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
         mark(afterCatch);
     }
 
+    private boolean shallInstrumentExceptionHandler = false;
+    
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
         TryCatchBlock block = new TryCatchBlock(start, end, handler, type);
-        tryCatchBlockss.add(block);
-        // super.visitTryCatchBlock(start, end, handler, type);
+        tryCatchBlocks.add(block); //remember the blocks, to instrument exception handlers
+        super.visitTryCatchBlock(start, end, handler, type);
     }
 
     @Override
-	public void visitEnd() {
-        for (TryCatchBlock tryCatchBlock : tryCatchBlockss) {
-            super.visitTryCatchBlock(tryCatchBlock.start,
-                    tryCatchBlock.end, tryCatchBlock.handler,
-                    tryCatchBlock.type);
+    public void visitLabel(final Label label) {
+    	super.visitLabel(label);
+        for (TryCatchBlock tryCatchBlock : tryCatchBlocks) {
+        	if (label == tryCatchBlock.handler) {
+                shallInstrumentExceptionHandler = true; //next block is an exception handler        		
+        	}
         }
-        super.visitTryCatchBlock(start, end, catchLabel, "java/lang/Throwable"); //settle body-enclosing TryCatchBlock as last TryCatchBlock
+    }
+    
+    @Override
+    public void visitVarInsn(final int opcode, final int var) {
+        super.visitVarInsn(opcode, var);    	
+        if (shallInstrumentExceptionHandler && opcode == Opcodes.ASTORE) {
+            shallInstrumentExceptionHandler = false; 
+            // we notify the catched exception to Execution tracker
+            loadLocal(var, Type.getType(java.lang.Throwable.class));
+            this.visitLdcInsn(classNameWithDots);
+            this.visitLdcInsn(methodName);
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(ExecutionTracer.class),
+                    "passedExceptionHandler", "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;)V", false);
+        }
+    }
+    
+    @Override
+	public void visitEnd() {
+        super.visitTryCatchBlock(start, end, catchLabel, "java/lang/Throwable"); //set body-enclosing TryCatchBlock as last TryCatchBlock
 		super.visitEnd();
-	}
-	
+	}	
 }

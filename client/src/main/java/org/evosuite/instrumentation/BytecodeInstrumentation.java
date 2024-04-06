@@ -19,6 +19,7 @@
  */
 package org.evosuite.instrumentation;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.evosuite.PackageInfo;
@@ -44,6 +45,7 @@ import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -55,6 +57,8 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
@@ -365,7 +369,12 @@ public class BytecodeInstrumentation {
 		/*if (JBSEBytecodeRelocationRegistry._I().wannaLogInstrumentedBytecodeClassFiles()) { //GIO
 			JBSEBytecodeRelocationRegistry._I().logRelocatedBytecodeClassFile(classNameWithDots, clazz);
 		}*/
-
+		/*try { //GIO: NB: requires to weaken the security manager: org.evosuite.runtime.sandbox.MSecurityManager.java:1226 -->  if (true || action.equals("read")) {
+			java.nio.file.Path p = java.nio.file.Paths.get("foo.class").toAbsolutePath();
+			java.nio.file.Files.write(p, clazz);
+		} catch (Exception e) {
+			System.out.println();
+		}*/
 		return clazz;
 	}
 

@@ -919,7 +919,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 						// timeout
 						stack.pop();
 					}
-				} else {
+				} else if (!stack.isEmpty()) {
 					finishedCalls.add(stack.pop());
 				}
 			//}
@@ -1562,11 +1562,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 		if (traceCalls) {
 			if (stack.isEmpty()) {
-				logger.info("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
-																										// switch
-																										// back
-				// logger.debug to
-				// logger.warn
+				logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); 
 			} else {
 				boolean empty = false;
 				if (!stack.peek().methodName.equals(methodName)) {
@@ -1588,9 +1584,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 						finishedCalls.add(stack.pop());
 					}
 					if (stack.isEmpty()) {
-						logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
-																												// switch
-																												// back
+						logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); 
 						empty = true;
 					}
 				}
@@ -2140,8 +2134,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public void evaluatingPostConditionsBegin(String className, String methodName) {
 		if (pathConditionEvaluationStack.isEmpty()) {
 			throw new EvosuiteError("Unexpected sequence of pre- and post-condition, "
-					+ "as we are being asked for evalauting a post-condition, but unfortunately"
-					+ "the stack of methods with evaluated pre-conditons is empty" + 
+					+ "as we are being asked for evalauting a post-condition for method "
+					+ className + "." + methodName
+					+ ", but unfortunately the stack of methods with evaluated pre-conditons is empty" + 
 					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
 		}
 		if (pathConditionEvaluationStack.get(0).className.equals(className) && 

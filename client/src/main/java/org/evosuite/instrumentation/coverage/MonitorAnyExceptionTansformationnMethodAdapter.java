@@ -137,6 +137,12 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
         Label afterCatch = newLabel();
         goTo(afterCatch);
         mark(catchLabel);
+        dup();
+        this.visitLdcInsn(classNameWithDots);
+        this.visitLdcInsn(methodName);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                PackageInfo.getNameWithSlash(ExecutionTracer.class),
+                "passedExceptionHandler", "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;)V", false);
         // reflect the exception.
         throwException();
         mark(afterCatch);
@@ -178,7 +184,7 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
     
     @Override
 	public void visitEnd() {
-        super.visitTryCatchBlock(start, end, catchLabel, "java/lang/Throwable"); //set body-enclosing TryCatchBlock as last TryCatchBlock
+    	super.visitTryCatchBlock(start, end, catchLabel, "java/lang/Throwable"); //set body-enclosing TryCatchBlock as last TryCatchBlock
 		super.visitEnd();
 	}	
 }

@@ -233,6 +233,8 @@ public class BytecodeInstrumentation {
 			cv = new CFGClassAdapter(classLoader, cv, className);
 
 			if (Properties.POST_CONDITION_CHECK) { /*SUSHI: Path condition fitness*/
+				/* NB: this Adapter must be set on top of CFGClassAdapter, for the instrumented 
+				 * exception blocks to be properly augmented with corresponding monitoring of method exits. */
 				cv = new MonitorAnyExceptionTansformationClassAdapter(cv, className);
 			}
 

@@ -43,7 +43,7 @@ import org.evosuite.coverage.line.LineCoverageSuiteFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.coverage.line.OnlyLineCoverageSuiteFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
-import org.evosuite.coverage.pathcondition.PathConditionCoverageTestFitness;
+import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.coverage.method.*;
 import org.evosuite.coverage.mutation.*;
 import org.evosuite.coverage.readability.ReadabilitySuiteFitness;
@@ -261,7 +261,7 @@ public class FitnessFunctions {
 		case TRYCATCH:
 				return TryCatchCoverageTestFitness.class;
 		case PATHCONDITION:
-			return PathConditionCoverageTestFitness.class;  /*SUSHI: Path condition fitness*/
+			return PathConditionCoverageGoalFitness.class;  /*SUSHI: Path condition fitness*/
 		case BRANCH_WITH_AIDING_PATH_CONDITIONS:
 			return BranchCoverageTestFitness.class; /*SUSHI: Aiding path conditions*/
 		case SEEPEP:

@@ -680,7 +680,7 @@ public class TestSuiteGenerator {
 	 */
 	public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite, String suffix) {
 		List<TestCase> tests = testSuite.getTests();
-		if (Properties.JUNIT_TESTS) {
+		if (Properties.JUNIT_TESTS && !Properties.EMIT_TESTS_INCREMENTALLY) {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
 
 			TestSuiteWriter suiteWriter = new TestSuiteWriter();

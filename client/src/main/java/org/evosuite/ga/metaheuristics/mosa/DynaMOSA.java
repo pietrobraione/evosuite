@@ -345,7 +345,7 @@ public class DynaMOSA extends AbstractMOSA {
 		// Set up the targets to cover, which are initially free of any control dependencies.
 		// We are trying to optimize for multiple targets at the same time.
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
-			goalsManager = new PathConditionManager(fitnessFunctions, this, true);
+			goalsManager = new PathConditionManager(fitnessFunctions, this, Properties.CRITERION.length == 1, false /*TODO: set by an option*/);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
 			Properties.PATH_CONDITION_TARGET = PathConditionTarget.LAST_ONLY; //This option is mandatory with the selected criterion
 			goalsManager = new AidingPathConditionManager(fitnessFunctions, this);			

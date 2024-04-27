@@ -1533,7 +1533,7 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
-	/** Constant <code>SEEPEP_GOAL_PROVIDER=""</code> */
+    /** Constant <code>SEEPEP_GOAL_PROVIDER=""</code> */
 	@Parameter(key = "seepep_goal_provider", group = "SEEPEP", description = "The seepep-dags to be used as objective functions. Can define more than one criterion by using a ':' separated list")
 	public static String SEEPEP_GOAL_PROVIDER = null;/*SEEPEP: DAG coverage*/
 
@@ -1611,7 +1611,10 @@ public class Properties {
 	@Parameter(key = "emit_tests_incrementally", group = "SUSHI", description = "During search, immediately emit (as a junit test) a test case that optimize an objective.")
 	public static boolean EMIT_TESTS_INCREMENTALLY = false; /*SUSHI: Incremental test cases*/
 
-	/** Constant <code>AVOID_REPLICAS_OF_INDIVIDUALS=""</code> */
+    @Parameter(key = "emit_tests_for_criterion", group = "SUSHI", description = "The objectives fro which shall emit test  cases incrementally. Can define more than one criterion by using a ':' separated list")
+    public static Criterion[] EMIT_TESTS_FOR_CRITERION = null;
+
+    /** Constant <code>AVOID_REPLICAS_OF_INDIVIDUALS=""</code> */
 	@Parameter(key = "avoid_replicas_of_individuals", group = "SUSHI", description = "Prevent multiple copies of the same individuals while forming new generations")
 	public static boolean AVOID_REPLICAS_OF_INDIVIDUALS = false; /*SUSHI: Prevent multiple copies of individuals*/
 

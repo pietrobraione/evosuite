@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
@@ -46,6 +47,9 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	private Set<TestFitnessFunction> alreadyEmittedGoals = new HashSet<>();
 	private Set<TestFitnessFunction> toEmit = new HashSet<>();
 	
+	private final boolean onlyPathConditionCriterion;
+	private final boolean pathConditionCriterionIsHelper;
+	
 	private class TrackedFitnessData {
 		double bestValue;
 		final LinkedList<Integer> updates;
@@ -67,10 +71,12 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	 * @param a 
 	 * @param fitnessFunctions List of all FitnessFunction<T>
 	 */
-	public PathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo, boolean onlyPathConditionCriterion){
+	public PathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo, 
+			boolean onlyPathConditionCriterion, boolean pathConditionCriterionIsHelper){
 		super(targets);
+		this.onlyPathConditionCriterion = onlyPathConditionCriterion;
+		this.pathConditionCriterionIsHelper = pathConditionCriterionIsHelper;
 		algo.addListener(this);
-		
 		if (onlyPathConditionCriterion) { //PATHCONDITION is the only Criterion, then remove the branch targets initialized by the super class
 			this.currentGoals.clear();
 			this.branchCoverageFalseMap.clear();
@@ -160,10 +166,23 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 		}
 	}
 
+	private boolean shallEmit(TestFitnessFunction goal) {
+		if (Properties.EMIT_TESTS_FOR_CRITERION == null) {
+			return true; //Default: emit test cases for all goal types
+		} 
+		//Emit only for goals of criteria specified by the option
+		for (Criterion criterion: Properties.EMIT_TESTS_FOR_CRITERION) {
+			if (goal.getClass() == FitnessFunctions.getTestFitnessFunctionClass(criterion)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	@Override
 	protected void updateCoveredGoals(TestFitnessFunction goal, TestChromosome tc) {
 		if (!alreadyEmittedGoals.contains(goal)) {
-			if (Properties.EMIT_TESTS_INCREMENTALLY  /*SUSHI: Incremental test cases*/) {
+			if (Properties.EMIT_TESTS_INCREMENTALLY  && shallEmit(goal)/*SUSHI: Incremental test cases*/) {
 				toEmit.add(goal); //NB: we do doneWithPathCondition after we emit the test, not to affect minimization
 			} else if (goal instanceof PathConditionCoverageGoalFitness) {
 				doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
@@ -192,7 +211,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			}
 			LoggingUtils.getEvoLogger().info("* Number of covered goals: " + covered);
 			LoggingUtils.getEvoLogger().info("* NB: path conditions were handled incrementally, please consider the above data and ignore the (standard) ones below");
-			if (Properties.CRITERION.length == 1) { 
+			if (this.onlyPathConditionCriterion) { 
 				// PATHCONDITION is the only Criterion: since tests were already emitted incrementally, we avoid the final test suite
 				Properties.JUNIT_TESTS = false;
 			} else { 
@@ -207,9 +226,12 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	private List<List<TestFitnessFunction>> separateWrtGoalsToEmitIndipendently(List<TestFitnessFunction> goals) {
 		List<List<TestFitnessFunction>> separatedGoals = new ArrayList<>();
 		separatedGoals.add(0, new ArrayList<>());
-		if (Properties.CRITERION.length == 1) { 
-			// PATHCONDITION is the only Criterion: we emit a separate test case for each path condition
-			// TODO: make this behavior controllable with a dedicated Properties option
+		if (Properties.EMIT_TESTS_FOR_CRITERION != null && Properties.EMIT_TESTS_FOR_CRITERION.length == 1 && Properties.EMIT_TESTS_FOR_CRITERION[0] == Criterion.PATHCONDITION) { 
+			// PATHCONDITION is the only Criterion: we emit a separate test case for each path condition 
+			/* TODO: this behavior is for Toradocu, as Toradocu can can cover multiple contracts (seen here as PATHCONDITIONs)
+			 * in the same test case, but we want to generate a separate test for each. We should refactor the code 
+			 * to represent this specific case in a better way.
+			 */
 			for (TestFitnessFunction g: goals) {
 				separatedGoals.get(0).add(g);
 				if (g instanceof PathConditionCoverageGoalFitness) {
@@ -231,8 +253,15 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			LoggingUtils.getEvoLogger().error("\n\n* CANNOT EMIT TEST CASE FOR EMPTY GOALS: " + tc.getTestCase());
 			return;
 		}
+		
+		List<TestFitnessFunction> consideredGoals = new ArrayList<>();
+		for (TestFitnessFunction goal: coveredGoals) {
+			if (shallEmit(goal)) {
+				consideredGoals.add(goal);
+			}
+		}
 
-		List<List<TestFitnessFunction>> separatedGoals = separateWrtGoalsToEmitIndipendently(coveredGoals);
+		List<List<TestFitnessFunction>> separatedGoals = separateWrtGoalsToEmitIndipendently(consideredGoals);
 		for (List<TestFitnessFunction> goals: separatedGoals) {
 			TestChromosome tcToWrite = (TestChromosome) tc.clone();
 			//tcToWrite.getTestCase().clearCoveredGoals(); 
@@ -277,7 +306,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			}
 			for (TestFitnessFunction g: goals) {
 				if (g instanceof PathConditionCoverageGoalFitness) {
-					doneWithPathCondition((PathConditionCoverageGoalFitness) goal);
+					doneWithPathCondition((PathConditionCoverageGoalFitness) g);
 					//notify dismissed path conditions that are not notified in the generated test cases 
 					if (g != goal) {
 						ClientServices.getInstance().getClientNode().notifyDismissedFitnessGoal(g, 0, 0.0, new int[0]);
@@ -428,7 +457,7 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	
 	@Override
 	public Set<TestFitnessFunction> getUncoveredGoals() {
-		if (Properties.CRITERION.length != 1) { 
+		if (!this.onlyPathConditionCriterion && this.pathConditionCriterionIsHelper) { 
 			/* Only when PATHCONDITION is not the only Criterion, we stop when there are no more
 			 * targets of the other types. In these cases, we see path-condition-goals as helpers.
 			 */

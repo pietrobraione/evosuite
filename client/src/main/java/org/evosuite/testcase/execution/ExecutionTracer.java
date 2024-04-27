@@ -777,6 +777,7 @@ public class ExecutionTracer {
 	 *            the parameters passed to the call
 	 */
 	public static void passedMethodCall(String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
+		//logger.warn("CHECKING " + className + "." + methodName + Arrays.toString(Thread.currentThread().getStackTrace()));
 		ExecutionTracer tracer = getExecutionTracer();
 
 		if (tracer.disabled)
@@ -790,8 +791,6 @@ public class ExecutionTracer {
 		if (reentrantCall(tracer.trace)) {
 			return;
 		}
-
-		//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
 
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)) { /*SEEPEP: DAG coverage*/
 			if (methodName.equals(Properties.SEEPEP_ENTRY_METHOD)) {
@@ -822,6 +821,8 @@ public class ExecutionTracer {
 				//LoggingUtils.getEvoLogger().info("Passing outer transformation: {} (replaces {})", seepepItem, itemToReplace);
 			}
 		}
+
+		//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
 
 		if (!mustCheckPathConditionsForThisCall()) {
 			return;
@@ -880,12 +881,12 @@ public class ExecutionTracer {
 	}
 	
 	public static void passedExceptionPropagatedBackToTheTestCase(Throwable thrownException) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in TEST CASE: Stack trace: {}", theException.getClass(), Arrays.toString(theException.getStackTrace()));
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in TEST CASE: Stack trace: {}", thrownException.getClass(), Arrays.toString(thrownException.getStackTrace()));
 		unwindMethodExitsUntraversedDueToThrownException(thrownException, null, null); //passing null.null as method unwinds all calls
 	}
 	
 	public static void passedExceptionHandler(Throwable thrownException, String className, String methodName) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info(" **** Exception received in METHOD {}.{}: Stack trace: {}", className, methodName, Arrays.toString(theException.getStackTrace()));
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in METHOD {}.{}: Stack trace: {}", thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
 		unwindMethodExitsUntraversedDueToThrownException(thrownException, className, methodName); //passing null.null as method unwinds all calls
 	}
 	
@@ -899,6 +900,10 @@ public class ExecutionTracer {
 		if (isThreadNeqCurrentThread())
 			return;
 		
+		if (reentrantCall(tracer.trace)) {
+			return;
+		}
+
 		boolean exceptionInTestCase = methodName == null;
 		
 		if (!exceptionInTestCase && !mustCheckPathConditionsForThisCall()) {
@@ -923,7 +928,7 @@ public class ExecutionTracer {
 						+ "\n--- Current caller is: " + className + "." + methodName
 						+ "\n--- Current stack of evalauted path conds is: " + evalautedPathConditions
 						+ "\n--- Current stack trace is: " + Arrays.toString(Thread.currentThread().getStackTrace())
-						+ "\n--- Current exception is: " + Arrays.toString(thrownException.getStackTrace()));			
+						+ "\n--- Current exception is: " + thrownException + " -- " + Arrays.toString(thrownException.getStackTrace()));			
 			}
 		}	
 		if (!exceptionInTestCase && !currentMethodBelongToStack) {
@@ -934,7 +939,7 @@ public class ExecutionTracer {
 					+ "\n--- Current caller is: " + className + "." + methodName
 					+ "\n--- Current stack of evalauted path conds is: " + evalautedPathConditions
 					+ "\n--- Current stack trace is: " + Arrays.toString(Thread.currentThread().getStackTrace()) 
-					+ "\n--- Current exception is: " + Arrays.toString(thrownException.getStackTrace()));			
+					+ "\n--- Current exception is: " + thrownException + " -- " + Arrays.toString(thrownException.getStackTrace()));			
 		}
 	}
 
@@ -1027,24 +1032,52 @@ public class ExecutionTracer {
 	}
 
 	private static boolean mustCheckPathConditionsForThisCall() {
-		StackTraceElement[] strace = Thread.currentThread().getStackTrace();
-		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS && strace.length > 4) {
-			/*
-			 * the stack trace includes for sure: 0) getStackTrace, 1) this method,
-			 * 2) ExecutionTracer.passedMethod..., and 3) the method that executed the instrumentation.
-			 * Then, if the 4th method belongs to sun.reflect.*, it means that
+		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS) {
+			StackTraceElement[] strace = Thread.currentThread().getStackTrace();
+			/* The stack trace includes for sure: 0) getStackTrace, 1) this method,
+			 * 2..i) ExecutionTracer.passedMethod..., and then i+1) the method that executed the instrumentation.
+			 * Then, if the subsequence method (i+2) belongs to sun.reflect.*, it means that
 			 * the instrumented method was called directly from within the test case, otherwise
 			 * it was reached indirectly call when the test case called another method.
 			 */
-			int i = 3;
-			while (i < strace.length && strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
-				++i; //this is needed only if there were multiple calls within ExecutionTracer...
+			if (strace.length <= 4) {
+				//defensive check: should never happen by construction, as for cases 1) 2) and 3) in comment above
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
 			}
-			if (i + 1 < strace.length && !strace[i + 1].toString().startsWith("sun.reflect.")) {
-				return false;
+
+			int i = 3; //we start at 3, as 0) getStackTrace, 1) this method, 2) ExecutionTracer.passedMethod
+
+			// we accept any other ExecutionTracer.* method, as the code in can be organized across multiple methods
+			while (i < strace.length && strace[i].toString().startsWith(ExecutionTracer.class.getName())) {
+				++i; //We account for (and skip) multiple calls within ExecutionTracer...
 			}
-		} 
-		return true;
+			if (i >= strace.length) {
+				//defensive check: should never happen by construction, as ExecutionTracer.passedMethod is called from instrumented SUT
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
+			}
+
+			// we count the method calls that come from within the SUT
+			int count = 0;
+			while (i + count < strace.length && !strace[i + count].toString().startsWith("sun.reflect.")) {
+				++count;
+			}
+			if (count == 0 || i + count >= strace.length) {
+				//defensive check: should never happen by construction as we expect SUT methods called from test cases via reflection
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
+			}
+			String methodName = strace[i + count - 1].getMethodName(); // the method called directly from the SUT
+			for (int j = i; j < i + count - 1; ++j) {
+				if (!strace[i].getMethodName().equals(methodName)) { //TODO: should check also for classes to be in inheritance relation
+					return false;
+				}
+			}
+			/* here if eeither 1) count = 1 (i.e., we skipped the loop above) --> only one call belongs to the SUT
+			 * --> it is a direct call from test case, or 2) all calls refer to the same method, which we assume 
+			 * as a special case: indirect calls from overridden methods. */
+			return true; 
+		}
+		
+		return true; // none of above exclusion reasons --> then default case is checking the calls 
 	}
 
 	private static void resetEvaluationBackbone(ClassLoader cl) {
@@ -1065,7 +1098,7 @@ public class ExecutionTracer {
 		double d = Double.MAX_VALUE;
 		try {
 			d = (double) evaluatorMethod.invoke(evaluator, paramValues);
-			//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", pc = " + goal.getEvaluatorName());
+			//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", " + evaluatorMethod + ", pc = " + evaluator.toString());
 		} catch (IllegalAccessException | IllegalArgumentException e) {
 			//throw new EvosuiteError
 			LoggingUtils.getEvoLogger().info("Cannot execute path condition evaluator: " + evaluatorMethod

@@ -28,7 +28,7 @@ public class AidingPathConditionManager extends PathConditionManager {
 	private Map<BranchCoverageTestFitness, ApcGroup> aidingPathConditions = new HashMap<>();	
 	
 	public AidingPathConditionManager(List<TestFitnessFunction> targets, GeneticAlgorithm<TestChromosome> algo) {
-		super(targets, algo, false);
+		super(targets, algo, false, true);
 	}
 
 	@Override

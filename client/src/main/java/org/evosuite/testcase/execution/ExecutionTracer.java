@@ -822,11 +822,11 @@ public class ExecutionTracer {
 			}
 		}
 
-		//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
-
 		if (!mustCheckPathConditionsForThisCall()) {
 			return;
 		}
+
+		//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
 
 		tracer.trace.evaluatingPathConditionsBegin(className, methodName);
 
@@ -904,11 +904,14 @@ public class ExecutionTracer {
 			return;
 		}
 
-		boolean exceptionInTestCase = methodName == null;
+		boolean exceptionInTestCase = (methodName == null);
+		
 		
 		if (!exceptionInTestCase && !mustCheckPathConditionsForThisCall()) {
 			return; // if this method call does not require checking, we assume that the nested call did not either 
 		}
+
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in METHOD {}.{}: Stack trace: {}", thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
 
 		List<PathConditionEvaluationInfo> evalautedPathConditions = tracer.trace.getPathConditionEvaluationStack();
 		boolean currentMethodBelongToStack = false;
@@ -965,11 +968,11 @@ public class ExecutionTracer {
 			return;
 		}
 
-		//LoggingUtils.getEvoLogger().info("-- EXIT on:{} :: {} :: {}", className, methodName, retVal);
-
 		if (!enforcePathConditionCheckForThisCall && !mustCheckPathConditionsForThisCall()) {
 			return;
 		}
+
+		//LoggingUtils.getEvoLogger().info("-- EXIT on:{} :: {} :: {}", className, methodName, retVal!=null?retVal.getClass():null);
 
 		tracer.trace.evaluatingPostConditionsBegin(className, methodName);
 
@@ -1056,10 +1059,21 @@ public class ExecutionTracer {
 				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
 			}
 
-			// we count the method calls that come from within the SUT
+			if (!strace[i + 1].toString().startsWith("sun.reflect.")) {
+				return false; //strace[i] is not a direct call from SUT
+			} else {
+				return true;  //strace[i] is a direct call from SUT via reflection
+			}
+
+			/* we count the method calls that come from within the SUT, and accept indirect calls of overriding methods. 
+			 * NB 02.05.2024: Unfortunately, this implementation does not work, because getStackTrace reports method names without
+			 * signatures, and thus we end up with selecting indirect calls also from overloading-methods. At the moment,
+			 * we are sticking to direct calls only (see above).
+			 *
 			int count = 0;
 			while (i + count < strace.length && !strace[i + count].toString().startsWith("sun.reflect.")) {
 				++count;
+				break; //
 			}
 			if (count == 0 || i + count >= strace.length) {
 				//defensive check: should never happen by construction as we expect SUT methods called from test cases via reflection
@@ -1071,10 +1085,11 @@ public class ExecutionTracer {
 					return false;
 				}
 			}
-			/* here if eeither 1) count = 1 (i.e., we skipped the loop above) --> only one call belongs to the SUT
+			/* here if either 1) count = 1 (i.e., we skipped the loop above) --> only one call belongs to the SUT
 			 * --> it is a direct call from test case, or 2) all calls refer to the same method, which we assume 
-			 * as a special case: indirect calls from overridden methods. */
+			 * as a special case: indirect calls from overridden methods. * /
 			return true; 
+			*/
 		}
 		
 		return true; // none of above exclusion reasons --> then default case is checking the calls 

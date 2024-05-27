@@ -19,20 +19,6 @@
  */
 package org.evosuite.junit;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.evosuite.Properties;
@@ -56,9 +42,16 @@ import org.junit.runner.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.tools.*;
+import javax.tools.JavaCompiler.CompilationTask;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 /**
  * This class is used to check if a set of test cases are valid for JUnit: ie,
@@ -66,7 +59,6 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPacka
  * produces same result (ie not fail).
  * 
  * @author arcuri
- * 
  */
 public abstract class JUnitAnalyzer {
 
@@ -79,7 +71,8 @@ public abstract class JUnitAnalyzer {
 
 	private static NonInstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
-	private static VersionDependentAnalyzing versionDependentAnalyzer;
+    private static final VersionDependentAnalyzing versionDependentAnalyzer;
+
 	static {
 		versionDependentAnalyzer = Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5 ?
 				new JUnit5Analyzing() : new JUnit4Analyzing();
@@ -198,7 +191,8 @@ public abstract class JUnitAnalyzer {
 			}
 
 
-			failure_loop: for (JUnitFailure failure : result.getFailures()) {
+            failure_loop:
+            for (JUnitFailure failure : result.getFailures()) {
 				String testName = failure.getDescriptionMethodName();//TODO check if correct
 				for (int i = 0; i < tests.size(); i++) {
 					if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
@@ -293,7 +287,6 @@ public abstract class JUnitAnalyzer {
 	}
 
 
-
 	private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
 		return versionDependentAnalyzer.runJUnitOnCurrentProcess(testClasses);
 	}
@@ -342,7 +335,7 @@ public abstract class JUnitAnalyzer {
 
 			DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 			Locale locale = Locale.getDefault();
-			Charset charset = Charset.forName("UTF-8");
+            Charset charset = StandardCharsets.UTF_8;
 			StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
 			                                                                      locale,
 			                                                                      charset);
@@ -722,7 +715,6 @@ public abstract class JUnitAnalyzer {
 				Thread.currentThread().setContextClassLoader(currentLoader);
 				TestGenerationContext.getInstance().doneWithExecutingSUTCode();
 			}
-
 
 
 			if(wasSandboxOn){

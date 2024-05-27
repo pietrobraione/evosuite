@@ -19,8 +19,6 @@
  */
 package org.evosuite.instrumentation;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 
 import org.evosuite.PackageInfo;
@@ -30,6 +28,7 @@ import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.ga.metaheuristics.mosa.jbse.JBSEBytecodeRelocationRegistry;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
+import org.evosuite.instrumentation.coverage.MonitorAnyExceptionTansformationClassAdapter;
 import org.evosuite.instrumentation.error.ErrorConditionClassAdapter;
 import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation;
 import org.evosuite.instrumentation.testability.ComparisonTransformation;
@@ -38,13 +37,13 @@ import org.evosuite.instrumentation.testability.StringTransformation;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.*;
+import org.evosuite.runtime.util.ComputeClassWriter;
 import org.evosuite.seeding.PrimitiveClassAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
 import org.evosuite.utils.ArrayUtil;
-import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -55,6 +54,9 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * The bytecode transformer - transforms bytecode depending on package and
@@ -85,8 +87,7 @@ public class BytecodeInstrumentation {
 	/**
 	 * Check if we can instrument the given class
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public static boolean checkIfCanInstrument(String className) {
@@ -96,8 +97,7 @@ public class BytecodeInstrumentation {
 	/**
 	 * Check if we the class belongs to an EvoSuite package
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public static boolean checkIfEvoSuitePackage(String className) {
@@ -114,8 +114,7 @@ public class BytecodeInstrumentation {
 	 * shouldTransform
 	 * </p>
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
 	public boolean shouldTransform(String className) {
@@ -148,10 +147,8 @@ public class BytecodeInstrumentation {
 	 * transformBytes
 	 * </p>
 	 *
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param reader
-	 *            a {@link org.objectweb.asm.ClassReader} object.
+     * @param className a {@link java.lang.String} object.
+     * @param reader    a {@link org.objectweb.asm.ClassReader} object.
 	 * @return an array of byte.
 	 */
 	public byte[] transformBytes(ClassLoader classLoader, String className, ClassReader reader) {
@@ -234,6 +231,12 @@ public class BytecodeInstrumentation {
 			cv = new ExecutionPathClassAdapter(cv, className);
 
 			cv = new CFGClassAdapter(classLoader, cv, className);
+
+			if (Properties.POST_CONDITION_CHECK) { /*SUSHI: Path condition fitness*/
+				/* NB: this Adapter must be set on top of CFGClassAdapter, for the instrumented 
+				 * exception blocks to be properly augmented with corresponding monitoring of method exits. */
+				cv = new MonitorAnyExceptionTansformationClassAdapter(cv, className);
+			}
 
 			if (Properties.EXCEPTION_BRANCHES) {
 				cv = new ExceptionTransformationClassAdapter(cv, className);
@@ -364,7 +367,13 @@ public class BytecodeInstrumentation {
 		/*if (JBSEBytecodeRelocationRegistry._I().wannaLogInstrumentedBytecodeClassFiles()) { //GIO
 			JBSEBytecodeRelocationRegistry._I().logRelocatedBytecodeClassFile(classNameWithDots, clazz);
 		}*/
-
+		/*try { //GIO: NB: requires to weaken the security manager: org.evosuite.runtime.sandbox.MSecurityManager.java:1226 -->  if (true || action.equals("read")) {
+			// Result printed in folder evosuite/master
+			java.nio.file.Path p = java.nio.file.Paths.get("foo.class").toAbsolutePath();
+			java.nio.file.Files.write(p, clazz);
+		} catch (Exception e) {
+			System.out.println();
+		}*/
 		return clazz;
 	}
 

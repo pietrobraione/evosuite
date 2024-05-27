@@ -3,7 +3,7 @@
     <parent>
         <artifactId>evosuite</artifactId>
         <groupId>org.evosuite</groupId>
-        <version>1.1.1-SNAPSHOT</version>
+        <version>1.2.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -15,18 +15,6 @@
             <artifactId>evosuite-master</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-		    <groupId>jbse</groupId>
-   			<artifactId>jbse</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
-		</dependency>
-        <dependency>
-		    <groupId>sushi-lib</groupId>
-   			<artifactId>sushi-lib</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
-		</dependency>
     </dependencies>
 
 

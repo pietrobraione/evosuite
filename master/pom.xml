@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.evosuite</groupId>
         <artifactId>evosuite</artifactId>
-        <version>1.1.1-SNAPSHOT</version>
+        <version>1.2.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>evosuite-master</artifactId>
@@ -110,7 +110,7 @@
             <!-- FindBugs Jsr305 -->
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>2.0.1</version>
+            <version>3.0.2</version>
             <scope>test</scope>
         </dependency>
 
@@ -161,20 +161,6 @@
             <artifactId>javax.activation-api</artifactId>
             <version>1.2.0</version>
         </dependency>
-        
-        <dependency>
-		    <groupId>jbse</groupId>
-   			<artifactId>jbse</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
-		</dependency>
-        <dependency>
-		    <groupId>sushi-lib</groupId>
-   			<artifactId>sushi-lib</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
-		</dependency>
-        
     </dependencies>
 
 

@@ -19,8 +19,6 @@
  */
 package org.evosuite;
 
-import java.util.Map;
-import java.util.Set;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.assertion.AssertionGenerator;
@@ -38,6 +36,9 @@ import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
+
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by sina on 06/04/2017.
@@ -114,7 +115,7 @@ public class TestSuiteGeneratorHelper {
   	  	LoggingUtils.getEvoLogger().info("  - Path Condition Coverage");  /*SUSHI: Path condition fitness*/
   	  	break;
       case BRANCH_WITH_AIDING_PATH_CONDITIONS:
-  	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand Path Conditions");  /*SUSHI: Aiding path conditions*/
+  	  	LoggingUtils.getEvoLogger().info("  - Branch Coverage aided with on-demand APCs (Anti Path Conditions)");  /*SUSHI: Aiding path conditions*/
   	  	break;
       case SEEPEP:
   	  	LoggingUtils.getEvoLogger().info("  - Coverage of DAGs based on the analysis done with SEEPEP ");   /*SEEPEP: DAG coverage*/

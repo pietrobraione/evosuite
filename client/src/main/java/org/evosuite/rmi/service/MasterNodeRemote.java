@@ -19,20 +19,21 @@
  */
 package org.evosuite.rmi.service;
 
+import org.evosuite.Properties.NoSuchParameterException;
+import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.FitnessFunction;
+import org.evosuite.result.TestGenerationResult;
+import org.evosuite.statistics.RuntimeVariable;
+
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 import java.util.Set;
 
-import org.evosuite.Properties.NoSuchParameterException;
-import org.evosuite.ga.Chromosome;
-import org.evosuite.result.TestGenerationResult;
-import org.evosuite.statistics.RuntimeVariable;
-
 /**
  * Master Node view in the client process.  
- * @author arcuri
  *
+ * @author arcuri
  */
 public interface MasterNodeRemote extends Remote {
 
@@ -60,4 +61,10 @@ public interface MasterNodeRemote extends Remote {
 	void evosuite_migrate(String clientRmiIdentifier, Set<? extends Chromosome<?>> migrants) throws RemoteException;
 
     void evosuite_collectBestSolutions(String clientRmiIdentifier, Set<? extends Chromosome<?>> solutions) throws RemoteException;
+    
+    String evosuite_retrieveInjectedFitnessFunctions() throws RemoteException;
+    
+    void evosuite_notifyGeneratedTestCase(FitnessFunction<?> goal, String testFileName) throws RemoteException;
+
+    void evosuite_notifyDismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) throws RemoteException;
 }

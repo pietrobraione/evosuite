@@ -48,7 +48,6 @@ import java.util.List;
  * Test generation with MOSA
  * 
  * @author Annibale,Fitsum
- *
  */
 public class MOSuiteStrategy extends TestGenerationStrategy {
 
@@ -107,6 +106,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 				ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT) || 
 				ArrayUtil.contains(Properties.CRITERION, Criterion.RHO) || 
 				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH) ||
+				ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION) ||
 				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS) || /*SUSHI: Aiding path conditions*/
 				ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP) || /*SEEPEP: DAG coverage*/
 				ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY))

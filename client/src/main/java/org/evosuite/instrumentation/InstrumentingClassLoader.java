@@ -19,17 +19,6 @@
  */
 package org.evosuite.instrumentation;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.FileInputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
@@ -38,6 +27,12 @@ import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.objectweb.asm.ClassReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
 
 
 /**
@@ -72,8 +67,7 @@ public class InstrumentingClassLoader extends ClassLoader {
 	 * Constructor for InstrumentingClassLoader.
 	 * </p>
 	 * 
-	 * @param instrumentation
-	 *            a {@link org.evosuite.instrumentation.BytecodeInstrumentation}
+     * @param instrumentation a {@link org.evosuite.instrumentation.BytecodeInstrumentation}
 	 *            object.
 	 */
 	public InstrumentingClassLoader(BytecodeInstrumentation instrumentation) {

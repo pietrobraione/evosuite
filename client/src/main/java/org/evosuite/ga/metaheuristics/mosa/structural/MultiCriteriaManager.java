@@ -275,7 +275,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
 			for (CallContext context : callGraph.getMethodEntryPoint(branch.getClassName(), branch.getMethod())) {
 				CBranchTestFitness cBranch = new CBranchTestFitness(branch.getBranchGoal(), context);
 				this.dependencies.get(branch).add(cBranch);
-				logger.debug("Added context branch: " + cBranch.toString());
+                logger.debug("Added context branch: " + cBranch);
 			}
 		}
 	}
@@ -494,6 +494,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
 	 * This method analyzes the execution results of a TestChromosome looking for generated exceptions.
 	 * Such exceptions are converted in instances of the class {@link ExceptionCoverageTestFitness},
 	 * which are additional covered goals when using as criterion {@link Properties.Criterion Exception}
+     *
 	 * @param t TestChromosome to analyze
 	 * @return list of exception goals being covered by t
 	 */

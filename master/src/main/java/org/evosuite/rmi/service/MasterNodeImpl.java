@@ -19,29 +19,28 @@
  */
 package org.evosuite.rmi.service;
 
-import java.rmi.RemoteException;
-import java.rmi.registry.Registry;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.statistics.SearchStatistics;
+import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.Registry;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal, EvosuiteRemote {
 
 	private static final long serialVersionUID = -6329473514791197464L;
 
@@ -49,6 +48,7 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 
 	private final Registry registry;
 	private final Map<String, ClientNodeRemote> clients;
+	private TestListenerRemote testListener = null;
 
 	protected final Collection<Listener<ClientStateInformation>> listeners = Collections.synchronizedList(new ArrayList<>());
 
@@ -67,6 +67,29 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 		clientStates = new ConcurrentHashMap<>();
 		clientStateInformation = new ConcurrentHashMap<>();
 		this.registry = registry;
+	}
+
+	public void init() {
+		if (Properties.TEST_LISTENER_RMI_IDENTIFIER != null) {
+			try {
+				// We expect that the TestListener has already connected to the registry
+				testListener = (TestListenerRemote) registry.lookup(Properties.TEST_LISTENER_RMI_IDENTIFIER);
+				testListener.evosuiteServerReady(MasterNodeRemote.RMI_SERVICE_NAME);
+			} catch (RemoteException | NotBoundException e) {
+				logger.error("Error during binding with test listener " + Properties.TEST_LISTENER_RMI_IDENTIFIER  + ":", e);
+				throw new EvosuiteError(e);
+			}
+		}
+	}
+
+	public void close() {
+		if (testListener != null) {
+			try {
+				testListener.evosuiteServerShutdown(MasterNodeRemote.RMI_SERVICE_NAME);
+			} catch (RemoteException e) {
+				// If so, we ignore the exception: the master node is being closed anyway
+			}
+		}
 	}
 
 	@Override
@@ -235,12 +258,61 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 	 * fireEvent
 	 * </p>
 	 * 
-	 * @param event
-	 *            a T object.
+     * @param event a T object.
 	 */
 	public void fireEvent(ClientStateInformation event) {
 		for (Listener<ClientStateInformation> listener : listeners) {
 			listener.receiveEvent(event);
 		}
 	}
+
+	private ConcurrentLinkedQueue<String> injectedFF = new ConcurrentLinkedQueue<>();
+	
+	@Override
+	public boolean evosuite_injectFitnessFunction(String classCanonicalName, String methodNameAndDescriptor, String evaluatorName) throws RemoteException {
+		String ff = classCanonicalName + "," + methodNameAndDescriptor + "," + evaluatorName;
+		try {
+			synchronized (injectedFF) {
+				return injectedFF.add(ff);
+			}
+		} catch (Throwable e) {
+            logger.error("Cannot store the injected fitness function: " + ff, e);
+			return false;
+		}
+	}
+
+	@Override
+	public String evosuite_retrieveInjectedFitnessFunctions() throws RemoteException {
+		try {
+			String ret = null;
+			String ff;
+			synchronized (injectedFF) {
+				while ((ff = injectedFF.poll()) != null) {
+					ret = ret == null ? ff : ret + ":" + ff;
+				}
+			}
+			if (ret != null) {
+				logger.info("Injecting new fitness funtions: " + ret);
+			}
+			return ret;
+		} catch (Throwable e) {
+            logger.error("Error while trying to retrieve the injected fitness function from master node", e);
+			return null;
+		}
+	}
+
+	@Override
+	public void evosuite_notifyGeneratedTestCase(FitnessFunction<?> goal, String testFileName) throws RemoteException {
+		if (testListener != null) {
+			testListener.generatedTest(MasterNodeRemote.RMI_SERVICE_NAME, goal, testFileName);
+		}
+	}
+
+	@Override
+	public void evosuite_notifyDismissedFitnessGoal(FitnessFunction<?> goal, int iteration, double bestValue, int[] updateIterations) throws RemoteException {
+		if (testListener != null) {
+			testListener.dismissedFitnessGoal(MasterNodeRemote.RMI_SERVICE_NAME, goal, iteration, bestValue, updateIterations);
+		}
+	}
+	
 }

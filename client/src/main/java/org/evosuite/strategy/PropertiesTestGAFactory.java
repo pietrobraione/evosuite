@@ -19,7 +19,6 @@
  */
 package org.evosuite.strategy;
 
-import java.util.List;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
@@ -28,8 +27,6 @@ import org.evosuite.Properties.TheReplacementFunction;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
-import org.evosuite.coverage.pathcondition.PathConditionCoverageFactory;
-import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
 import org.evosuite.ga.metaheuristics.*;
@@ -38,24 +35,11 @@ import org.evosuite.ga.metaheuristics.mulambda.MuLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.MuPlusLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusLambdaLambdaGA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusOneEA;
-import org.evosuite.ga.operators.crossover.CrossOverFunction;
-import org.evosuite.ga.operators.crossover.CrosscontaminationCrossOver;
-import org.evosuite.ga.operators.crossover.MethodSequencesCrossOver;
-import org.evosuite.ga.operators.crossover.MultiOperatorAlternatingCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
-import org.evosuite.ga.operators.crossover.SushiCrossOver;
-import org.evosuite.ga.operators.crossover.UniformCrossOver;
+import org.evosuite.ga.operators.crossover.*;
 import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.ga.operators.ranking.RankingFunction;
-import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
-import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
-import org.evosuite.ga.operators.selection.RankSelection;
-import org.evosuite.ga.operators.selection.SelectionFunction;
-import org.evosuite.ga.operators.selection.TournamentSelection;
-import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
+import org.evosuite.ga.operators.selection.*;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
@@ -64,7 +48,6 @@ import org.evosuite.seeding.TestCaseRecycler;
 import org.evosuite.testcase.RelativeTestLengthBloatControl;
 import org.evosuite.testcase.TestCaseReplacementFunction;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
@@ -75,7 +58,6 @@ import org.evosuite.utils.ArrayUtil;
  * Factory for GA for tests
  * 
  * @author gordon
- *
  */
 public class PropertiesTestGAFactory
 		extends PropertiesSearchAlgorithmFactory<TestChromosome> {
@@ -316,15 +298,6 @@ public class PropertiesTestGAFactory
 
 		// ga.addListener(new ResourceController<TestChromosome>());
 
-		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)) {/*SUSHI: Path condition fitness*/
-			PathConditionCoverageFactory pathConditionFactory = PathConditionCoverageFactory._I();
-			List<PathConditionCoverageGoalFitness> goals = pathConditionFactory.getCoverageGoals();
-			
-			for (PathConditionCoverageGoalFitness g : goals) {
-				ExecutionTracer.addEvaluatorForPathCondition(g.getPathConditionGoal());
-			}
-			ExecutionTracer.logEvaluatorsForPathConditions();
-		}
 		return ga;
 	}
 

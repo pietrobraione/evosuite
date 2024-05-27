@@ -26,11 +26,10 @@ import org.evosuite.utils.Randomness;
 
 /**
  * @author Gordon Fraser
- * 
  */
 public class ConstantPoolManager {
 
-	private static ConstantPoolManager instance = new ConstantPoolManager();
+    private static final ConstantPoolManager instance = new ConstantPoolManager();
 
 	private ConstantPool[] pools;
 	private double[] probabilities;

@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.execution;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -31,6 +30,7 @@ import java.util.Map;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
@@ -38,6 +38,7 @@ import org.evosuite.coverage.pathcondition.PathConditionCoverageGoal;
 import org.evosuite.coverage.seepep.SeepepTraceItem;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.testcase.execution.ExecutionTraceImpl.PathConditionEvaluationInfo;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
@@ -62,7 +63,9 @@ public class ExecutionTracer {
 	 */
 	private boolean disabled = true;
 
-	/** Flag that is used to kill threads that are stuck in endless loops */
+    /**
+     * Flag that is used to kill threads that are stuck in endless loops
+     */
 	private boolean killSwitch = false;
 
 	private int num_statements = 0;
@@ -83,8 +86,7 @@ public class ExecutionTracer {
 	 * setThread
 	 * </p>
 	 * 
-	 * @param thread
-	 *            a {@link java.lang.Thread} object.
+     * @param thread a {@link java.lang.Thread} object.
 	 */
 	public static void setThread(Thread thread) {
 		currentThread = thread;
@@ -127,8 +129,7 @@ public class ExecutionTracer {
 	 * Setter for the field <code>killSwitch</code>.
 	 * </p>
 	 * 
-	 * @param value
-	 *            a boolean.
+     * @param value a boolean.
 	 */
 	public static void setKillSwitch(boolean value) {
 		ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -140,8 +141,7 @@ public class ExecutionTracer {
 	 * Setter for the field <code>checkCallerThread</code>.
 	 * </p>
 	 * 
-	 * @param checkCallerThread
-	 *            a boolean.
+     * @param checkCallerThread a boolean.
 	 */
 	public static void setCheckCallerThread(boolean checkCallerThread) {
 		ExecutionTracer.checkCallerThread = checkCallerThread;
@@ -271,14 +271,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a new method is called
 	 * 
-	 * @param classname
-	 *            a {@link java.lang.String} object.
-	 * @param methodname
-	 *            a {@link java.lang.String} object.
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @throws org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded
-	 *             if any.
+     * @param classname  a {@link java.lang.String} object.
+     * @param methodname a {@link java.lang.String} object.
+     * @param caller     a {@link java.lang.Object} object.
+     * @throws org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded if any.
 	 */
 	public static void enteredMethod(String classname, String methodname, Object caller)
 	        throws TestCaseExecutor.TimeoutExceeded {
@@ -299,12 +295,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a return values is produced
 	 * 
-	 * @param value
-	 *            a int.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param value      a int.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void returnValue(int value, String className, String methodName) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -321,12 +314,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a return values is produced
 	 * 
-	 * @param value
-	 *            a {@link java.lang.Object} object.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param value      a {@link java.lang.Object} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void returnValue(Object value, String className, String methodName) {
 		if (isThreadNeqCurrentThread())
@@ -377,10 +367,8 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code whenever a method is left
 	 * 
-	 * @param classname
-	 *            a {@link java.lang.String} object.
-	 * @param methodname
-	 *            a {@link java.lang.String} object.
+     * @param classname  a {@link java.lang.String} object.
+     * @param methodname a {@link java.lang.String} object.
 	 */
 	public static void leftMethod(String classname, String methodname) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -420,12 +408,9 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new source line is executed
 	 * 
-	 * @param line
-	 *            a int.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param line       a int.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void passedLine(String className, String methodName, int line) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -443,14 +428,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val
-	 *            a int.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val         a int.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(int val, int opcode, int branch, int bytecode_id) {
 
@@ -552,7 +533,6 @@ public class ExecutionTracer {
 	}
 	
 	/**
-	 * 
 	 * @param classNameWithDots
 	 * @param fieldName
 	 */
@@ -573,16 +553,11 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val1
-	 *            a int.
-	 * @param val2
-	 *            a int.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val1        a int.
+     * @param val2        a int.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(int val1, int val2, int opcode, int branch,
 	        int bytecode_id) {
@@ -654,16 +629,11 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val1
-	 *            a {@link java.lang.Object} object.
-	 * @param val2
-	 *            a {@link java.lang.Object} object.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val1        a {@link java.lang.Object} object.
+     * @param val2        a {@link java.lang.Object} object.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(Object val1, Object val2, int opcode, int branch,
 	        int bytecode_id) {
@@ -698,14 +668,10 @@ public class ExecutionTracer {
 	/**
 	 * Called by the instrumented code each time a new branch is taken
 	 * 
-	 * @param val
-	 *            a {@link java.lang.Object} object.
-	 * @param opcode
-	 *            a int.
-	 * @param branch
-	 *            a int.
-	 * @param bytecode_id
-	 *            a int.
+     * @param val         a {@link java.lang.Object} object.
+     * @param opcode      a int.
+     * @param branch      a int.
+     * @param bytecode_id a int.
 	 */
 	public static void passedBranch(Object val, int opcode, int branch, int bytecode_id) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -743,10 +709,8 @@ public class ExecutionTracer {
 	 * Called by instrumented code each time a variable gets written to (a
 	 * Definition)
 	 * 
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @param defID
-	 *            a int.
+     * @param caller a {@link java.lang.Object} object.
+     * @param defID  a int.
 	 */
 	public static void passedDefinition(Object object, Object caller, int defID) {
 		if (isThreadNeqCurrentThread())
@@ -760,10 +724,8 @@ public class ExecutionTracer {
 	/**
 	 * Called by instrumented code each time a variable is read from (a Use)
 	 * 
-	 * @param caller
-	 *            a {@link java.lang.Object} object.
-	 * @param useID
-	 *            a int.
+     * @param caller a {@link java.lang.Object} object.
+     * @param useID  a int.
 	 */
 	public static void passedUse(Object object, Object caller, int useID) {
 
@@ -779,7 +741,7 @@ public class ExecutionTracer {
 
 	/**
 	 * Called by instrumented code each time a field method call is passed
-	 * 
+     * <p>
 	 * Since it was not clear whether the field method call constitutes a
 	 * definition or a use when the instrumentation was initially added this
 	 * method will redirect the call accordingly
@@ -811,12 +773,11 @@ public class ExecutionTracer {
 	 * Called by instrumented code each time method is executed. This method
 	 * receives the full set of parameters of the corresponding call
 	 * 
-	 * @param receiver
-	 *            the this object of the call
 	 * @param params
 	 *            the parameters passed to the call
 	 */
 	public static void passedMethodCall(String className, String methodName, Object[] params) { /*SUSHI: Path condition fitness*/
+		//logger.warn("CHECKING " + className + "." + methodName + Arrays.toString(Thread.currentThread().getStackTrace()));
 		ExecutionTracer tracer = getExecutionTracer();
 
 		if (tracer.disabled)
@@ -824,8 +785,12 @@ public class ExecutionTracer {
 
 		if (isThreadNeqCurrentThread())
 			return;
-		
+
 		checkTimeout();
+
+		if (reentrantCall(tracer.trace)) {
+			return;
+		}
 
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)) { /*SEEPEP: DAG coverage*/
 			if (methodName.equals(Properties.SEEPEP_ENTRY_METHOD)) {
@@ -857,15 +822,280 @@ public class ExecutionTracer {
 			}
 		}
 
-		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
-		if (classEvaluators == null) 
-			return; // no evaluator for this class
+		if (!mustCheckPathConditionsForThisCall()) {
+			return;
+		}
 
-		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
-		if (methodEvaluators == null) 
-			return; // no evaluator for this method
+		//LoggingUtils.getEvoLogger().info("- ENTRY in:{} :: {} :: {}", className, methodName, Arrays.toString(params));
+
+		tracer.trace.evaluatingPathConditionsBegin(className, methodName);
+
+		try {
+			Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
+			if (classEvaluators == null) 
+				return; // no evaluator for this class
+
+			List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+			if (methodEvaluators == null) 
+				return; // no evaluator for this method
+
+			ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+			resetEvaluationBackbone(cl);
+
+			ArrayList<Object> feedback = null;
+			boolean isEvaluatorWithFeedback = ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS);
+			if (isEvaluatorWithFeedback) {
+				try {
+					feedback = (ArrayList<Object>) cl.loadClass("java.util.ArrayList").newInstance(); //ArrayList to collect feedback
+				} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+					throw new EvosuiteError("Cannot load class java.util.ArrayList with ClassLoaderForSUT: because of: " + e + " ::: " + 
+							Arrays.toString(e.getStackTrace()));	
+				}
+				params = Arrays.copyOf(params, params.length + 1);
+				params[params.length - 1] = feedback;
+			}
+			for (PathConditionCoverageGoal goal : methodEvaluators) {
+				Object evaluator = goal.getEvaluator();
+				Method evaluatorMethod = getEvaluatorMethod(evaluator, "test0", goal, className, methodName);
+				double d = executeEvaluator(evaluator, evaluatorMethod, params, className, methodName);
+				int relatedBranchId = -1;
+				if (tracer.pathConditionRelatedBranch.containsKey(goal.getPathConditionId())) {
+					relatedBranchId = tracer.pathConditionRelatedBranch.get(goal.getPathConditionId());
+				}
+				tracer.trace.passedPathCondition(goal.getPathConditionId(), relatedBranchId, d, feedback == null ? null : (ArrayList<Object>) feedback.clone()); //need to clone the ArrayList, because we clean and reuse feedback (below)
+				if (feedback != null) {
+					feedback.clear();
+				}
+				//LoggingUtils.getEvoLogger().info("    Evaluator test0 on:{} = {} (params = {}, goal = {})", goal.getPathConditionId(), d, Arrays.toString(params), goal);
+			}
+		} catch (Throwable e) {
+			throw new EvosuiteError("Unexpected exception within the instrumentation related to path-conditions: CHECK THIS: " + e);
+		} finally {
+			tracer.trace.evaluatingPathConditionsDone(className, methodName);
+		}
+	}
+	
+	public static void aastoreHelper(Object[] theArray, int theIndex, Object theItem) {
+		theArray[theIndex] = theItem;
+		//return theArray;
+	}
+	
+	public static void passedExceptionPropagatedBackToTheTestCase(Throwable thrownException) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in TEST CASE: Stack trace: {}", thrownException.getClass(), Arrays.toString(thrownException.getStackTrace()));
+		unwindMethodExitsUntraversedDueToThrownException(thrownException, null, null); //passing null.null as method unwinds all calls
+	}
+	
+	public static void passedExceptionHandler(Throwable thrownException, String className, String methodName) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in METHOD {}.{}: Stack trace: {}", thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
+		unwindMethodExitsUntraversedDueToThrownException(thrownException, className, methodName); //passing null.null as method unwinds all calls
+	}
+	
+	private static void unwindMethodExitsUntraversedDueToThrownException(Throwable thrownException, String className, String methodName) {
+		// here we unwind methods exited silently after the throw statement
+		ExecutionTracer tracer = getExecutionTracer();
+
+		if (tracer.disabled)
+			return;
+
+		if (isThreadNeqCurrentThread())
+			return;
 		
-		ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+		if (reentrantCall(tracer.trace)) {
+			return;
+		}
+
+		boolean exceptionInTestCase = (methodName == null);
+		
+		
+		if (!exceptionInTestCase && !mustCheckPathConditionsForThisCall()) {
+			return; // if this method call does not require checking, we assume that the nested call did not either 
+		}
+
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in METHOD {}.{}: Stack trace: {}", thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
+
+		List<PathConditionEvaluationInfo> evalautedPathConditions = tracer.trace.getPathConditionEvaluationStack();
+		boolean currentMethodBelongToStack = false;
+		for (PathConditionEvaluationInfo evalPC: evalautedPathConditions) {
+			if (evalPC.methodName.equals(methodName) && evalPC.className.equals(className)) {
+				currentMethodBelongToStack = true;
+				break; // we can stop unwinding because this is the method that intercepted the exception, and it will exit naturally eventually. 
+			}
+			if (evalPC.methodName.startsWith("<init>")) {
+				passedMethodExit(thrownException, evalPC.className, evalPC.methodName, new Object[0], true); 			
+			} else {
+				throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+						+ "while we are unwinding methods that exited silently due a thrown exception."
+						+ "However we expect this to happen only for trailing prefixes of constructors"
+						+ "(the calls to 'super'), but in fact we are unwinding method " 
+						+ evalPC.className + "." + evalPC.methodName
+						+ "\n--- Current caller is: " + className + "." + methodName
+						+ "\n--- Current stack of evalauted path conds is: " + evalautedPathConditions
+						+ "\n--- Current stack trace is: " + Arrays.toString(Thread.currentThread().getStackTrace())
+						+ "\n--- Current exception is: " + thrownException + " -- " + Arrays.toString(thrownException.getStackTrace()));			
+			}
+		}	
+		if (!exceptionInTestCase && !currentMethodBelongToStack) {
+			throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+					+ "while we are unwinding methods that exited silently due a thrown exception."
+					+ "The method that intercepted the exception " + className + "." + methodName
+					+ " is not in the stack." 
+					+ "\n--- Current caller is: " + className + "." + methodName
+					+ "\n--- Current stack of evalauted path conds is: " + evalautedPathConditions
+					+ "\n--- Current stack trace is: " + Arrays.toString(Thread.currentThread().getStackTrace()) 
+					+ "\n--- Current exception is: " + thrownException + " -- " + Arrays.toString(thrownException.getStackTrace()));			
+		}
+	}
+
+	/**
+	 * Called by instrumented code each time method is executed at the exit. This method
+	 * receives both the return value and full set of parameters of the corresponding call
+	 * 
+	 * @param retVal
+	 *            the return value of the call
+	 * @param params
+	 *            the parameters passed to the call
+	 */
+	public static void passedMethodExit(Object retVal, String className, String methodName, Object[] params, boolean enforcePathConditionCheckForThisCall) { /*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+
+		if (tracer.disabled)
+			return;
+
+		if (isThreadNeqCurrentThread())
+			return;
+
+		if (reentrantCall(tracer.trace)) {
+			return;
+		}
+
+		if (!enforcePathConditionCheckForThisCall && !mustCheckPathConditionsForThisCall()) {
+			return;
+		}
+
+		//LoggingUtils.getEvoLogger().info("-- EXIT on:{} :: {} :: {}", className, methodName, retVal!=null?retVal.getClass():null);
+
+		tracer.trace.evaluatingPostConditionsBegin(className, methodName);
+
+		try {
+			Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(className);
+			if (classEvaluators == null) 
+				return; // no evaluator for this class
+
+			List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+			if (methodEvaluators == null) 
+				return; // no evaluator for this method
+
+			ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+			resetEvaluationBackbone(cl);
+
+			for (PathConditionCoverageGoal goal : methodEvaluators) {
+				Object evaluator = goal.getEvaluator();
+				Method evaluatorMethod = getEvaluatorMethod(evaluator, "test1", goal, className, methodName);
+
+				Object [] paramValues = new Object[evaluatorMethod.getParameterCount()]; //expected equal to (params.length + 1)
+				paramValues[0] = retVal;
+				for (int i = 0; i < params.length; i++) {
+					paramValues[i + 1] = params[i];
+				}
+				double d = executeEvaluator(evaluator, evaluatorMethod, paramValues, className, methodName);
+				tracer.trace.passedPostCondition(goal.getPathConditionId(), d);
+				//LoggingUtils.getEvoLogger().info("    * Evaluator test1 on:{} = {} (params = {}, goal = {})", goal.getPathConditionId(), d, Arrays.toString(params), goal);
+			}
+		} catch (Throwable e) {
+			throw new EvosuiteError("Unexpected exception within the instrumentation related to post-conditions: CHECK THIS: " + e.getClass());
+		} finally {
+			tracer.trace.evaluatingPostConditionsDone(className, methodName);
+		}
+	}
+	
+
+	private static boolean reentrantCall(ExecutionTrace trace) {
+		return trace.isEvaluatingPathConditions();
+		/*
+		StackTraceElement[] strace = Thread.currentThread().getStackTrace();
+		/ *
+		 * the stack trace includes for sure: 0) getStackTrace, 1) this method,
+		 * 2) ExecutionTracer.passedMethod..., and 3) the method that executed the instrumentation.
+		 * Then, if the 4th method belongs to sun.reflect.*, it means that
+		 * the instrumented method was called directly from within the test case, otherwise
+		 * it was reached indirectly call when the test case called another method.
+		 * /
+		int i = 1;
+		while (i < strace.length && strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
+			++i; //this traverses the current calls within ExecutionTracer...
+		}
+		++i;
+		while (i < strace.length) {
+			if (strace[i].toString().startsWith("org.evosuite.testcase.execution.ExecutionTracer")) {
+				return true; //...once again in ExecutionTracer: Then it is a reentrant call!
+			}
+			++i; 
+		}
+		return false; */
+	}
+
+	private static boolean mustCheckPathConditionsForThisCall() {
+		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS) {
+			StackTraceElement[] strace = Thread.currentThread().getStackTrace();
+			/* The stack trace includes for sure: 0) getStackTrace, 1) this method,
+			 * 2..i) ExecutionTracer.passedMethod..., and then i+1) the method that executed the instrumentation.
+			 * Then, if the subsequence method (i+2) belongs to sun.reflect.*, it means that
+			 * the instrumented method was called directly from within the test case, otherwise
+			 * it was reached indirectly call when the test case called another method.
+			 */
+			if (strace.length <= 4) {
+				//defensive check: should never happen by construction, as for cases 1) 2) and 3) in comment above
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
+			}
+
+			int i = 3; //we start at 3, as 0) getStackTrace, 1) this method, 2) ExecutionTracer.passedMethod
+
+			// we accept any other ExecutionTracer.* method, as the code in can be organized across multiple methods
+			while (i < strace.length && strace[i].toString().startsWith(ExecutionTracer.class.getName())) {
+				++i; //We account for (and skip) multiple calls within ExecutionTracer...
+			}
+			if (i >= strace.length) {
+				//defensive check: should never happen by construction, as ExecutionTracer.passedMethod is called from instrumented SUT
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
+			}
+
+			if (!strace[i + 1].toString().startsWith("sun.reflect.")) {
+				return false; //strace[i] is not a direct call from SUT
+			} else {
+				return true;  //strace[i] is a direct call from SUT via reflection
+			}
+
+			/* we count the method calls that come from within the SUT, and accept indirect calls of overriding methods. 
+			 * NB 02.05.2024: Unfortunately, this implementation does not work, because getStackTrace reports method names without
+			 * signatures, and thus we end up with selecting indirect calls also from overloading-methods. At the moment,
+			 * we are sticking to direct calls only (see above).
+			 *
+			int count = 0;
+			while (i + count < strace.length && !strace[i + count].toString().startsWith("sun.reflect.")) {
+				++count;
+				break; //
+			}
+			if (count == 0 || i + count >= strace.length) {
+				//defensive check: should never happen by construction as we expect SUT methods called from test cases via reflection
+				throw new EvosuiteError("Stack trace with unexpected shape: CHECK THIS: " + Arrays.toString(strace));
+			}
+			String methodName = strace[i + count - 1].getMethodName(); // the method called directly from the SUT
+			for (int j = i; j < i + count - 1; ++j) {
+				if (!strace[i].getMethodName().equals(methodName)) { //TODO: should check also for classes to be in inheritance relation
+					return false;
+				}
+			}
+			/* here if either 1) count = 1 (i.e., we skipped the loop above) --> only one call belongs to the SUT
+			 * --> it is a direct call from test case, or 2) all calls refer to the same method, which we assume 
+			 * as a special case: indirect calls from overridden methods. * /
+			return true; 
+			*/
+		}
+		
+		return true; // none of above exclusion reasons --> then default case is checking the calls 
+	}
+
+	private static void resetEvaluationBackbone(ClassLoader cl) {
 		try {
 			Class.forName("sushi.compile.path_condition_distance.CandidateBackbone", false, cl).
 			getMethod("resetAndReuseUntilReset", null).invoke(null, null);
@@ -875,113 +1105,81 @@ public class ExecutionTracer {
 		} catch (ClassNotFoundException e) {
 			//This means that either Evaluators are designed not to use sushi-lib, or we have an higher level problem.
 			//Thus, we do not log the problem to support the case in which indeed users do not care of sushi-lib
-		}
-		
-		for (PathConditionCoverageGoal goal : methodEvaluators) {
-			Object evaluator = tracer.evaluatorCache.get(goal);
-			if (evaluator == null) {
-				try {
-					Class<?> clazz = Class.forName(goal.getEvaluatorName(), true, cl);
-					Constructor<?>[] cnstrs = clazz.getConstructors();
-					for (Constructor<?> c : cnstrs) {
-						Class<?>[] parTypes = c.getParameterTypes();
-						if (parTypes.length >= 1 && parTypes[0] == ClassLoader.class) {
-							evaluator = c.newInstance(cl);
-							break;
-						}
-					}
-					if (evaluator == null) {
-						evaluator = clazz.newInstance();							
-					}
-					tracer.evaluatorCache.put(goal, evaluator);
-				} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-					throw new EvosuiteError("Cannot instantiate path condition evaluator: " + goal.getEvaluatorName() +
-							" because of: " + e + " ::: " + Arrays.toString(e.getStackTrace()));
-				}
-			}
-			
-			Method evaluatorMethod = null;
-			try {
-				Method[] methods = evaluator.getClass().getDeclaredMethods();
-				for (Method m : methods) {
-					if (m.getName().startsWith("test0")) {
-						evaluatorMethod = m;
-						break;
-					}
-				}
-			} catch (Throwable e) { 
-				throw new EvosuiteError("Cannot execute path condition evaluator: " + goal.getEvaluatorName() +
-						"\n\t path condition for method " + className + "." + methodName +
-						"\n\t due to: " + e);
-			}
-			
-			if (evaluatorMethod == null) {
-				throw new EvosuiteError("Cannot execute path condition evaluator: " + goal.getEvaluatorName() +
-						"\n\t path condition for method " + className + "." + methodName +
-						"\n\t because there is no 'test' method in the evaluator");
-			}
-			
-			//execute the evaluator
-			double d = Double.MAX_VALUE;
-			try {
-				d = (double) evaluatorMethod.invoke(evaluator, params);
-				//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", pc = " + goal.getEvaluatorName());
-			} catch (IllegalAccessException | IllegalArgumentException e) {
-				//throw new EvosuiteError
-				LoggingUtils.getEvoLogger().info("Cannot execute path condition evaluator: " + goal.getEvaluatorName()
-				+ "\n\t path condition for method " + className + "." + methodName
-				+ "\n\t called on objects " + Arrays.toString(params)
-				+ "\n\t failed because of: " + e
-						);
-			} catch (InvocationTargetException e) {
-				StackTraceElement[] st = e.getCause().getStackTrace();
-				LoggingUtils.getEvoLogger().info("Exception thrown within path condition evaluator: " + goal.getEvaluatorName() 
-				+ "\n\t path condition for method " + className + "." + methodName
-				+ "\n\t called on objects " + Arrays.toString(params)
-				+ "\n\t failed because of: " + e.getCause()
-				+ "\n\t stack trace is " + st.length + " items long: " + 
-				(st.length <= 50 ? Arrays.toString(st) :
-					Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
-					" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
-			} catch (Throwable e) {
-				StackTraceElement[] st = e.getCause().getStackTrace();
-				throw new EvosuiteError("Unexpected failure when executing evaluator: " + goal.getEvaluatorName() 
-				+ "\n\t path condition for method " + className + "." + methodName
-				+ "\n\t called on objects " + Arrays.toString(params)
-				+ "\n\t failed because of: " + e.getCause()
-				+ "\n\t stack trace is " + st.length + " items long: " + 
-				(st.length <= 50 ? Arrays.toString(st) :
-					Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
-					" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
-			}
-			// Add path condition distance to control trace
-			tracer.trace.passedPathCondition(goal.getPathConditionId(), d);
-			//LoggingUtils.getEvoLogger().info("-- Evaluator on:{} = {}", goal, d );
-		}
+		}		
 	}
-	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<String, Map<String, List<PathConditionCoverageGoal>>>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
-	private Map<PathConditionCoverageGoal, Object> evaluatorCache = new HashMap<>();  /*SUSHI: Path condition fitness*/
-	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
-		ExecutionTracer tracer = getExecutionTracer();
+
+	private static double executeEvaluator(Object evaluator, Method evaluatorMethod, Object[] paramValues, String targetClassName, String targetMethodName) {
+		//execute the evaluator
+		double d = Double.MAX_VALUE;
 		try {
-			Class<?> clazz = Class.forName(g.getEvaluatorName());
-			boolean loadedAndAcceptClassloader = false;
-			Constructor<?>[] cnstrs = clazz.getConstructors();
-			for (Constructor<?> c : cnstrs) {
-				Class<?>[] parTypes = c.getParameterTypes();
-				if (parTypes.length >= 1 && parTypes[0] == ClassLoader.class) {
-					Object evaluator = c.newInstance(new Object[] {null});
-					loadedAndAcceptClassloader = true;
+			d = (double) evaluatorMethod.invoke(evaluator, paramValues);
+			//LoggingUtils.getEvoLogger().info("**computed d: " + d + ", " + evaluatorMethod + ", pc = " + evaluator.toString());
+		} catch (IllegalAccessException | IllegalArgumentException e) {
+			//throw new EvosuiteError
+			LoggingUtils.getEvoLogger().info("Cannot execute path condition evaluator: " + evaluatorMethod
+			+ "\n\t path condition for method " + targetClassName + "." + targetMethodName
+			+ "\n\t called on objects " + Arrays.toString(paramValues)
+			+ "\n\t failed because of: " + e
+					);
+		} catch (InvocationTargetException e) {
+			StackTraceElement[] st = e.getCause().getStackTrace();
+			LoggingUtils.getEvoLogger().info("Exception thrown within path condition evaluator: " + evaluatorMethod
+			+ "\n\t path condition for method " + targetClassName + "." + targetMethodName
+			+ "\n\t called on objects " + Arrays.toString(paramValues)
+			+ "\n\t failed because of: " + e.getCause()
+			+ "\n\t stack trace is " + st.length + " items long: " + 
+			(st.length <= 50 ? Arrays.toString(st) :
+				Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
+				" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
+		} catch (Throwable e) {
+			StackTraceElement[] st = e.getCause().getStackTrace();
+			throw new EvosuiteError("Unexpected failure when executing path condition evaluator: " + evaluatorMethod
+			+ "\n\t path condition for method " + targetClassName + "." + targetMethodName
+			+ "\n\t called on objects " + Arrays.toString(paramValues)
+			+ "\n\t failed because of: " + e.getCause()
+			+ "\n\t stack trace is " + st.length + " items long: " + 
+			(st.length <= 50 ? Arrays.toString(st) :
+				Arrays.toString(Arrays.copyOfRange(st, 0, 25)) + 
+				" ...... " +  Arrays.toString(Arrays.copyOfRange(st, st.length - 25, st.length))));
+		}
+		return d;
+	}
+
+	private static Method getEvaluatorMethod(Object evaluator, String methodName, PathConditionCoverageGoal targetGoal, String targetClassName, String targetMethodName) {
+		Method evaluatorMethod = null;
+		try {
+			Method[] methods = evaluator.getClass().getDeclaredMethods();
+			for (Method m : methods) {
+				if (m.getName().startsWith(methodName)) {
+					evaluatorMethod = m;
 					break;
 				}
-			} 
-			if (!loadedAndAcceptClassloader) {
-				Object evaluator = clazz.newInstance();
 			}
-		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			LoggingUtils.getEvoLogger().info("Cannot instantiate path condition evaluator: " + g.getEvaluatorName() +
-					" because of: " + e);
-			return;
+		} catch (Throwable e) { 
+			throw new EvosuiteError("Cannot execute path condition evaluator: " + targetGoal.getEvaluatorName() +
+					"\n\t path condition for method " + targetClassName + "." + targetMethodName +
+					"\n\t due to: " + e);
+		}
+		
+		if (evaluatorMethod == null) {
+			throw new EvosuiteError("Cannot execute path condition evaluator: " + targetGoal.getEvaluatorName() +
+					"\n\t path condition for method " + targetClassName + "." + targetMethodName +
+					"\n\t because there is no 'test0' method in the evaluator");
+		}
+		return evaluatorMethod;
+	}
+	
+	private Map<String, Map<String, List<PathConditionCoverageGoal>>> pathConditions = new HashMap<>(); //classname --> methodname --> PathCondWrapper /*SUSHI: Path condition fitness*/
+	private Map<Integer, Integer> pathConditionRelatedBranch =  new HashMap<>(); //pcId --> branchId
+	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+		Object evaluator = g.getEvaluator();
+		try {
+			Method toString = evaluator.getClass().getDeclaredMethod("toString", new Class[]{});
+			String customDescription = (String) toString.invoke(evaluator, (Object[]) null);
+			g.setCustomDescription(customDescription);
+		} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			//no custom description could be loaded
 		}
 		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(g.getClassName());
 		if (classEvaluators == null) {
@@ -995,10 +1193,19 @@ public class ExecutionTracer {
 		}
 		methodEvaluators.add(g);
 	}
+	
+	public static void addEvaluatorForPathCondition(PathConditionCoverageGoal g, BranchCoverageTestFitness relatedBracnhGoal) { /*SUSHI: Path condition fitness*/
+		addEvaluatorForPathCondition(g);
+		if (relatedBracnhGoal.getBranch() != null) {
+			getExecutionTracer().pathConditionRelatedBranch.put(g.getPathConditionId(), relatedBracnhGoal.getBranch().getActualBranchId());
+		}
+	}
+	
 	public static void logEvaluatorsForPathConditions() {
 		ExecutionTracer tracer = getExecutionTracer();
 		LoggingUtils.getEvoLogger().info("GOALS: " + tracer.pathConditions.toString());		
 	}
+	
 	public static void removeEvaluatorForPathCondition(PathConditionCoverageGoal g) { /*SUSHI: Path condition fitness*/
 		ExecutionTracer tracer = getExecutionTracer();
 		Map<String, List<PathConditionCoverageGoal>> classEvaluators = tracer.pathConditions.get(g.getClassName());
@@ -1012,19 +1219,19 @@ public class ExecutionTracer {
 				tracer.pathConditions.remove(g.getClassName());
 			}
 		}
-		tracer.evaluatorCache.remove(g);
-		LoggingUtils.getEvoLogger().info("GOALS: " + tracer.pathConditions.toString());
+		LoggingUtils.getEvoLogger().info("PC GOALS: " + tracer.pathConditions.toString());
 	}
-		
+	public static void removeAllEvaluatorsForPathConditions() {	/*SUSHI: Path condition fitness*/
+		ExecutionTracer tracer = getExecutionTracer();
+		tracer.pathConditions.clear();
+	}
 	/**
 	 * <p>
 	 * passedMutation
 	 * </p>
 	 * 
-	 * @param distance
-	 *            a double.
-	 * @param mutationId
-	 *            a int.
+     * @param distance   a double.
+     * @param mutationId a int.
 	 */
 	public static void passedMutation(double distance, int mutationId) {
 		ExecutionTracer tracer = getExecutionTracer();
@@ -1044,12 +1251,9 @@ public class ExecutionTracer {
 	 * exceptionThrown
 	 * </p>
 	 * 
-	 * @param exception
-	 *            a {@link java.lang.Object} object.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param exception  a {@link java.lang.Object} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public static void exceptionThrown(Object exception, String className,
 	        String methodName) {

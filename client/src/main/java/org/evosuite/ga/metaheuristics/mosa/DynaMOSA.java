@@ -25,11 +25,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.Properties.Criterion;
+import org.evosuite.Properties.PathConditionTarget;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.pathcondition.PathConditionCoverageGoalFitness;
 import org.evosuite.ga.metaheuristics.mosa.structural.PathConditionManager;
 import org.evosuite.ga.metaheuristics.mosa.structural.SeepepManager;
-import org.evosuite.ga.metaheuristics.mosa.structural.SushiManager;
+import org.evosuite.ga.metaheuristics.mosa.structural.AidingPathConditionManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.Properties;
@@ -61,7 +62,9 @@ public class DynaMOSA extends AbstractMOSA {
 
 	private static final Logger logger = LoggerFactory.getLogger(DynaMOSA.class);
 
-	/** Manager to determine the test goals to consider at each generation */
+    /**
+     * Manager to determine the test goals to consider at each generation
+     */
 	protected MultiCriteriaManager goalsManager = null;
 
 	protected CrowdingDistance<TestChromosome> distance = new CrowdingDistance<>();
@@ -77,15 +80,13 @@ public class DynaMOSA extends AbstractMOSA {
 		super(factory);
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	protected void evolve() {
 		int goodCrosoversAtBegin = goodOffsprings; /*SUSHI: Reset*/
 
-		if (goalsManager instanceof SushiManager) { /*SUSHI: Aiding path conditions*/
-			((SushiManager) goalsManager).manageAidingPathConditions(rankingFunction.getSubfront(0), currentIteration);
-		}
-		
 		// Generate offspring, compute their fitness, update the archive and coverage goals.
 		List<TestChromosome> offspringPopulation = this.breedNextGeneration();
 
@@ -171,17 +172,22 @@ public class DynaMOSA extends AbstractMOSA {
 			}
 			LoggingUtils.getEvoLogger().info("* Current PC goals = {}", numOfPCGoals);
 			if(ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-				int satisfied = ((SushiManager) goalsManager).getCoveredPathConditions().size();
+				int satisfied = ((AidingPathConditionManager) goalsManager).getCoveredPathConditions().size();
 				LoggingUtils.getEvoLogger().info("* Satisfied PC goals = {}", satisfied);
 			}
 
 			//LoggingUtils.getEvoLogger().info("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
-			LoggingUtils.getEvoLogger().info("* 1st front size = {}", rankingFunction.getSubfront(0).size());
 			LoggingUtils.getEvoLogger().info("* {} no change iterations,  {} resets, {} good offsprings ({} mutation only)", unchangedPopulationIterations, resets, goodOffsprings, goodOffspringsMutationOnly);
 			LoggingUtils.getEvoLogger().info("* Top front includes {} individuals:", rankingFunction.getSubfront(0).size());
 			for (TestChromosome c : rankingFunction.getSubfront(0)) {
 				printInfo(c);			
 			}
+			/*for (int f = 1; f < rankingFunction.getNumberOfSubfronts(); f++) {
+				LoggingUtils.getEvoLogger().info("* {} front includes {} individuals:", f, rankingFunction.getSubfront(f).size());
+				for (TestChromosome c : rankingFunction.getSubfront(f)) {
+					printInfo(c);			
+				}	
+			}*/
 		}
 		//logger.debug("N. fronts = {}", ranking.getNumberOfSubfronts());
 		//logger.debug("1* front size = {}", ranking.getSubfront(0).size());
@@ -200,7 +206,7 @@ public class DynaMOSA extends AbstractMOSA {
 			fits += "=" + g.getFitness(c) + ",";
 		} 
 		fits += " from it " + c.getAge();
-		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}", System.identityHashCode(c), fits, c.getFitness());			
+		LoggingUtils.getEvoLogger().info("* id = {}, PC fits = {}, fitness = {}", System.identityHashCode(c), fits, c.getFitness());			
 		LoggingUtils.getEvoLogger().info("TEST CASE = {}", ((TestChromosome)c).getTestCase().toString());			
 	}
 	
@@ -339,9 +345,10 @@ public class DynaMOSA extends AbstractMOSA {
 		// Set up the targets to cover, which are initially free of any control dependencies.
 		// We are trying to optimize for multiple targets at the same time.
 		if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATHCONDITION)){
-			goalsManager = new PathConditionManager(fitnessFunctions);
+			goalsManager = new PathConditionManager(fitnessFunctions, this, Properties.CRITERION.length == 1, false /*TODO: set by an option*/);
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS)) {
-			goalsManager = new SushiManager(fitnessFunctions);			
+			Properties.PATH_CONDITION_TARGET = PathConditionTarget.LAST_ONLY; //This option is mandatory with the selected criterion
+			goalsManager = new AidingPathConditionManager(fitnessFunctions, this);			
 		} else if (ArrayUtil.contains(Properties.CRITERION, Criterion.SEEPEP)){ /*SEEPEP: DAG coverage*/
 			ExecutionTracer.enableSeepepTracing();
 			goalsManager = new SeepepManager(fitnessFunctions);
@@ -427,6 +434,9 @@ public class DynaMOSA extends AbstractMOSA {
 
 	@Override
 	public List<? extends FitnessFunction<TestChromosome>> getFitnessFunctions() {
+		if (goalsManager == null) {
+			return super.getFitnessFunctions();
+		}
 		List<TestFitnessFunction> testFitnessFunctions = new ArrayList<>(goalsManager.getCoveredGoals());
 		testFitnessFunctions.addAll(goalsManager.getUncoveredGoals());
 		return testFitnessFunctions;

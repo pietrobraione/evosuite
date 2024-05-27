@@ -5,11 +5,19 @@
 	<parent>
 		<groupId>org.evosuite</groupId>
 		<artifactId>evosuite</artifactId>
-		<version>1.1.1-SNAPSHOT</version>
+		<version>1.2.1-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>evosuite-client</artifactId>
 	<packaging>jar</packaging>
+
+	<repositories>
+ 		<!-- a repository local to the project, to manage the dependency on jbse and shushi-lib -->
+   		<repository>
+    		<id>the-project-local-repo</id>
+    		<url>file://${project.basedir}/../target</url>
+  		</repository>
+	</repositories>
 
     <profiles>
         <profile>
@@ -146,19 +154,22 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-runner</artifactId>
-            <version>1.8.0-M1</version>
+            <version>1.8.0</version>
         </dependency>
-        <dependency>
+       	<dependency>
 		    <groupId>jbse</groupId>
    			<artifactId>jbse</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
+   			<version>0.10.0</version>
 		</dependency>
+        <dependency>
+            <groupId>org.javassist</groupId>
+            <artifactId>javassist</artifactId>
+            <version>3.26.0-GA</version>
+		</dependency>		
         <dependency>
 		    <groupId>sushi-lib</groupId>
    			<artifactId>sushi-lib</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
+   			<version>0.2.0</version>
 		</dependency>
     </dependencies>
 

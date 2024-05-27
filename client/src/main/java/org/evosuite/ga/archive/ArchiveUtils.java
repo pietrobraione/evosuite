@@ -197,9 +197,7 @@ public final class ArchiveUtils {
       }
     }
     if (ArrayUtil.contains(Properties.SECONDARY_OBJECTIVE, Properties.SecondaryObjective.IBRANCH)) {
-      if (goal instanceof IBranchTestFitness) {
-        return true;
-      }
+            return goal instanceof IBranchTestFitness;
     }
 
     return false;

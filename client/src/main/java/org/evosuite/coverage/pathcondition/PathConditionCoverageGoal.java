@@ -18,7 +18,13 @@
 package org.evosuite.coverage.pathcondition;
 
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 
+import org.evosuite.TestGenerationContext;
+import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionResult;
 
 /**
@@ -34,7 +40,8 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	private final String methodName;
 	private final String evaluatorName;
 	private final int pathConditionId;
-	
+	private transient Object evaluator;
+	private String customDescription = null; //set when the evaluator object is created
 
 	/**
 	 * @param className
@@ -51,8 +58,27 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 		this.className = className;
 		this.methodName = methodName;
 		this.evaluatorName = evaluatorName;
+		this.evaluator = null; //postpone creation at first actual access, to avoid early creation, when the ClassLoaderForSUT is not yet ready
 	}
 
+
+	private Object getEvaluatorInstance() {
+		try {
+			InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+			Class<?> clazz = Class.forName(evaluatorName, true, cl);
+			Object evaluator = null;
+			try {
+				Constructor<?> cnstr = clazz.getConstructor(ClassLoader.class);
+				evaluator = cnstr.newInstance(cl);
+			} catch (NoSuchMethodException e) {
+				evaluator = clazz.newInstance();							
+			}
+			return evaluator;
+		} catch (SecurityException | ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new EvosuiteError("Cannot instantiate path condition evaluator: " + evaluatorName +
+					" because of: " + e + " ::: " + Arrays.toString(e.getStackTrace()));
+		}
+	}
 
 	/**
 	 * @return the className that this path condition refers to
@@ -80,6 +106,20 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	 */
 	public String getEvaluatorName() {
 		return evaluatorName;
+	}
+	
+	/**
+	 * @return the evaluator of this path condition
+	 */
+	public Object getEvaluator() {
+		if (evaluator == null) {
+			evaluator = getEvaluatorInstance();
+		}
+		return evaluator;
+	}
+
+	public void setCustomDescription(String customDescription) {
+		this.customDescription = customDescription;
 	}
 
 	/**
@@ -109,7 +149,9 @@ public class PathConditionCoverageGoal implements Serializable {  /*SUSHI: Path 
 	 */
 	@Override
 	public String toString() {
-		String name = className + "." + methodName + ": path condition " + evaluatorName + " (id = " + pathConditionId + ")";
+		String name = className + "." + methodName + 
+				(customDescription != null ? ": " + customDescription : "") + 
+				" -- path condition " + evaluatorName + " (id = " + pathConditionId + ")";
 		return name;
 	}
 

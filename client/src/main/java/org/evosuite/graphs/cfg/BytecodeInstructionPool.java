@@ -19,21 +19,14 @@
  */
 package org.evosuite.graphs.cfg;
 
-import java.util.*;
-
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.runtime.instrumentation.AnnotatedLabel;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.LookupSwitchInsnNode;
-import org.objectweb.asm.tree.LabelNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TableSwitchInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
 
 /**
  * <p>
@@ -46,7 +39,7 @@ public class BytecodeInstructionPool {
 
 	private static final Logger logger = LoggerFactory.getLogger(BytecodeInstructionPool.class);
 
-	private static Map<ClassLoader, BytecodeInstructionPool> instanceMap = new LinkedHashMap<>();
+    private static final Map<ClassLoader, BytecodeInstructionPool> instanceMap = new LinkedHashMap<>();
 
 	private final ClassLoader classLoader;
 
@@ -72,21 +65,18 @@ public class BytecodeInstructionPool {
 
 	/**
 	 * Called by each CFGGenerator for it's corresponding method.
-	 * 
+     * <p>
 	 * The MethodNode contains all instructions within a method. A call to
 	 * registerMethodNode() fills the instructionMap of the
 	 * BytecodeInstructionPool with the instructions in that method and returns
 	 * a List containing the BytecodeInstructions within that method.
-	 * 
+     * <p>
 	 * While registering all instructions the lineNumber of each
 	 * BytecodeInstruction is set.
 	 * 
-	 * @param node
-	 *            a {@link org.objectweb.asm.tree.MethodNode} object.
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param node       a {@link org.objectweb.asm.tree.MethodNode} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 * @return a {@link java.util.List} object.
 	 */
 	public List<BytecodeInstruction> registerMethodNode(MethodNode node,
@@ -241,8 +231,7 @@ public class BytecodeInstructionPool {
 	 * registerInstruction
 	 * </p>
 	 * 
-	 * @param instruction
-	 *            a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
+     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 */
 	public void registerInstruction(BytecodeInstruction instruction) {
 		String className = instruction.getClassName();
@@ -286,14 +275,10 @@ public class BytecodeInstructionPool {
 	 * getInstruction
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
-	 * @param instructionId
-	 *            a int.
-	 * @param asmNode
-	 *            a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
+     * @param className     a {@link java.lang.String} object.
+     * @param methodName    a {@link java.lang.String} object.
+     * @param instructionId a int.
+     * @param asmNode       a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
 	 * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 */
 	public BytecodeInstruction getInstruction(String className, String methodName,
@@ -301,8 +286,7 @@ public class BytecodeInstructionPool {
 
 		BytecodeInstruction r = getInstruction(className, methodName, instructionId);
 
-		if (r != null)
-			assert (r.sanityCheckAbstractInsnNode(asmNode));
+        assert r == null || (r.sanityCheckAbstractInsnNode(asmNode));
 
 		return r;
 	}
@@ -312,12 +296,9 @@ public class BytecodeInstructionPool {
 	 * getInstruction
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
-	 * @param instructionId
-	 *            a int.
+     * @param className     a {@link java.lang.String} object.
+     * @param methodName    a {@link java.lang.String} object.
+     * @param instructionId a int.
 	 * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 */
 	public BytecodeInstruction getInstruction(String className, String methodName,
@@ -352,12 +333,9 @@ public class BytecodeInstructionPool {
 	 * getInstruction
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
-	 * @param node
-	 *            a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
+     * @param node       a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
 	 * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 */
 	public BytecodeInstruction getInstruction(String className, String methodName,
@@ -402,8 +380,7 @@ public class BytecodeInstructionPool {
 	 * knownMethods
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 * @return a {@link java.util.Set} object.
 	 */
 	public Set<String> knownMethods(String className) {
@@ -427,10 +404,8 @@ public class BytecodeInstructionPool {
 	 * getInstructionsIn
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 * @return a {@link java.util.List} object.
 	 */
 	public List<BytecodeInstruction> getInstructionsIn(String className, String methodName) {
@@ -473,10 +448,8 @@ public class BytecodeInstructionPool {
 	 * logInstructionsIn
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public void logInstructionsIn(String className, String methodName) {
 
@@ -498,10 +471,8 @@ public class BytecodeInstructionPool {
 	 * createFakeInstruction
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 */
 	public BytecodeInstruction createFakeInstruction(String className, String methodName) {
@@ -538,8 +509,7 @@ public class BytecodeInstructionPool {
 	 * clear
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
+     * @param className a {@link java.lang.String} object.
 	 */
 	public void clear(String className) {
 		instructionMap.remove(className);
@@ -556,10 +526,8 @@ public class BytecodeInstructionPool {
 	 * clear
 	 * </p>
 	 * 
-	 * @param className
-	 *            a {@link java.lang.String} object.
-	 * @param methodName
-	 *            a {@link java.lang.String} object.
+     * @param className  a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
 	 */
 	public void clear(String className, String methodName) {
 		if (instructionMap.containsKey(className))
@@ -577,8 +545,7 @@ public class BytecodeInstructionPool {
 	 * forgetInstruction
 	 * </p>
 	 * 
-	 * @param ins
-	 *            a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
+     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
 	 * @return a boolean.
 	 */
 	public boolean forgetInstruction(BytecodeInstruction ins) {

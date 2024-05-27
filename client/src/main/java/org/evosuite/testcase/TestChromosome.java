@@ -29,8 +29,8 @@ import org.evosuite.ga.operators.mutation.MutationHistory;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.BranchCondition;
-import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.symbolic.ConcolicMutation;
+import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
@@ -60,7 +60,6 @@ import static java.util.stream.Collectors.toCollection;
  * Chromosome representation of test cases
  *
  * @author Gordon Fraser
- *
  */
 public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestChromosome>  {
 
@@ -69,15 +68,21 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 	private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
 
 
-	/** To keep track of what has changed since last fitness evaluation */
+    /**
+     * To keep track of what has changed since last fitness evaluation
+     */
 	protected MutationHistory<TestMutationHistoryEntry> mutationHistory = new MutationHistory<>();
 
-	/** Secondary objectives used during ranking */
+    /**
+     * Secondary objectives used during ranking
+     */
 	private static final List<SecondaryObjective<TestChromosome>> secondaryObjectives =
 			new ArrayList<>();
 
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
 	    if (lastExecutionResult == null)
@@ -86,7 +91,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 		this.lastExecutionResult = lastExecutionResult;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void setChanged(boolean changed) {
 		super.setChanged(changed);
@@ -102,7 +109,7 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 
 	/**
 	 * {@inheritDoc}
-	 *
+     * <p>
 	 * Create a deep copy of the chromosome
 	 */
 	@Override
@@ -133,7 +140,10 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 	/* (non-Javadoc)
 	 * @see org.evosuite.testcase.ExecutableChromosome#copyCachedResults(org.evosuite.testcase.ExecutableChromosome)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void copyCachedResults(TestChromosome other) {
 		if (test == null)
@@ -156,7 +166,7 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 
 	/**
 	 * {@inheritDoc}
-	 *
+     * <p>
 	 * Single point cross over
 	 */
 	@Override
@@ -182,10 +192,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 	}
 
 
-
 	/**
 	 * {@inheritDoc}
-	 *
+     * <p>
 	 * Two chromosomes are equal if their tests are equal
 	 */
 	@Override
@@ -202,7 +211,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 		} else return test.equals(other.test);
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public int hashCode() {
 		return test.hashCode();
@@ -267,8 +278,12 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 	/* (non-Javadoc)
 	 * @see org.evosuite.ga.Chromosome#localSearch()
 	 */
-	/** {@inheritDoc}
-	 * @param objective*/
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param objective
+     */
 	@Override
 	public boolean localSearch(LocalSearchObjective<TestChromosome> objective) {
 		TestCaseLocalSearch<TestChromosome> localSearch =
@@ -278,7 +293,7 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 
 	/**
 	 * {@inheritDoc}
-	 *
+     * <p>
 	 * Each statement is mutated with probability 1/l
 	 */
 	@Override
@@ -361,7 +376,7 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 				fms.addMissingInputs(refs);
 			} catch (Exception e){
 				//shouldn't really happen because, in the worst case, we could create mocks for missing parameters
-				String msg = "Functional mock problem: "+e.toString();
+                String msg = "Functional mock problem: " + e;
 				AtMostOnceLogger.warn(logger, msg);
 				fms.fillWithNullRefs();
 				return changed;
@@ -590,7 +605,7 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 
 	/**
 	 * {@inheritDoc}
-	 *
+     * <p>
 	 * The size of a chromosome is the length of its test case
 	 */
 	@Override
@@ -598,7 +613,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 		return test.size();
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public int compareTo(TestChromosome o) {
 		int result = super.compareTo(o);
@@ -611,7 +628,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 		return test.toCode().compareTo((o.test.toCode()));
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public String toString() {
 		return test.toCode();
@@ -629,7 +648,9 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 	}
 
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public ExecutionResult executeForFitnessFunction(
 	        TestSuiteFitnessFunction testSuiteFitnessFunction) {
@@ -651,33 +672,15 @@ public /*GIO: final*/ class TestChromosome extends AbstractTestChromosome<TestCh
 		}
 		return c;
 	}
+
 	/**
 	 * Add an additional secondary objective to the end of the list of
 	 * objectives
 	 *
-	 * @param objective
-	 *            a {@link org.evosuite.ga.SecondaryObjective} object.
+     * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
 	 */
 	public static void addSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
 		secondaryObjectives.add(objective);
-	}
-
-	public static void ShuffleSecondaryObjective() {
-		Collections.shuffle(secondaryObjectives);
-	}
-
-	public static void reverseSecondaryObjective() {
-		Collections.reverse(secondaryObjectives);
-	}
-
-	/**
-	 * Remove secondary objective from list, if it is there
-	 *
-	 * @param objective
-	 *            a {@link org.evosuite.ga.SecondaryObjective} object.
-	 */
-	public static void removeSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
-		secondaryObjectives.remove(objective);
 	}
 
 	/**

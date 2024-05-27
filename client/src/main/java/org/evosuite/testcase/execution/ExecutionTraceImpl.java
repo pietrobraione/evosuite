@@ -19,22 +19,10 @@
  */
 package org.evosuite.testcase.execution;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
 import org.evosuite.Properties;
-import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.PathConditionTarget;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUse;
@@ -49,6 +37,9 @@ import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Keep a trace of the program execution
@@ -102,14 +93,18 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	private static final Logger logger = LoggerFactory.getLogger(ExecutionTrace.class);
 
-	/** Constant <code>traceCalls=false</code> */
+    /**
+     * Constant <code>traceCalls=false</code>
+     */
 	public static boolean traceCalls = false;
 
 	public static boolean disableContext = false;
 	
 	public static boolean seepepTracingEnabled = false; /*SEEPEP: DAG coverage*/
 
-	/** Constant <code>traceCoverage=true</code> */
+    /**
+     * Constant <code>traceCoverage=true</code>
+     */
 	public static boolean traceCoverage = true;
 
 	private static void checkSaneCall(MethodCall call) {
@@ -290,7 +285,25 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<>());
 
-	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<Integer, Double>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, Double> pathConditionDistances = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, ArrayList<Object>> pathConditionFeedbacks = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer /*branchId*/, Set<Integer> /*related pcIds*/> pathConditionBranchRelations = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	public Map<Integer, Double> pathConditionRelatedBranchDistance = Collections.synchronizedMap(new HashMap<>());/*SUSHI: Path condition fitness*/
+	private class methodInfo {
+		String className;
+		String methodNameAndDescription;
+		public methodInfo(String className, String methodNameAndDescription) {
+			this.className = className;
+			this.methodNameAndDescription = methodNameAndDescription;
+		}
+		public String getClassName() {
+			return className;
+		}
+		public String getMethodNameAndDescription() {
+			return methodNameAndDescription;
+		}		
+	}
+	public List<methodInfo> methodsWithEvaluatedPathConditions = Collections.synchronizedList(new ArrayList<>());
 
 	public static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
@@ -307,6 +320,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public static Map<RuntimeVariable, Set<Integer>> bytecodeInstructionCoveredFalse = Collections
 			.synchronizedMap(new HashMap<>());
 
+	private final boolean trackBranchToPathConditionRelations;
 	/**
 	 * <p>
 	 * Constructor for ExecutionTraceImpl.
@@ -314,6 +328,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 */
 	public ExecutionTraceImpl() {
 		stack.add(new MethodCall("", "", 0, 0, 0)); // Main method
+		trackBranchToPathConditionRelations = 
+				ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH_WITH_AIDING_PATH_CONDITIONS);
 	}
 
 	/**
@@ -336,7 +352,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Add branch to currently active method call
 	 */
 	@Override
@@ -509,19 +525,33 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		if (Properties.BRANCH_EVAL) {
 			branchesTrace.add(new BranchEval(branch, true_distance, false_distance));
 		}
+		
+		if (trackBranchToPathConditionRelations && pathConditionBranchRelations.containsKey(branch)) {
+			/* Here we shall track the currendDistance as the distance from the uncovered side of the branch.
+			 * If (conversely) the branch is covered, we let the fitness function bes responsible of computing the fitness as 0. */
+			double currentDistance = Math.max(true_distance, false_distance);
+			for (int pathConditionId: pathConditionBranchRelations.get(branch)) {
+				synchronized (pathConditionRelatedBranchDistance) {
+					Double latestDistance = pathConditionRelatedBranchDistance.get(pathConditionId);
+					if (latestDistance == null) {
+						latestDistance = Double.MAX_VALUE;
+					}
+					if (currentDistance < latestDistance) {
+						pathConditionRelatedBranchDistance.put(pathConditionId, currentDistance);
+					}
+				}
+			}
+		}
 	}
 
 	/**
 	 * Track reach/coverage of branch based on it's underlying opcode during
 	 * execution
 	 * 
-	 * @param trackedMap
-	 *            relevant map for the variable type (one of the three static
+     * @param trackedMap relevant map for the variable type (one of the three static
 	 *            maps)
-	 * @param v
-	 *            branch type (based on opcode)
-	 * @param branch_id
-	 *            of the tracked branch
+     * @param v          branch type (based on opcode)
+     * @param branch_id  of the tracked branch
 	 */
 	private void trackBranchOpcode(Map<RuntimeVariable, Set<Integer>> trackedMap, RuntimeVariable v, int branch_id) {
 		if (!trackedMap.containsKey(v))
@@ -560,7 +590,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Reset to 0
 	 */
 	@Override
@@ -604,7 +634,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Create a deep copy
 	 */
 	@Override
@@ -660,9 +690,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Adds Definition-Use-Coverage trace information for the given definition.
-	 * 
+     * <p>
 	 * Registers the given caller-Object Traces the occurrence of the given
 	 * definition in the passedDefs-field Sets the given definition as the
 	 * currently active one for the definitionVariable in the
@@ -715,7 +745,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Add a new method call to stack
 	 */
 	@Override
@@ -806,7 +836,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -841,18 +873,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 			return false;
 		}
 		if (stack == null) {
-			if (other.stack != null) {
-				return false;
-			}
-		} else if (!stack.equals(other.stack)) {
-			return false;
-		}
-		return true;
+            return other.stack == null;
+        } else return stack.equals(other.stack);
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Pop last method call from stack
 	 */
 	@Override
@@ -892,14 +919,16 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 						// timeout
 						stack.pop();
 					}
-				} else {
+				} else if (!stack.isEmpty()) {
 					finishedCalls.add(stack.pop());
 				}
 			//}
 		}
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public synchronized void finishCalls() {
 		logger.debug("At the end, we have " + stack.size() + " calls left on stack");
@@ -908,7 +937,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public List<BranchEval> getBranchesTrace() {
 		return branchesTrace;
@@ -919,7 +950,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoverageData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Map<String, Map<Integer, Integer>>> getCoverageData() {
 		return coverage;
@@ -930,7 +964,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredFalseBranches()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredFalseBranches() {
 		Set<Integer> covered = new HashSet<>();
@@ -947,7 +984,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredLines()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredLines(String className) {
 		Set<Integer> coveredLines = new HashSet<>();
@@ -984,7 +1024,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredMethods()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<String> getCoveredMethods() {
 		return coveredMethods.keySet();
@@ -1000,7 +1043,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredPredicates()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredPredicates() {
 		return coveredPredicates.keySet();
@@ -1011,7 +1057,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredTrueBranches()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getCoveredTrueBranches() {
 		Set<Integer> covered = new HashSet<>();
@@ -1048,7 +1097,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getDefinitionData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getDefinitionData() {
 		return passedDefinitions;
@@ -1058,7 +1110,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		return passedDefinitionObject;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Throwable getExplicitException() {
 		return explicitException;
@@ -1069,7 +1123,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getFalseDistance(int branchId) {
 		return falseDistances.get(branchId);
@@ -1080,7 +1137,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getFalseDistances() {
 		return falseDistances;
@@ -1091,7 +1151,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMethodCalls()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public List<MethodCall> getMethodCalls() {
 		return finishedCalls;
@@ -1102,7 +1165,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMethodExecutionCount()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Integer> getMethodExecutionCount() {
 		return coveredMethods;
@@ -1113,7 +1179,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMutationDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getMutationDistance(int mutationId) {
 		return mutantDistances.get(mutationId);
@@ -1124,7 +1193,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getMutationDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getMutationDistances() {
 		return mutantDistances;
@@ -1136,7 +1208,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * @see org.evosuite.testcase.ExecutionTrace#getPassedDefinitions(java.lang.
 	 * String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, HashMap<Integer, Integer>> getPassedDefinitions(String variableName) {
 		return passedDefinitions.get(variableName);
@@ -1147,7 +1222,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getPassedUses(java.lang.String)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, HashMap<Integer, Integer>> getPassedUses(String variableName) {
 		return passedUses.get(variableName);
@@ -1158,7 +1236,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getPredicateExecutionCount()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Integer> getPredicateExecutionCount() {
 		return coveredPredicates;
@@ -1180,7 +1261,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getReturnData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, Map<String, Map<Integer, Integer>>> getReturnData() {
 		return returnData;
@@ -1191,7 +1275,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTouchedMutants()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Set<Integer> getTouchedMutants() {
 		return touchedMutants;
@@ -1210,11 +1297,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Returns a copy of this trace where all MethodCall-information traced from
 	 * objects other then the one identified by the given objectID is removed
 	 * from the finished_calls-field
-	 * 
+     * <p>
 	 * WARNING: this will not affect this.true_distances and other fields of
 	 * ExecutionTrace this only affects the finished_calls field (which should
 	 * suffice for BranchCoverageFitness-calculation)
@@ -1235,27 +1322,27 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Returns a copy of this trace where all MethodCall-information associated
 	 * with duCounters outside the range of the given duCounter-Start and -End
 	 * is removed from the finished_calls-traces
-	 * 
+     * <p>
 	 * finished_calls without any point in the trace at which the given
 	 * duCounter range is hit are removed completely
-	 * 
+     * <p>
 	 * Also traces for methods other then the one that holds the given targetDU
 	 * are removed as well as trace information that would pass the branch of
 	 * the given targetDU If wantToCoverTargetDU is false instead those
 	 * targetDUBranch information is removed that would pass the alternative
 	 * branch of targetDU
-	 * 
+     * <p>
 	 * The latter is because this method only gets called when the given
 	 * targetDU was not active in the given duCounter-range if and only if
 	 * wantToCoverTargetDU is set, and since useFitness calculation is on branch
 	 * level and the branch of the targetDU can be passed before the targetDU is
 	 * passed this can lead to a flawed branchFitness.
-	 * 
-	 * 
+     * <p>
+     * <p>
 	 * WARNING: this will not affect this.true_distances and other fields of
 	 * ExecutionTrace this only affects the finished_calls field (which should
 	 * suffice for BranchCoverageFitness-calculation)
@@ -1337,7 +1424,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistance(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public double getTrueDistance(int branchId) {
 		return trueDistances.get(branchId);
@@ -1348,7 +1438,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistances()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getTrueDistances() {
 		return trueDistances;
@@ -1359,7 +1452,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#getUseData()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getUseData() {
 		return passedUses;
@@ -1374,13 +1470,18 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#wasCoveredFalse(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean hasFalseDistance(int predicateId) {
 		return falseDistances.containsKey(predicateId);
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -1397,7 +1498,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#wasCoveredTrue(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean hasTrueDistance(int predicateId) {
 		return trueDistances.containsKey(predicateId);
@@ -1408,7 +1512,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#lazyClone()
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public ExecutionTrace lazyClone() {
 		// TODO Auto-generated method stub
@@ -1426,7 +1533,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Add line to currently active method call
 	 */
 	@Override
@@ -1455,11 +1562,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 		if (traceCalls) {
 			if (stack.isEmpty()) {
-				logger.info("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
-																										// switch
-																										// back
-				// logger.debug to
-				// logger.warn
+				logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); 
 			} else {
 				boolean empty = false;
 				if (!stack.peek().methodName.equals(methodName)) {
@@ -1481,9 +1584,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 						finishedCalls.add(stack.pop());
 					}
 					if (stack.isEmpty()) {
-						logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
-																												// switch
-																												// back
+						logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); 
 						empty = true;
 					}
 				}
@@ -1509,7 +1610,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void mutationPassed(int mutationId, double distance) {
 
@@ -1523,7 +1626,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * Returns the objecectId for the given object.
-	 * 
+     * <p>
 	 * The ExecutionTracer keeps track of all objects it gets called from in
 	 * order to distinguish them later in the fitness calculation for the
 	 * defuse-Coverage-Criterion.
@@ -1543,7 +1646,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		return objectCounter;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void returnValue(String className, String methodName, int value) {
 		if (!returnData.containsKey(className)) {
@@ -1564,7 +1669,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public void setExplicitException(Throwable explicitException) {
 		this.explicitException = explicitException;
@@ -1572,9 +1679,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Returns a String containing the information in passedDefs and passedUses
-	 * 
+     * <p>
 	 * Used for Definition-Use-Coverage-debugging
 	 */
 	@Override
@@ -1595,10 +1702,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Returns a String containing the information in passedDefs and passedUses
 	 * filtered for a specific variable
-	 * 
+     * <p>
 	 * Used for Definition-Use-Coverage-debugging
 	 */
 	@Override
@@ -1617,10 +1724,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Returns a String containing the information in passedDefs and passedUses
 	 * for the given variable
-	 * 
+     * <p>
 	 * Used for Definition-Use-Coverage-debugging
 	 */
 	@Override
@@ -1663,7 +1770,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		return traceString;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public String toString() {
 		StringBuffer ret = new StringBuffer();
@@ -1712,9 +1821,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	/**
 	 * {@inheritDoc}
-	 * 
+     * <p>
 	 * Adds Definition-Use-Coverage trace information for the given use.
-	 * 
+     * <p>
 	 * Registers the given caller-Object Traces the occurrence of the given use
 	 * in the passedUses-field
 	 */
@@ -1761,25 +1870,34 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	 * 
 	 * @see org.evosuite.testcase.ExecutionTrace#wasMutationTouched(int)
 	 */
-	/** {@inheritDoc} */
+
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public boolean wasMutationTouched(int mutationId) {
 		return touchedMutants.contains(mutationId);
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getFalseDistancesSum() {
 		return falseDistancesSum;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<Integer, Double> getTrueDistancesSum() {
 		return trueDistancesSum;
 	}
 
-	/** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses() {
 		return passedUses;
@@ -1915,10 +2033,146 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public List<String> getInitializedClasses() {
 		return this.initializedClasses;
 	}
+	
+	public static class PathConditionEvaluationInfo { /*SUSHI: Path condition fitness*/
+		final String className;
+		final String methodName;
+		final Map<Integer, Double> distances;
+		public PathConditionEvaluationInfo(String className, String methodName) {
+			this.className = className;
+			this.methodName = methodName;
+			this.distances = Collections.synchronizedMap(new HashMap<Integer, Double>());
+		}
+		public String toString() { //for debugging purpose
+			return className + "." + methodName + "::" + distances;
+		}
+	}
+
+	private boolean isEvaluatingPathConditions = false;
+	private List<PathConditionEvaluationInfo> pathConditionEvaluationStack = Collections.synchronizedList(new ArrayList<PathConditionEvaluationInfo>());
+	private static final boolean debugInfoEnabled = false;
+	private List<String> pathConditionEvaluationStack_debugInfo = Collections.synchronizedList(new ArrayList<String>());
+	
+	@Override
+	public void evaluatingPathConditionsBegin(String className, String methodName) {
+		isEvaluatingPathConditions = true;
+		if (Properties.POST_CONDITION_CHECK) {
+			synchronized (pathConditionEvaluationStack) {
+				pathConditionEvaluationStack.add(0, new PathConditionEvaluationInfo(className, methodName));
+				if (debugInfoEnabled) {
+					pathConditionEvaluationStack_debugInfo.add(0, "pre-condition: " + className + "." + methodName);
+				}
+			}
+			//LoggingUtils.getEvoLogger().info("-- ENTERING PCs for:{} :: {} :: {}", className, methodName);
+		}
+	}
+	
+	@Override
+	public boolean isEvaluatingPathConditions() {
+		return isEvaluatingPathConditions;
+	}
+	
 
 	@Override
-	public void passedPathCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info("--computed d: " + distance + ", pc = " + pathConditionID);
+	public String[] getMethodInfoForLatestPathCondition() {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+					+ "as we are asking for the method of the latest evalauted path condition, while in fact "
+					+ "the stack of methods with evalauted preconditons is empty");
+		}
+		String retVal[] = new String[2];
+		retVal[0] = pathConditionEvaluationStack.get(0).className;
+		retVal[1] = pathConditionEvaluationStack.get(0).methodName;
+		return retVal;
+	}
+
+	@Override
+	public List<PathConditionEvaluationInfo> getPathConditionEvaluationStack() {
+		return new ArrayList<>(pathConditionEvaluationStack);
+	}
+
+	@Override
+	public void passedPathCondition(int pathConditionId, int relatedBranchId, double distance, ArrayList<Object> feedback) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info("--path condition distance is d: " + distance + ", pc = " + pathConditionID);
+		if (Properties.POST_CONDITION_CHECK) {
+			pathConditionEvaluationStack.get(0).distances.put(pathConditionId, distance);
+			return;
+		}
+		if (trackBranchToPathConditionRelations) {
+			synchronized (pathConditionBranchRelations) {
+				if (!pathConditionBranchRelations.containsKey(relatedBranchId)) {
+					pathConditionBranchRelations.put(relatedBranchId, new HashSet<>());
+				}
+			}
+			pathConditionBranchRelations.get(relatedBranchId).add(pathConditionId); //set the relation, if not done yet
+		}
+		synchronized (pathConditionDistances) {
+			Double currentDistance = pathConditionDistances.get(pathConditionId);
+			if (currentDistance == null
+					|| (Properties.PATH_CONDITION_TARGET == PathConditionTarget.BEST && distance <= distance)
+					|| Properties.PATH_CONDITION_TARGET == PathConditionTarget.LAST_ONLY
+					/* else PathConditionTarget.FIRST_ONLY, we keep the first measured value */
+					) {
+				pathConditionDistances.put(pathConditionId, distance);
+				if (feedback != null) {
+					pathConditionFeedbacks.put(pathConditionId, feedback);
+				}
+				if (trackBranchToPathConditionRelations) {
+					pathConditionRelatedBranchDistance.remove(pathConditionId); //as we are now measuring for a new path-condition, the corresponding branch is to be met yet 
+				}
+			}
+		}
+	}
+
+	@Override
+	public void evaluatingPathConditionsDone(String className, String methodName) {
+		isEvaluatingPathConditions = false;
+		//LoggingUtils.getEvoLogger().info("DONE WITH: ENTERING PCs for:{} :: {} :: {}", className, methodName);
+	}
+	
+	@Override
+	public void evaluatingPostConditionsBegin(String className, String methodName) {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			throw new EvosuiteError("Unexpected sequence of pre- and post-condition, "
+					+ "as we are being asked for evalauting a post-condition for method "
+					+ className + "." + methodName
+					+ ", but unfortunately the stack of methods with evaluated pre-conditons is empty" + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}
+		if (pathConditionEvaluationStack.get(0).className.equals(className) && 
+				pathConditionEvaluationStack.get(0).methodName.equals(methodName)) {
+			isEvaluatingPathConditions = true;
+			//LoggingUtils.getEvoLogger().info("-- POST for:{} :: {} :: {}", className, methodName);
+		} else {
+			throw new EvosuiteError("Unexpected sequence when evaluating post-condition, "
+					+ "as the stored precodition is expected for method " + className + "." + methodName
+					+ " while in fact it is for method " + pathConditionEvaluationStack.get(0).className + "." 
+					+ pathConditionEvaluationStack.get(0).methodName + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}		
+	}
+
+	@Override
+	public void passedPostCondition(int pathConditionID, double distance) { /*SUSHI: Path condition fitness*/
+		//LoggingUtils.getEvoLogger().info("--post condition distance is d: " + distance + ", pc = " + pathConditionID);
+		Double tempDistance = pathConditionEvaluationStack.get(0).distances.get(pathConditionID);
+		if (tempDistance == null) {
+			throw new EvosuiteError("Unexpected sequence when evaluating post-condition, "
+					+ "since there is no temporarily stored distance for the precodition that "
+					+ "relates to path condition with id = " + pathConditionID);
+		} else if (tempDistance < 0) {
+			throw new EvosuiteError("Unexpected negative distance (" + tempDistance + ") "
+					+ "when evaluating the post-condition that "
+					+ "relates to path condition with id = " + pathConditionID);
+			
+		} else if (tempDistance > 0) {
+			distance = tempDistance + 1d; //the precondition did not converge yet, thus we add the maximum 1 as post-condition distance
+		} else { //tempDistance == 0
+			distance = distance / (1 + distance); //the precondition converged already, thus the distance corresponds to the post-condition distance normalized in interval (0, 1)
+		}
+		/*if (pathConditionID < 2)
+			LoggingUtils.getEvoLogger().info("    ** Evaluator post on:{} = {}", pathConditionID, distance);*/
+
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
 			if (currentDistance == null) {
@@ -1933,11 +2187,50 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 	}
 
+	private String seenSequenceOfPreAndPostConditions(String className, String methodName) {
+		String s = "";
+		for (String info: pathConditionEvaluationStack_debugInfo) {
+			s += info + "\n";
+		} 
+		s += "post-condition: " + className + "." + methodName + "\n";
+		return s;
+	}
+	
+	@Override
+	public void evaluatingPostConditionsDone(String className, String methodName) {
+		if (pathConditionEvaluationStack.isEmpty()) {
+			
+			throw new EvosuiteError("Unexpected sequence when evaluating pre- and post-condition, "
+					+ "as we are asking for the evalauting a post condition, while in fact "
+					+ "the stack of methods with evalauted preconditons is empty" + 
+					(debugInfoEnabled ? seenSequenceOfPreAndPostConditions(className, methodName) : ""));
+		}
+		isEvaluatingPathConditions = false;
+		synchronized (pathConditionEvaluationStack) {
+			pathConditionEvaluationStack.remove(0);
+			if (debugInfoEnabled) {
+				pathConditionEvaluationStack_debugInfo.remove(0);
+			}
+		}
+		//LoggingUtils.getEvoLogger().info("DONE WITH: POST for:{} :: {} :: {}", className, methodName);
+	}
+
 	@Override
 	public Map<Integer, Double> getPathConditionDistances() { /*SUSHI: Path condition fitness*/
 		return pathConditionDistances;
 	}
 	
+	@Override
+	public Map<Integer, ArrayList<Object>> getPathConditionFeedbacks() { /*SUSHI: Path condition fitness*/
+		return pathConditionFeedbacks;
+	}
+	
+	@Override
+	public Map<Integer, Double> getPathConditionRelatedBranchDistance() { /*SUSHI: Path condition fitness*/
+		return pathConditionRelatedBranchDistance;
+	}
+
+
 	@Override
 	public void passedSeepepItem(SeepepTraceItem seepepTraceItem) {  /*SEEPEP: DAG coverage*/
 		if (seepepTracingEnabled) {
@@ -1956,4 +2249,5 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public List<SeepepTraceItem> getTraversedSeepepItems() { /*SEEPEP: DAG coverage*/
 		return traversedSeepepItems;
 	}
+
 }

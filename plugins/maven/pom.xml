@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.evosuite.plugins</groupId>
         <artifactId>evosuite-plugins</artifactId>
-        <version>1.1.1-SNAPSHOT</version>
+        <version>1.2.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>evosuite-maven-plugin</artifactId>
@@ -54,17 +54,17 @@
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-core</artifactId>
-            <version>3.6.3</version>
+            <version>3.8.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
-            <version>3.6.3</version>
+            <version>3.8.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
             <artifactId>maven-plugin-annotations</artifactId>
-            <version>3.6.0</version>
+            <version>3.6.1</version>
             <!-- annotations are not needed for plugin execution so you can remove
                 this dependency for execution with using provided scope -->
             <scope>provided</scope>
@@ -81,18 +81,6 @@
             <artifactId>aether-util</artifactId>
             <version>1.1.0</version>
         </dependency>
-        <dependency>
-		    <groupId>jbse</groupId>
-   			<artifactId>jbse</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../../sushi-runtime/jbse/build/libs/jbse-0.10.0-SNAPSHOT.jar</systemPath>
-		</dependency>
-        <dependency>
-		    <groupId>sushi-lib</groupId>
-   			<artifactId>sushi-lib</artifactId>
-   			<scope>system</scope>
-   			<systemPath>${project.basedir}/../../sushi-runtime/sushi-lib/build/libs/sushi-lib-0.2.0-SNAPSHOT.jar</systemPath>
-		</dependency>
     </dependencies>
 
     <build>

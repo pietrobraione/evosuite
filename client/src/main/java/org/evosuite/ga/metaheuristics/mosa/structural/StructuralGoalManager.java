@@ -19,15 +19,15 @@
  */
 package org.evosuite.ga.metaheuristics.mosa.structural;
 
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * A class for managing coverage targets based on structural dependencies. More specifically,
@@ -56,7 +56,9 @@ public abstract class StructuralGoalManager implements Serializable {
 	 */
 	protected Set<TestFitnessFunction> currentGoals;
 
-	/** Archive of tests and corresponding covered targets*/
+    /**
+     * Archive of tests and corresponding covered targets
+     */
 	protected Archive archive;
 
 	/**
@@ -75,6 +77,7 @@ public abstract class StructuralGoalManager implements Serializable {
 
 	/**
 	 * Update the set of covered goals and the set of current goals (actual objectives)
+     *
 	 * @param c a TestChromosome
 	 * @return covered goals along with the corresponding test case
 	 */

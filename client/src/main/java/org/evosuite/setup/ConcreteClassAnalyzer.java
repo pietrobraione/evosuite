@@ -30,7 +30,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-import static java.util.stream.Collectors.*;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toSet;
 import static org.evosuite.setup.TestClusterUtils.getPackageDistance;
 
 /**

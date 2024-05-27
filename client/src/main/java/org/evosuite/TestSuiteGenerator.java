@@ -49,16 +49,8 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.StatisticsSender;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.symbolic.dse.DSEStatistics;
-import org.evosuite.testcase.ConstantInliner;
-import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testcase.execution.EvosuiteError;
-import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testcase.execution.ExecutionTracer;
-import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.*;
+import org.evosuite.testcase.execution.*;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -80,11 +72,7 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation
@@ -130,6 +118,7 @@ public class TestSuiteGenerator {
 
 		if (Properties.PATH_CONDITION_EVALUATORS_DIR != null) {  /*SUSHI: Path condition fitness*/
 
+			new File(Properties.PATH_CONDITION_EVALUATORS_DIR).mkdirs();
 			URLClassLoader systemClassLoader = (URLClassLoader) ClassLoader.getSystemClassLoader(); 
 			Class<URLClassLoader> classLoaderClass = URLClassLoader.class; 
 
@@ -326,6 +315,7 @@ public class TestSuiteGenerator {
 	 * ClassLoader classLoader = currentThread.getClassLoader();
 	 * classLoader.load(className);
 	 * </code>
+     *
 	 * @param className the class to be loaded
 	 * @return
 	 * @throws EvosuiteError if a reflection error happens while creating the test case
@@ -360,7 +350,7 @@ public class TestSuiteGenerator {
 			Method forNameMethod = Class.class.getMethod("forName",String.class, boolean.class, ClassLoader.class);
 			Statement forNameStmt = new MethodStatement(test,
 					new GenericMethod(forNameMethod, forNameMethod.getDeclaringClass()), null,
-					Arrays.<VariableReference>asList(string0, boolean0, contextClassLoaderVar));
+                    Arrays.asList(string0, boolean0, contextClassLoaderVar));
 			test.addStatement(forNameStmt);
 
 			return test;
@@ -538,8 +528,7 @@ public class TestSuiteGenerator {
                     + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
 			LoggingUtils.getEvoLogger().info("* " +ClientProcess.getPrettyPrintIdentifier()
                     + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
-		}
-        else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
+        } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
                 Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             if(ClassPathHacker.isJunitCheckAvailable())
                 compileAndCheckTests(testSuite);
@@ -687,12 +676,11 @@ public class TestSuiteGenerator {
 	 * The name of the test will be equal to the SUT followed by the given
 	 * suffix
 	 * 
-	 * @param testSuite
-	 *            a test suite.
+     * @param testSuite a test suite.
 	 */
 	public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite, String suffix) {
 		List<TestCase> tests = testSuite.getTests();
-		if (Properties.JUNIT_TESTS) {
+		if (Properties.JUNIT_TESTS && !Properties.EMIT_TESTS_INCREMENTALLY) {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
 
 			TestSuiteWriter suiteWriter = new TestSuiteWriter();
@@ -709,9 +697,7 @@ public class TestSuiteGenerator {
 	}
 
 	/**
-	 * 
-	 * @param testSuite
-	 *            the test cases which should be written to file
+     * @param testSuite the test cases which should be written to file
 	 */
 	public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite) {
 		return writeJUnitTestsAndCreateResult(testSuite, Properties.JUNIT_SUFFIX);
@@ -772,7 +758,7 @@ public class TestSuiteGenerator {
 
 	/**
 	 * Prints out all information regarding this GAs stopping conditions
-	 * 
+     * <p>
 	 * So far only used for testing purposes in TestSuiteGenerator
 	 */
 	public void printBudget(GeneticAlgorithm<?> algorithm) {
@@ -818,8 +804,7 @@ public class TestSuiteGenerator {
 	 * main
 	 * </p>
 	 * 
-	 * @param args
-	 *            an array of {@link java.lang.String} objects.
+     * @param args an array of {@link java.lang.String} objects.
 	 */
 	public static void main(String[] args) {
 		TestSuiteGenerator generator = new TestSuiteGenerator();

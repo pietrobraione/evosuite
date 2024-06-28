@@ -822,7 +822,7 @@ public class ExecutionTracer {
 			}
 		}
 
-		if (!mustCheckPathConditionsForThisCall()) {
+		if (!mustCheckPathConditionsForThisCall(className, methodName)) {
 			return;
 		}
 
@@ -907,7 +907,7 @@ public class ExecutionTracer {
 		boolean exceptionInTestCase = (methodName == null);
 		
 		
-		if (!exceptionInTestCase && !mustCheckPathConditionsForThisCall()) {
+		if (!exceptionInTestCase && !mustCheckPathConditionsForThisCall(className, methodName)) {
 			return; // if this method call does not require checking, we assume that the nested call did not either 
 		}
 
@@ -968,7 +968,7 @@ public class ExecutionTracer {
 			return;
 		}
 
-		if (!enforcePathConditionCheckForThisCall && !mustCheckPathConditionsForThisCall()) {
+		if (!enforcePathConditionCheckForThisCall && !mustCheckPathConditionsForThisCall(className, methodName)) {
 			return;
 		}
 
@@ -1034,7 +1034,15 @@ public class ExecutionTracer {
 		return false; */
 	}
 
-	private static boolean mustCheckPathConditionsForThisCall() {
+	private static boolean mustCheckPathConditionsForThisCall(String className, String methodName) {
+		Map<String, List<PathConditionCoverageGoal>> classEvaluators = getExecutionTracer().pathConditions.get(className);
+		if (classEvaluators == null) 
+			return false; // no evaluator for this class
+
+		List<PathConditionCoverageGoal> methodEvaluators = classEvaluators.get(methodName);
+		if (methodEvaluators == null) 
+			return false; // no evaluator for this method
+		
 		if (Properties.CHECK_PATH_CONDITIONS_ONLY_FOR_DIRECT_CALLS) {
 			StackTraceElement[] strace = Thread.currentThread().getStackTrace();
 			/* The stack trace includes for sure: 0) getStackTrace, 1) this method,

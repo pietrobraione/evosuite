@@ -869,7 +869,8 @@ public class ExecutionTracer {
 				//LoggingUtils.getEvoLogger().info("    Evaluator test0 on:{} = {} (params = {}, goal = {})", goal.getPathConditionId(), d, Arrays.toString(params), goal);
 			}
 		} catch (Throwable e) {
-			throw new EvosuiteError("Unexpected exception within the instrumentation related to path-conditions: CHECK THIS: " + e);
+			throw new EvosuiteError("Unexpected exception within the instrumentation related to path-conditions: CHECK THIS: " + e
+					+ "\n--- Exception stack trace is: " + Arrays.toString(e.getStackTrace()));			
 		} finally {
 			tracer.trace.evaluatingPathConditionsDone(className, methodName);
 		}

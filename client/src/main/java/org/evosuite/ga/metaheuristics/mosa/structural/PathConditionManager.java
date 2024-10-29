@@ -145,8 +145,9 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 			emitTestCase(new ArrayList<TestFitnessFunction>(toEmit), tc);
 		}
 		
-		// If new targets were covered, try to prune the path conditions related to any newly covered branch
-		if (this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO != null 
+				&& this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
+			// If new targets were covered, try to prune the path conditions related to any newly covered branch
 			prunePathConditionsByCoveredBranches(this.getCoveredGoals());
 		}
 		

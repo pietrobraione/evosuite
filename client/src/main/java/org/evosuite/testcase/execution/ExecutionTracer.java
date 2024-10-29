@@ -882,12 +882,12 @@ public class ExecutionTracer {
 	}
 	
 	public static void passedExceptionPropagatedBackToTheTestCase(Throwable thrownException) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in TEST CASE: Stack trace: {}", thrownException.getClass(), Arrays.toString(thrownException.getStackTrace()));
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} ({}) received in TEST CASE: Stack trace: {}", thrownException, thrownException.getClass(), Arrays.toString(thrownException.getStackTrace()));
 		unwindMethodExitsUntraversedDueToThrownException(thrownException, null, null); //passing null.null as method unwinds all calls
 	}
 	
 	public static void passedExceptionHandler(Throwable thrownException, String className, String methodName) { /*SUSHI: Path condition fitness*/
-		//LoggingUtils.getEvoLogger().info(" **** Exception {} received in METHOD {}.{}: Stack trace: {}", thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
+		//LoggingUtils.getEvoLogger().info(" **** Exception {} ({}) received in METHOD {}.{}: Stack trace: {}", thrownException, thrownException.getClass(), className, methodName, Arrays.toString(thrownException.getStackTrace()));
 		unwindMethodExitsUntraversedDueToThrownException(thrownException, className, methodName); //passing null.null as method unwinds all calls
 	}
 	

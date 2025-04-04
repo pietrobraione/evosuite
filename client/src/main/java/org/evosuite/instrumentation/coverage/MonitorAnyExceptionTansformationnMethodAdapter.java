@@ -25,7 +25,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,17 +136,21 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
         Label afterCatch = newLabel();
         goTo(afterCatch);
         mark(catchLabel);
+        addInstrumentationForCallbackToEvosuite();
+        // reflect the exception.
+        throwException();
+        mark(afterCatch);
+    }
+
+    private void addInstrumentationForCallbackToEvosuite() {
         dup();
         this.visitLdcInsn(classNameWithDots);
         this.visitLdcInsn(methodName);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC,
                 PackageInfo.getNameWithSlash(ExecutionTracer.class),
                 "passedExceptionHandler", "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;)V", false);
-        // reflect the exception.
-        throwException();
-        mark(afterCatch);
     }
-
+    
     private boolean shallInstrumentExceptionHandler = false;
     
     @Override
@@ -169,17 +172,12 @@ public class MonitorAnyExceptionTansformationnMethodAdapter extends GeneratorAda
     
     @Override
     public void visitVarInsn(final int opcode, final int var) {
-        super.visitVarInsn(opcode, var);    	
         if (shallInstrumentExceptionHandler && opcode == Opcodes.ASTORE) {
             shallInstrumentExceptionHandler = false; 
-            // we notify the catched exception to Execution tracker
-            loadLocal(var, Type.getType(java.lang.Throwable.class));
-            this.visitLdcInsn(classNameWithDots);
-            this.visitLdcInsn(methodName);
-            mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(ExecutionTracer.class),
-                    "passedExceptionHandler", "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;)V", false);
+            // we notify the caught exception to Execution tracker
+            addInstrumentationForCallbackToEvosuite();
         }
+        super.visitVarInsn(opcode, var); //postponed because astore consumes the objref that we shall dup first  	
     }
     
     @Override

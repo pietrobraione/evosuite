@@ -34,6 +34,7 @@ import org.evosuite.coverage.seepep.SparkMethodSignatures;
 import org.evosuite.setup.CallContext;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2170,9 +2171,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		} else { //tempDistance == 0
 			distance = distance / (1 + distance); //the precondition converged already, thus the distance corresponds to the post-condition distance normalized in interval (0, 1)
 		}
-		/*if (pathConditionID < 2)
-			LoggingUtils.getEvoLogger().info("    ** Evaluator post on:{} = {}", pathConditionID, distance);*/
-
+		//LoggingUtils.getEvoLogger().info("    ** Evaluator post on:{} = {} --> {}", pathConditionID, tempDistance, distance);	
+		
 		synchronized (pathConditionDistances) {
 			Double currentDistance = pathConditionDistances.get(pathConditionID);
 			if (currentDistance == null) {

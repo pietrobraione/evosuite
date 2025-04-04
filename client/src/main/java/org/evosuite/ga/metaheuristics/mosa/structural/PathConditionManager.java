@@ -136,15 +136,18 @@ public class PathConditionManager extends MultiCriteriaManager implements Search
 	public void calculateFitness(TestChromosome tc, GeneticAlgorithm<TestChromosome> ga) {
 		HashSet<TestFitnessFunction> currentGoalsBefore = new HashSet<>(this.getCurrentGoals());
 		toEmit.clear();
+		//LoggingUtils.getEvoLogger().info(" ===== Evaluating fitness on test", tc.getTestCase());	
 		
 		super.calculateFitness(tc, ga);
 		
 		if (!toEmit.isEmpty()) {
+			//LoggingUtils.getEvoLogger().info(" =DONE Evaluating fitness on test:{}\n\n emitting for: {}\n\n", tc.getTestCase(), toEmit);	
 			emitTestCase(new ArrayList<TestFitnessFunction>(toEmit), tc);
 		}
 		
-		// If new targets were covered, try to prune the path conditions related to any newly covered branch
-		if (this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
+		if (Properties.PATH_CONDITION_SUSHI_BRANCH_COVERAGE_INFO != null 
+				&& this.getCurrentGoals().size() < currentGoalsBefore.size()) { 
+			// If new targets were covered, try to prune the path conditions related to any newly covered branch
 			prunePathConditionsByCoveredBranches(this.getCoveredGoals());
 		}
 		
